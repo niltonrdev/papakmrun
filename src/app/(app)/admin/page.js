@@ -1,7 +1,12 @@
-export default function Page() {
+export default function AdminPage() {
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Admin</h1>
-    </main>
+    <section className="space-y-4">
+      <h1 className="text-2xl font-semibold">AdminPage</h1>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p className="text-sm text-white/70">
+          Aqui vai entrar: Página de Admin.
+        </p>
+      </div>
+    </section>
   );
 }
