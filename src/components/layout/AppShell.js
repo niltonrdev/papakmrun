@@ -123,6 +123,17 @@ export default function AppShell({ children }) {
             <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/70">
               Em breve: login real, check-in e ranking.
             </div>
+                        <button
+              type="button"
+              onClick={() => {
+                document.cookie = "papakm_auth=; path=/; max-age=0";
+                window.location.href = "/login";
+              }}
+              className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
+            >
+              Sair
+            </button>
+
           </aside>
         </div>
       )}
