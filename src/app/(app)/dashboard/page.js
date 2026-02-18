@@ -1,9 +1,16 @@
+"use client";
 import { getTodayWorkout, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
+import { useState } from "react";
+import CheckinModal from "@/features/checkins/CheckinModal";
+import { isWorkoutCheckedToday, getTodayCheckin } from "@/features/checkins/checkins.service";
+
 
 
 function TodayCard() {
   const w = getTodayWorkout();
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState(false);
 
   if (!w) {
     return (
@@ -19,6 +26,8 @@ function TodayCard() {
   }
 
   const z = getZoneByKey(w.zoneKey);
+  const checked = done || isWorkoutCheckedToday(w.slug);
+  const todayCheckin = getTodayCheckin();
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -28,18 +37,23 @@ function TodayCard() {
           <div className="text-lg font-semibold">
             {w.dayLabel} • {w.title} • {w.km} km
           </div>
+          {todayCheckin && (
+            <div className="mt-1 text-xs text-emerald-200/90">
+              Concluído ✅ • esforço {todayCheckin.effort}/5
+            </div>
+          )}
         </div>
-      {z && (
-        <div
-          className={[
-            "rounded-full px-3 py-1 text-xs",
-            zoneClasses(w.zoneKey),
-          ].join(" ")}
-        >
-          {z.label} • {z.paceMin}-{z.paceMax}
-        </div>
-      )}
 
+        {z && (
+          <div
+            className={[
+              "rounded-full px-3 py-1 text-xs",
+              zoneClasses(w.zoneKey),
+            ].join(" ")}
+          >
+            {z.label} • {z.paceMin}-{z.paceMax}
+          </div>
+        )}
       </div>
 
       <p className="mt-3 text-sm text-white/70 leading-relaxed">
@@ -49,13 +63,25 @@ function TodayCard() {
       <div className="mt-4 flex items-center justify-end">
         <button
           type="button"
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
-          disabled
-          title="Check-in entra na próxima etapa"
+          onClick={() => setOpen(true)}
+          disabled={checked}
+          className={[
+            "rounded-xl border px-3 py-2 text-sm",
+            checked
+              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+          ].join(" ")}
         >
-          Check-in (em breve)
+          {checked ? "Concluído ✅" : "Check-in"}
         </button>
       </div>
+
+      <CheckinModal
+        open={open}
+        onClose={() => setOpen(false)}
+        workout={w}
+        onSaved={() => setDone(true)}
+      />
     </div>
   );
 }

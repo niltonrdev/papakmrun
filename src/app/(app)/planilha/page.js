@@ -1,5 +1,10 @@
+"use client";
 import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
+import { useState } from "react";
+import CheckinModal from "@/features/checkins/CheckinModal";
+import { isWorkoutCheckedToday } from "@/features/checkins/checkins.service";
+
 
 
 function ZonePill({ zoneKey }) {
@@ -22,6 +27,13 @@ function ZonePill({ zoneKey }) {
 }
 
 function WorkoutCard({ item }) {
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState(false);
+
+  // Na primeira render, verifica se já tem check-in hoje
+  // (V1: só check-in "hoje", não por data do treino)
+  const checked = done || isWorkoutCheckedToday(item.slug);
+
   return (
     <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -42,16 +54,28 @@ function WorkoutCard({ item }) {
         {item.description}
       </p>
 
-      <div className="mt-4 flex items-center justify-end">
+         <div className="mt-4 flex items-center justify-end">
         <button
           type="button"
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
-          disabled
-          title="Check-in entra na próxima etapa"
+          onClick={() => setOpen(true)}
+          disabled={checked}
+          className={[
+            "rounded-xl border px-3 py-2 text-sm",
+            checked
+              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+          ].join(" ")}
         >
-          Check-in (em breve)
+          {checked ? "Concluído ✅" : "Check-in"}
         </button>
       </div>
+
+      <CheckinModal
+        open={open}
+        onClose={() => setOpen(false)}
+        workout={item}
+        onSaved={() => setDone(true)}
+      />
     </article>
   );
 }
