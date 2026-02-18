@@ -1,13 +1,20 @@
 import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
+import { zoneClasses } from "@/features/plans/zones.ui";
+
 
 function ZonePill({ zoneKey }) {
   const z = getZoneByKey(zoneKey);
   if (!z) return null;
 
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+    <span
+      className={[
+        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
+        zoneClasses(zoneKey),
+      ].join(" ")}
+    >
       <span className="font-semibold">{z.label}</span>
-      <span className="text-white/50">
+      <span className="opacity-80">
         {z.paceMin} – {z.paceMax}
       </span>
     </span>
