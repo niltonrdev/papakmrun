@@ -24,6 +24,20 @@ export function saveTodayCheckin({ workoutSlug, effort, note }) {
   });
 }
 
+export function saveWorkoutCheckin({ date, workoutSlug, effort, note }) {
+  // date deve vir como "YYYY-MM-DD"
+  return upsertCheckin({
+    date,
+    workoutSlug,
+    effort,
+    note,
+    createdAt: new Date().toISOString(), // útil pro mural depois
+  });
+}
+
+export function isWorkoutChecked(date, workoutSlug) {
+  return hasCheckin(date, workoutSlug);
+} 
 export function getTodayCheckin() {
   const w = getTodayWorkout();
   if (!w) return null;

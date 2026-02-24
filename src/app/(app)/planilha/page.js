@@ -3,7 +3,7 @@ import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import { useState } from "react";
 import CheckinModal from "@/features/checkins/CheckinModal";
-import { isWorkoutCheckedToday } from "@/features/checkins/checkins.service";
+import { isWorkoutChecked } from "@/features/checkins/checkins.service";
 
 
 
@@ -32,7 +32,7 @@ function WorkoutCard({ item }) {
 
   // Na primeira render, verifica se já tem check-in hoje
   // (V1: só check-in "hoje", não por data do treino)
-  const checked = done || isWorkoutCheckedToday(item.slug);
+  const checked = done || isWorkoutChecked(item.workoutDateISO, item.slug);
 
   return (
     <article className="rounded-2xl border border-white/10 bg-white/5 p-4">

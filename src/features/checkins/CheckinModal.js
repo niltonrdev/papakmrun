@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
-import { saveTodayCheckin } from "./checkins.service";
+import { saveWorkoutCheckin } from "./checkins.service";
 
 export default function CheckinModal({ open, onClose, workout, onSaved }) {
   const [effort, setEffort] = useState(3);
@@ -12,7 +12,12 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
 
   function submit(e) {
     e.preventDefault();
-    saveTodayCheckin({ workoutSlug: workout.slug, effort, note });
+    saveWorkoutCheckin({ 
+      date: workout.workoutDateISO,
+      workoutSlug: workout.slug, 
+      effort, 
+      note 
+    });
     onSaved?.();
     onClose?.();
   }

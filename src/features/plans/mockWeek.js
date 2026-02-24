@@ -1,3 +1,25 @@
+function getDateOfThisWeek(dayLabel) {
+  const map = {
+    "Terça": 2,
+    "Quinta": 4,
+    "Sábado": 6,
+  };
+
+  const targetDay = map[dayLabel];
+  const now = new Date();
+  const today = now.getDay();
+
+  const diff = targetDay - today;
+  const d = new Date(now);
+  d.setDate(now.getDate() + diff);
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export const ZONES = {
   z1: { key: "z1", label: "Z1 - Regenerativo", paceMin: "05:25", paceMax: "05:40" },
   z2: { key: "z2", label: "Z2 - Fácil", paceMin: "04:55", paceMax: "05:10" },
@@ -18,6 +40,7 @@ export const MOCK_WEEK = {
       title: "Ritmo",
       description:
         "Aquecimento (mobilidade articular) + 1 km. 10' acima do pace alvo.",
+      workoutDateISO: getDateOfThisWeek("Terça"),
     },
     {
       dayLabel: "Quinta",
@@ -27,6 +50,7 @@ export const MOCK_WEEK = {
       title: "Intervalado",
       description:
         "Aquecimento (mobilidade articular) + 1 km. 10' acima do pace alvo. 5x400m + 2km (Z1) + 5x400m + 2km.",
+      workoutDateISO: getDateOfThisWeek("Quinta"),
     },
     {
       dayLabel: "Sábado",
@@ -36,6 +60,7 @@ export const MOCK_WEEK = {
       title: "Longo",
       description:
         "Aquecimento (mobilidade articular) + 1 km. 10' acima do pace alvo. Pode variar entre Z1 e Z2.",
+      workoutDateISO: getDateOfThisWeek("Sábado"),
     },
   ],
 };
