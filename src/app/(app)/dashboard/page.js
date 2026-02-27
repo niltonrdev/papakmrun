@@ -4,7 +4,7 @@ import { zoneClasses } from "@/features/plans/zones.ui";
 import { useState } from "react";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import { isWorkoutCheckedToday, getTodayCheckin } from "@/features/checkins/checkins.service";
-
+import RankingCard from "@/features/ranking/RankingCard";
 
 
 function TodayCard() {
@@ -85,54 +85,54 @@ function TodayCard() {
     </div>
   );
 }
-  function RankingCard() {
-    const ranking = [
-      { name: "Nilton", points: 42, note: "3 treinos • 26km" },
-      { name: "Ana", points: 38, note: "3 treinos • 24km" },
-      { name: "Bruno", points: 31, note: "2 treinos • 18km" },
-      { name: "Carla", points: 25, note: "2 treinos • 14km" },
-      { name: "Diego", points: 18, note: "1 treino • 10km" },
-    ];
+  // function RankingCard() {
+  //   const ranking = [
+  //     { name: "Nilton", points: 42, note: "3 treinos • 26km" },
+  //     { name: "Ana", points: 38, note: "3 treinos • 24km" },
+  //     { name: "Bruno", points: 31, note: "2 treinos • 18km" },
+  //     { name: "Carla", points: 25, note: "2 treinos • 14km" },
+  //     { name: "Diego", points: 18, note: "1 treino • 10km" },
+  //   ];
 
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-white/60">Ranking semanal</div>
-            <div className="text-lg font-semibold">Top 5 (mock)</div>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/70">
-            Pontos (demo)
-          </div>
-        </div>
+  //   return (
+  //     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+  //       <div className="flex items-center justify-between">
+  //         <div>
+  //           <div className="text-sm text-white/60">Ranking semanal</div>
+  //           <div className="text-lg font-semibold">Top 5 (mock)</div>
+  //         </div>
+  //         <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/70">
+  //           Pontos (demo)
+  //         </div>
+  //       </div>
 
-        <div className="mt-4 space-y-2">
-          {ranking.map((p, idx) => (
-            <div
-              key={p.name}
-              className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xs font-semibold">
-                  {idx + 1}
-                </div>
-                <div>
-                  <div className="text-sm font-semibold">{p.name}</div>
-                  <div className="text-xs text-white/60">{p.note}</div>
-                </div>
-              </div>
+  //       <div className="mt-4 space-y-2">
+  //         {ranking.map((p, idx) => (
+  //           <div
+  //             key={p.name}
+  //             className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2"
+  //           >
+  //             <div className="flex items-center gap-3">
+  //               <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xs font-semibold">
+  //                 {idx + 1}
+  //               </div>
+  //               <div>
+  //                 <div className="text-sm font-semibold">{p.name}</div>
+  //                 <div className="text-xs text-white/60">{p.note}</div>
+  //               </div>
+  //             </div>
 
-              <div className="text-sm font-semibold">{p.points}</div>
-            </div>
-          ))}
-        </div>
+  //             <div className="text-sm font-semibold">{p.points}</div>
+  //           </div>
+  //         ))}
+  //       </div>
 
-        <div className="mt-3 text-xs text-white/50">
-          Em breve: pontuação real baseada em check-ins + consistência.
-        </div>
-      </div>
-    );
-  }
+  //       <div className="mt-3 text-xs text-white/50">
+  //         Em breve: pontuação real baseada em check-ins + consistência.
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   export default function DashboardPage() {
     return (
