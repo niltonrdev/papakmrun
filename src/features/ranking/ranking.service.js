@@ -1,15 +1,12 @@
+// src/features/ranking/ranking.service.js
 import { readAllCheckins } from "@/features/checkins/checkins.storage";
-import { getWeekPlan } from "@/features/plans/plans.service";
 
-/**
- * Retorna o início (segunda) e fim (domingo) da semana atual no formato YYYY-MM-DD.
- * Usamos datas "puras" pra comparar com checkins.date.
- */
-function getCurrentWeekRangeISO(now = new Date()) {
-  const d = new Date(now);
+// Semana ISO simples (Seg -> Dom)
+export function getWeekRangeISO(baseDate = new Date()) {
+  const d = new Date(baseDate);
   d.setHours(0, 0, 0, 0);
 
-  // JS: 0=domingo, 1=segunda... queremos segunda como start
+  // getDay(): 0=Dom, 1=Seg...
   const day = d.getDay();
   const diffToMonday = (day === 0 ? -6 : 1) - day;
 
@@ -29,68 +26,56 @@ function getCurrentWeekRangeISO(now = new Date()) {
   return { startISO: toISO(start), endISO: toISO(end) };
 }
 
-function isISOInRange(dateISO, startISO, endISO) {
-  // Como é YYYY-MM-DD, comparação lexicográfica funciona
+function isWithin(dateISO, startISO, endISO) {
+  // formato YYYY-MM-DD => comparação lexicográfica funciona
   return dateISO >= startISO && dateISO <= endISO;
 }
 
-function getKmByWorkoutSlug(workoutSlug) {
-  // Pega km do mock week (plans.service já usa mockWeek internamente)
-  const week = getWeekPlan?.();
-  const blocks = week?.blocks ?? [];
-  const found = blocks.find((b) => b.slug === workoutSlug);
-  return Number(found?.km ?? 0);
+// Regra de pontos:
+// - base 10 pts por check-in
+// - + esforço (1..5) como bônus
+// - + 1 pt se escreveu nota (consistência/engajamento)
+// total típico: 11..16
+export function calcPoints(checkin) {
+  const base = 10;
+  const effort = Number(checkin.effort || 0); // 0..5
+  const noteBonus = (checkin.note && checkin.note.trim().length > 0) ? 1 : 0;
+  return base + effort + noteBonus;
 }
 
-function calcPoints({ workouts, kmTotal }) {
-  // Regra V1 (simples e previsível)
-  return workouts * 10 + kmTotal * 1;
+// Como não temos usuário real, fixamos "Nilton" pros seus check-ins
+function mapOwnerName(checkin) {
+  return checkin.ownerName || "Nilton";
 }
 
-/**
- * Ranking real: baseado nos check-ins do usuário (localStorage).
- * Sem backend ainda, então os outros nomes serão "demo derivados" do seu.
- */
-export function getWeeklyRankingDemoTop5() {
-  const { startISO, endISO } = getCurrentWeekRangeISO(new Date());
+// Retorna array: [{ name, points, workouts, note }]
+export function buildWeeklyRanking({ now = new Date(), limit = 5 } = {}) {
+  const { startISO, endISO } = getWeekRangeISO(now);
+  const all = readAllCheckins();
 
-  const all = readAllCheckins(); // [{date, workoutSlug, effort, note, createdAt}]
-  const weekCheckins = all.filter((c) => isISOInRange(c.date, startISO, endISO));
+  const week = all.filter((c) => isWithin(c.date, startISO, endISO));
 
-  // Stats do usuário real (você)
-  const workouts = weekCheckins.length;
-  const kmTotal = weekCheckins.reduce((acc, c) => acc + getKmByWorkoutSlug(c.workoutSlug), 0);
+  const byUser = new Map();
 
-  const me = {
-    name: "Nilton",
-    workouts,
-    kmTotal,
-    points: calcPoints({ workouts, kmTotal }),
-  };
+  for (const c of week) {
+    const name = mapOwnerName(c);
+    const prev = byUser.get(name) || { name, points: 0, workouts: 0 };
+    prev.points += calcPoints(c);
+    prev.workouts += 1;
+    byUser.set(name, prev);
+  }
 
-  // Outros usuários “demo” derivados (pra ficar social sem backend)
-  // multiplica seus números pra simular concorrência
-  const demo = [
-    { name: "Ana", mult: 0.9 },
-    { name: "Bruno", mult: 0.75 },
-    { name: "Carla", mult: 0.6 },
-    { name: "Diego", mult: 0.45 },
-  ].map((u) => {
-    const w = Math.max(0, Math.round(me.workouts * u.mult));
-    const km = Math.max(0, Math.round(me.kmTotal * u.mult));
-    return {
-      name: u.name,
-      workouts: w,
-      kmTotal: km,
-      points: calcPoints({ workouts: w, kmTotal: km }),
-    };
+  // Ordena por pontos desc, depois por workouts desc
+  const sorted = Array.from(byUser.values()).sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    return b.workouts - a.workouts;
   });
 
-  // Junta e ordena
-  const list = [me, ...demo].sort((a, b) => b.points - a.points);
+  // nota tipo "3 treinos"
+  const final = sorted.slice(0, limit).map((x) => ({
+    ...x,
+    note: `${x.workouts} treino${x.workouts === 1 ? "" : "s"}`,
+  }));
 
-  return {
-    range: { startISO, endISO },
-    items: list.slice(0, 5),
-  };
+  return { range: { startISO, endISO }, items: final };
 }
