@@ -1,164 +1,188 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
+import { clearAllCheckins, readAllCheckins } from "@/features/checkins/checkins.storage";
 import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
-import {
-  readAllCheckins,
-  clearAllCheckins,
-} from "@/features/checkins/checkins.storage";
 
-function pad2(n) {
-  return String(n).padStart(2, "0");
+import { FEED_AUTHORS, FEED_PHRASES } from "@/features/feed/feed.mock";
+
+/**
+ * Util: yyyy-mm-dd -> "dd/mm/yyyy"
+ */
+function formatBR(iso) {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
 }
 
-function formatDateBR(iso) {
-  // iso: YYYY-MM-DD
-  const [y, m, d] = iso.split("-").map((x) => Number(x));
-  const dt = new Date(y, (m || 1) - 1, d || 1);
-  return `${pad2(dt.getDate())}/${pad2(dt.getMonth() + 1)}/${dt.getFullYear()}`;
-}
-
-function weekdayPT(iso) {
-  const [y, m, d] = iso.split("-").map((x) => Number(x));
-  const dt = new Date(y, (m || 1) - 1, d || 1);
-  const w = dt.toLocaleDateString("pt-BR", { weekday: "long" }); // ex: "terça-feira"
-  const clean = w.replace("-feira", "").trim(); // ex: "terça"
-  return clean.charAt(0).toUpperCase() + clean.slice(1); // "Terça"
-}
-
-function hashToIndex(str, mod) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = (h * 31 + str.charCodeAt(i)) >>> 0;
+/**
+ * Util: yyyy-mm-dd -> "Terça" (pt-BR)
+ */
+function weekdayLabelFromISO(iso) {
+  try {
+    const d = new Date(`${iso}T12:00:00`);
+    return new Intl.DateTimeFormat("pt-BR", { weekday: "long" })
+      .format(d)
+      .replace(/^\w/, (c) => c.toUpperCase());
+  } catch {
+    return "";
   }
-  return mod ? h % mod : h;
+}
+
+function Pill({ children, className = "" }) {
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
+        "border border-white/10 bg-black/20 text-white/80",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ZonePill({ zoneKey }) {
+  const z = getZoneByKey(zoneKey);
+  if (!z) return null;
+
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
+        "border border-white/10",
+        zoneClasses(zoneKey),
+      ].join(" ")}
+    >
+      <span className="font-semibold">{z.label}</span>
+      <span className="opacity-80">
+        {z.paceMin} — {z.paceMax}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Cria um “post” de feed baseado no check-in + treino encontrado na semana mock.
+ * Se não achar o treino da semana, ainda assim mostra algo útil.
+ */
+function buildFeedItemsFromCheckins(checkins) {
+  const week = getWeekPlan?.() ?? null;
+  const blocks = week?.blocks ?? [];
+
+  const items = (checkins || []).map((c, idx) => {
+    const workout = blocks.find((b) => b.slug === c.workoutSlug);
+
+    const author = FEED_AUTHORS[idx % FEED_AUTHORS.length];
+    const phrase = FEED_PHRASES[idx % FEED_PHRASES.length];
+
+    return {
+      id: `${c.date}-${c.workoutSlug}-${idx}`,
+      dateISO: c.date,
+      weekdayLabel: weekdayLabelFromISO(c.date),
+      workoutSlug: c.workoutSlug,
+      title: workout?.title ?? "Treino",
+      km: workout?.km ?? null,
+      zoneKey: workout?.zoneKey ?? null,
+      effort: c.effort ?? null,
+      note: c.note ?? "",
+      author,
+      phraseIfNoNote: phrase,
+      createdAt: c.createdAt ?? null,
+    };
+  });
+
+  // mais recente primeiro
+  items.sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO)));
+  return items;
 }
 
 export default function FeedPage() {
-  const [items, setItems] = useState([]);
   const [q, setQ] = useState("");
+  const [seed, setSeed] = useState(0);
+  const [items, setItems] = useState([]);
 
-  function buildFeed() {
-    const week = getWeekPlan(); // MOCK_WEEK (Semanas mock)
-    const checkins = readAllCheckins();
+  function refresh() {
+    // re-le localStorage
+    const all = readAllCheckins();
+    setItems(buildFeedItemsFromCheckins(all));
+    setSeed((s) => s + 1); // força recomputes leves se necessário
+  }
 
-    // index por slug
-    const bySlug = new Map();
-    (week?.blocks || []).forEach((b) => bySlug.set(b.slug, b));
-
-    // mocks simples (determinísticos) pra “post”
-    const authors = ["Nilton", "Ana", "Bruno", "Carla", "Diego"];
-    const phrases = [
-      "Treino pago 💪",
-      "Hoje foi sofrido 😅",
-      "Bora, constância! 🔥",
-      "Fiz no limite 🥵",
-      "Soltei as pernas 🏃‍♂️",
-      "Coração foi na boca ❤️‍🔥",
-      "Sem desculpas hoje ✅",
-      "Foi mais leve do que parece 😄",
-      "Meta batida 🎯",
-      "Tava pesado, mas foi 🫡",
-    ];
-
-    const feed = (checkins || [])
-      .map((c) => {
-        const w = bySlug.get(c.workoutSlug);
-
-        // se não achar o treino (slug antigo), ainda assim mostra algo
-        const dayLabel = w?.dayLabel || weekdayPT(c.date);
-        const title = w?.title || c.workoutSlug;
-        const km = w?.km ?? null;
-        const zoneKey = w?.zoneKey || null;
-        const z = zoneKey ? getZoneByKey(zoneKey) : null;
-
-        // determinístico por treino+data
-        const key = `${c.date}__${c.workoutSlug}`;
-        const authorName = authors[hashToIndex(key, authors.length)];
-        const postText = phrases[hashToIndex(key + "__p", phrases.length)];
-
-        return {
-          id: key,
-          date: c.date, // YYYY-MM-DD
-          dayLabel,
-          title,
-          km,
-          zoneKey,
-          zone: z,
-          effort: c.effort ?? null,
-          note: c.note ?? "",
-          authorName,
-          postText,
-        };
-      })
-      .sort((a, b) => (a.date < b.date ? 1 : -1)); // mais recente primeiro
-
-    setItems(feed);
+  function clearDemo() {
+    clearAllCheckins();
+    refresh();
   }
 
   useEffect(() => {
-    buildFeed();
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return items;
+    const query = q.trim().toLowerCase();
+    if (!query) return items;
+
     return items.filter((it) => {
-      return (
-        (it.title || "").toLowerCase().includes(s) ||
-        (it.authorName || "").toLowerCase().includes(s) ||
-        (it.postText || "").toLowerCase().includes(s) ||
-        (it.dayLabel || "").toLowerCase().includes(s) ||
-        (it.date || "").toLowerCase().includes(s)
-      );
+      const hay = [
+        it.author,
+        it.title,
+        it.weekdayLabel,
+        it.dateISO,
+        it.note,
+        it.phraseIfNoNote,
+        it.workoutSlug,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return hay.includes(query);
     });
-  }, [items, q]);
-
-  function onRefresh() {
-    buildFeed();
-  }
-
-  function onClearDemo() {
-    // limpa o localStorage dos check-ins
-    clearAllCheckins();
-    buildFeed();
-  }
+  }, [items, q, seed]);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10">
+    <section className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold">Feed</h1>
-          <p className="mt-1 text-white/60">
+          <h1 className="text-2xl font-semibold">Feed</h1>
+          <div className="text-sm text-white/60">
             Social (mock) com base nos seus check-ins.
-          </p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-80">
+        {/* Controls: mobile stack / desktop row */}
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <div className="relative w-full md:w-[360px]">
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 pr-10 text-sm text-white/90 placeholder:text-white/40 outline-none focus:border-white/20"
+              className={[
+                "w-full rounded-full border border-white/10 bg-black/20 px-4 py-2 pr-10",
+                "text-sm text-white/90 placeholder:text-white/30 outline-none",
+                "focus:border-white/20",
+              ].join(" ")}
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40">
               🔎
             </span>
           </div>
 
-          <div className="flex gap-2 justify-end">
+          <div className="grid grid-cols-2 gap-2 md:flex md:gap-2">
             <button
-              onClick={onRefresh}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+              onClick={refresh}
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
             >
               Atualizar
             </button>
             <button
-              onClick={onClearDemo}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+              onClick={clearDemo}
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
             >
               Limpar (demo)
             </button>
@@ -166,83 +190,86 @@ export default function FeedPage() {
         </div>
       </div>
 
-      {/* Lista */}
-      <div className="mt-6 space-y-4">
-        {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
-            Sem itens no feed (ainda). Faça um check-in na planilha.
+      {/* Empty state */}
+      {filtered.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
+          Nenhuma atividade encontrada.
+          <div className="mt-2 text-sm text-white/50">
+            Dica: faça um check-in na Planilha para aparecer aqui.
           </div>
-        ) : (
-          filtered.map((it) => (
-            <article
-              key={it.id}
-              className="rounded-2xl border border-white/10 bg-white/5 p-6"
-            >
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <div className="text-sm text-white/60">
-                    {formatDateBR(it.date)} • {it.dayLabel}
-                  </div>
+        </div>
+      ) : null}
 
-                  <div className="mt-1 text-2xl font-semibold">
-                    {it.title}{" "}
-                    {typeof it.km === "number" ? (
-                      <span className="text-base font-medium text-white/70">
-                        {it.km} km
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {/* esforço */}
-                    {it.effort ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
-                        Esforço: <b>{it.effort}/5</b>
-                      </span>
-                    ) : null}
-
-                    {/* nota */}
-                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
-                      {it.note?.trim() ? "Com nota" : "Sem nota"}
-                    </span>
-                  </div>
+      {/* Feed list */}
+      <div className="space-y-4">
+        {filtered.map((it) => (
+          <article
+            key={it.id}
+            className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5"
+          >
+            {/* top row */}
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="text-sm text-white/60">
+                  {formatBR(it.dateISO)} • {it.weekdayLabel}
                 </div>
 
-                {/* zona */}
-                <div className="flex justify-start md:justify-end">
-                  {it.zone ? (
-                    <span
-                      className={[
-                        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
-                        zoneClasses(it.zone.key),
-                      ].join(" ")}
-                    >
-                      <span className="font-semibold">{it.zone.label}</span>
-                      <span className="opacity-80">
-                        {it.zone.paceMin} — {it.zone.paceMax}
-                      </span>
-                    </span>
+                <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <div className="text-2xl font-semibold">{it.title}</div>
+                  {typeof it.km === "number" || typeof it.km === "string" ? (
+                    <div className="text-sm text-white/60">{it.km} km</div>
                   ) : null}
                 </div>
               </div>
 
-              <div className="mt-4 border-t border-white/10 pt-4 text-white/85">
-                <b>{it.authorName}:</b> {it.postText}
+              <div className="flex justify-start md:justify-end">
+                {it.zoneKey ? <ZonePill zoneKey={it.zoneKey} /> : null}
               </div>
+            </div>
 
-              {/* Ações mock */}
-              <div className="mt-4 flex gap-2">
-                <button className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10">
-                  🔥 Curtir
-                </button>
-                <button className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10">
-                  💬 Comentar
-                </button>
-              </div>
-            </article>
-          ))
-        )}
+            {/* meta pills */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {it.effort ? <Pill>Esforço: {it.effort}/5</Pill> : null}
+              <Pill>{it.note?.trim() ? "Com nota" : "Sem nota"}</Pill>
+            </div>
+
+            <div className="my-4 h-px w-full bg-white/10" />
+
+            {/* post text */}
+            <div className="text-white/90">
+              <span className="font-semibold">{it.author}</span>
+              <span className="text-white/60">:</span>{" "}
+              {it.note?.trim() ? it.note : it.phraseIfNoNote}
+            </div>
+
+            {/* actions */}
+            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+              <button
+                disabled
+                className={[
+                  "rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm",
+                  "text-white/60",
+                  "opacity-80 cursor-not-allowed",
+                ].join(" ")}
+                title="Em breve"
+              >
+                🔥 Curtir
+              </button>
+              <button
+                disabled
+                className={[
+                  "rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm",
+                  "text-white/60",
+                  "opacity-80 cursor-not-allowed",
+                ].join(" ")}
+                title="Em breve"
+              >
+                💬 Comentar
+              </button>
+            </div>
+          </article>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }

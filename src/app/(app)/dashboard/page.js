@@ -5,7 +5,9 @@ import { useState } from "react";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import { isWorkoutCheckedToday, getTodayCheckin } from "@/features/checkins/checkins.service";
 import RankingCard from "@/features/ranking/RankingCard";
-
+import Link from "next/link";
+import { readAllCheckins } from "@/features/checkins/checkins.storage";
+import { getWeekPlan } from "@/features/plans/plans.service";
 
 function TodayCard() {
   const w = getTodayWorkout();
@@ -134,6 +136,68 @@ function TodayCard() {
   //   );
   // }
 
+  function LatestActivitiesCard() {
+  const week = getWeekPlan?.() ?? null;
+  const blocks = week?.blocks ?? [];
+
+  const checkins = readAllCheckins?.() ?? [];
+  const items = [...checkins]
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .slice(0, 3)
+    .map((c, idx) => {
+      const w = blocks.find((b) => b.slug === c.workoutSlug);
+      return {
+        id: `${c.date}-${c.workoutSlug}-${idx}`,
+        date: c.date,
+        title: w?.title ?? "Treino",
+        km: w?.km ?? null,
+        effort: c.effort ?? null,
+      };
+    });
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm text-white/60">Atividades</div>
+          <div className="text-lg font-semibold">Últimos check-ins</div>
+        </div>
+
+        <Link
+          href="/feed"
+          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+        >
+          Ver feed
+        </Link>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="mt-3 text-sm text-white/60">
+          Ainda sem atividades. Faça um check-in na Planilha.
+        </div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {items.map((it) => (
+            <div
+              key={it.id}
+              className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2"
+            >
+              <div>
+                <div className="text-sm font-semibold">{it.title}</div>
+                <div className="text-xs text-white/60">
+                  {it.date} • {it.km ? `${it.km} km` : "—"}
+                </div>
+              </div>
+              <div className="text-xs text-white/70">
+                {it.effort ? `Esforço ${it.effort}/5` : ""}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
   export default function DashboardPage() {
     return (
       <section className="space-y-4">
@@ -143,11 +207,7 @@ function TodayCard() {
 
         <RankingCard />
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-sm text-white/70">
-            Aqui vai entrar: mural de atividades e ranking semanal.
-          </div>
-        </div>
+        <LatestActivitiesCard />
       </section>
     );
   }
