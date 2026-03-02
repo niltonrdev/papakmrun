@@ -1,142 +1,72 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
+import { Home, Rss, Calendar, User, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/planilha", label: "Planilha" },
-  { href: "/feed", label: "Feed" },
-  { href: "/calendario", label: "Calendário" },
-  { href: "/admin", label: "Admin" },
+  { href: "/dashboard", label: "Início", icon: Home },
+  { href: "/feed", label: "Feed", icon: Rss },
+  { href: "/planilha", label: "Planilha", icon: Calendar },
+  { href: "/perfil", label: "Perfil", icon: User },
 ];
 
-function NavLink({ href, label, onClick }) {
-  const pathname = usePathname();
-  const active = pathname === href;
-
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className={[
-        "block rounded-xl px-3 py-2 text-sm transition",
-        active ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/10 hover:text-white",
-      ].join(" ")}
-    >
-      {label}
-    </Link>
-  );
-}
-
 export default function AppShell({ children }) {
-  const [open, setOpen] = useState(false);
-  const panelRef = useRef(null);
-
-  // Fechar com ESC
-  useEffect(() => {
-    function onKeyDown(e) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  // Travar scroll quando drawer abrir
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
-  // Fechar clicando fora do painel
-  function onOverlayClick(e) {
-    if (panelRef.current && !panelRef.current.contains(e.target)) {
-      setOpen(false);
-    }
-  }
+  const pathname = usePathname();
 
   return (
-    <div className="min-h-dvh bg-slate-950 text-slate-100">
-      {/* Topbar */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              aria-label="Abrir menu"
-              onClick={() => setOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/10"
-            >
-              ☰
-            </button>
-
-            <Link href="/dashboard" className="font-semibold tracking-tight">
-              PapaKMRun
-            </Link>
-          </div>
-
-          <div className="text-xs text-white/60">
-            v1 - esqueleto
-          </div>
+    <div className="flex min-h-screen bg-papa-dark">
+      {/* Sidebar Fixa */}
+      <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/5 bg-papa-dark p-6 flex flex-col">
+        <div className="flex items-center gap-3 px-2 mb-10">
+          <div className="w-8 h-8 bg-papa-blue rounded-lg flex items-center justify-center font-black text-papa-dark">PK</div>
+          <span className="font-black text-xl tracking-tighter text-white">PapaKM</span>
         </div>
-      </header>
 
-      {/* Conteúdo */}
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
-
-      {/* Drawer */}
-      {open && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60"
-          onMouseDown={onOverlayClick}
-        >
-          <aside
-            ref={panelRef}
-            className="h-full w-[280px] border-r border-white/10 bg-slate-950 p-4"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="font-semibold">Menu</div>
-              <button
-                type="button"
-                aria-label="Fechar menu"
-                onClick={() => setOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/10"
+        <nav className="flex-1 space-y-2">
+          {NAV_ITEMS.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${
+                  active 
+                  ? "bg-white/5 text-papa-blue border border-white/5" 
+                  : "text-white/40 hover:text-white hover:bg-white/5"
+                }`}
               >
-                ✕
-              </button>
-            </div>
+                <item.icon size={20} />
+                <span className="font-bold text-sm">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-            <nav className="space-y-1">
-              {NAV_ITEMS.map((item) => (
-                <NavLink
-                  key={item.href}
-                  href={item.href}
-                  label={item.label}
-                  onClick={() => setOpen(false)}
-                />
-              ))}
-            </nav>
-
-            <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/70">
-              Em breve: login real, check-in e ranking.
-            </div>
-                        <button
-              type="button"
-              onClick={() => {
-                document.cookie = "papakm_auth=; path=/; max-age=0";
-                window.location.href = "/login";
-              }}
-              className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
-            >
-              Sair
-            </button>
-
-          </aside>
+        {/* Card de Treino Rápido na Sidebar */}
+        <div className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-5">
+           <span className="text-[10px] text-white/30 uppercase font-black tracking-widest">Treino de hoje</span>
+           <div className="font-bold text-sm mt-1 text-white">Intervalado · 8km</div>
+           <button className="w-full bg-papa-orange mt-4 py-3 rounded-2xl font-black text-xs text-white shadow-lg shadow-orange-900/20 hover:bg-orange-600 transition-colors">
+             Check-in
+           </button>
         </div>
-      )}
+
+        <button
+          onClick={() => {
+            document.cookie = "papakm_auth=; path=/; max-age=0";
+            window.location.href = "/login";
+          }}
+          className="flex items-center gap-3 px-4 py-3 text-white/40 hover:text-white transition-colors"
+        >
+          <LogOut size={20} />
+          <span className="font-bold text-sm">Sair</span>
+        </button>
+      </aside>
+
+      {/* Área de Conteúdo (com margem para a sidebar) */}
+      <main className="flex-1 ml-64 p-4 lg:p-10 overflow-y-auto">
+        {children}
+      </main>
     </div>
   );
 }
