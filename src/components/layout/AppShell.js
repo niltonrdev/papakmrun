@@ -2,6 +2,7 @@
 import { Home, Rss, Calendar, User, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: Home },
@@ -17,9 +18,17 @@ export default function AppShell({ children }) {
     <div className="flex min-h-screen bg-papa-dark">
       {/* Sidebar Fixa */}
       <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/5 bg-papa-dark p-6 flex flex-col">
-        <div className="flex items-center gap-3 px-2 mb-10">
-          <div className="w-8 h-8 bg-papa-blue rounded-lg flex items-center justify-center font-black text-papa-dark">PK</div>
-          <span className="font-black text-xl tracking-tighter text-white">PapaKM</span>
+       <div className="flex items-center gap-3 px-2 mb-10">
+          <div className="relative w-10 h-10">
+            <Image 
+              src="/brand/papakm-logo-vazada.png" 
+              alt="PapaKM Logo" 
+              fill
+              className="object-contain"
+              priority 
+            />
+          </div>
+          <span className="font-black text-xl tracking-tighter text-white uppercase">PapaKM</span>
         </div>
 
         <nav className="flex-1 space-y-2">
