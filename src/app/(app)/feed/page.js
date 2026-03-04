@@ -4,12 +4,19 @@ import { readAllCheckins, clearAllCheckins } from "@/features/checkins/checkins.
 import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import { FEED_AUTHORS, FEED_PHRASES } from "@/features/feed/feed.mock";
-import RaceCalendar from "@/features/events/RaceCalendar"; // Aproveitando o componente que já criamos
+import RaceCalendar from "@/features/events/RaceCalendar"; 
 import { Flame, MessageSquare, Search, RotateCcw, Trash2 } from "lucide-react";
+import dynamic from 'next/dynamic';
 
 /**
  * Util: yyyy-mm-dd -> "Hoje", "Ontem" ou "dd/mm"
  */
+
+const WorkoutMap = dynamic(() => import("@/features/feed/WorkoutMap"), { 
+  ssr: false,
+  loading: () => <div className="aspect-video w-full bg-white/5 animate-pulse rounded-2xl" />
+})
+
 function formatSmartDate(iso) {
   const d = new Date(`${iso}T12:00:00`);
   const today = new Date();
@@ -61,8 +68,7 @@ function PostCard({ it }) {
       </div>
 
       <div className="aspect-video w-full rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center text-white/10">
-        {/* Placeholder para imagem do treino ou mapa */}
-        <div className="text-xs font-black uppercase tracking-widest italic">Atividade: {it.title}</div>
+        <WorkoutMap />
       </div>
 
       <div className="text-sm text-white/70 leading-relaxed italic">
@@ -80,6 +86,7 @@ function PostCard({ it }) {
     </article>
   );
 }
+
 
 export default function FeedPage() {
   const [q, setQ] = useState("");
