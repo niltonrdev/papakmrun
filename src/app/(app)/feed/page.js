@@ -1,275 +1,159 @@
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
-
-import { clearAllCheckins, readAllCheckins } from "@/features/checkins/checkins.storage";
+import { readAllCheckins, clearAllCheckins } from "@/features/checkins/checkins.storage";
 import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
-
 import { FEED_AUTHORS, FEED_PHRASES } from "@/features/feed/feed.mock";
+import RaceCalendar from "@/features/events/RaceCalendar"; // Aproveitando o componente que já criamos
+import { Flame, MessageSquare, Search, RotateCcw, Trash2 } from "lucide-react";
 
 /**
- * Util: yyyy-mm-dd -> "dd/mm/yyyy"
+ * Util: yyyy-mm-dd -> "Hoje", "Ontem" ou "dd/mm"
  */
-function formatBR(iso) {
-  if (!iso) return "";
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
+function formatSmartDate(iso) {
+  const d = new Date(`${iso}T12:00:00`);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return "hoje";
+  return d.toLocaleDateString("pt-BR", { day: '2-digit', month: '2-digit' });
 }
 
-/**
- * Util: yyyy-mm-dd -> "Terça" (pt-BR)
- */
-function weekdayLabelFromISO(iso) {
-  try {
-    const d = new Date(`${iso}T12:00:00`);
-    return new Intl.DateTimeFormat("pt-BR", { weekday: "long" })
-      .format(d)
-      .replace(/^\w/, (c) => c.toUpperCase());
-  } catch {
-    return "";
-  }
-}
-
-function Pill({ children, className = "" }) {
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
-        "border border-white/10 bg-black/20 text-white/80",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </span>
-  );
-}
-
-function ZonePill({ zoneKey }) {
-  const z = getZoneByKey(zoneKey);
-  if (!z) return null;
-
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
-        "border border-white/10",
-        zoneClasses(zoneKey),
-      ].join(" ")}
-    >
-      <span className="font-semibold">{z.label}</span>
-      <span className="opacity-80">
-        {z.paceMin} — {z.paceMax}
-      </span>
-    </span>
-  );
-}
-
-/**
- * Cria um “post” de feed baseado no check-in + treino encontrado na semana mock.
- * Se não achar o treino da semana, ainda assim mostra algo útil.
- */
 function buildFeedItemsFromCheckins(checkins) {
   const week = getWeekPlan?.() ?? null;
   const blocks = week?.blocks ?? [];
-
   const items = (checkins || []).map((c, idx) => {
     const workout = blocks.find((b) => b.slug === c.workoutSlug);
-
     const author = FEED_AUTHORS[idx % FEED_AUTHORS.length];
     const phrase = FEED_PHRASES[idx % FEED_PHRASES.length];
-
     return {
       id: `${c.date}-${c.workoutSlug}-${idx}`,
       dateISO: c.date,
-      weekdayLabel: weekdayLabelFromISO(c.date),
-      workoutSlug: c.workoutSlug,
       title: workout?.title ?? "Treino",
-      km: workout?.km ?? null,
-      zoneKey: workout?.zoneKey ?? null,
+      km: workout?.km ?? "8.2", // Mockando KM se não houver
+      pace: "5:10", // Mockando Pace conforme protótipo
+      zoneKey: workout?.zoneKey ?? "z2",
       effort: c.effort ?? null,
       note: c.note ?? "",
       author,
       phraseIfNoNote: phrase,
-      createdAt: c.createdAt ?? null,
     };
   });
+  return items.sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO)));
+}
 
-  // mais recente primeiro
-  items.sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO)));
-  return items;
+function PostCard({ it }) {
+  return (
+    <article className="rounded-3xl border border-white/5 bg-papa-card p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center italic text-white/40">
+            {it.author[0]}
+          </div>
+          <div>
+            <div className="font-black text-white leading-none">{it.author}</div>
+            <div className="text-[10px] text-white/40 font-bold uppercase mt-1">
+              {it.km}km • Pace {it.pace}
+            </div>
+          </div>
+        </div>
+        <span className="bg-white/5 px-3 py-1 rounded-full text-[10px] font-black text-white/30 uppercase">
+          {formatSmartDate(it.dateISO)}
+        </span>
+      </div>
+
+      <div className="aspect-video w-full rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center text-white/10">
+        {/* Placeholder para imagem do treino ou mapa */}
+        <div className="text-xs font-black uppercase tracking-widest italic">Atividade: {it.title}</div>
+      </div>
+
+      <div className="text-sm text-white/70 leading-relaxed italic">
+        "{it.note?.trim() ? it.note : it.phraseIfNoNote}"
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 pt-2">
+        <button className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/5 border border-white/5 text-[10px] font-black uppercase text-white/40 hover:text-papa-orange transition-colors">
+          <Flame size={14} /> Curtir
+        </button>
+        <button className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/5 border border-white/5 text-[10px] font-black uppercase text-white/40 hover:text-papa-blue transition-colors">
+          <MessageSquare size={14} /> Comentar
+        </button>
+      </div>
+    </article>
+  );
 }
 
 export default function FeedPage() {
   const [q, setQ] = useState("");
-  const [seed, setSeed] = useState(0);
   const [items, setItems] = useState([]);
 
-  function refresh() {
-    // re-le localStorage
-    const all = readAllCheckins();
-    setItems(buildFeedItemsFromCheckins(all));
-    setSeed((s) => s + 1); // força recomputes leves se necessário
-  }
+  const refresh = () => setItems(buildFeedItemsFromCheckins(readAllCheckins()));
+  const clearDemo = () => { clearAllCheckins(); refresh(); };
 
-  function clearDemo() {
-    clearAllCheckins();
-    refresh();
-  }
-
-  useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { refresh(); }, []);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return items;
-
-    return items.filter((it) => {
-      const hay = [
-        it.author,
-        it.title,
-        it.weekdayLabel,
-        it.dateISO,
-        it.note,
-        it.phraseIfNoNote,
-        it.workoutSlug,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return hay.includes(query);
-    });
-  }, [items, q, seed]);
+    return query ? items.filter(it => it.author.toLowerCase().includes(query) || it.title.toLowerCase().includes(query)) : items;
+  }, [items, q]);
 
   return (
-    <section className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="max-w-7xl mx-auto space-y-8">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-semibold">Feed</h1>
-          <div className="text-sm text-white/60">
-            Social (mock) com base nos seus check-ins.
-          </div>
+          <h1 className="text-sm font-bold text-white/20 uppercase tracking-widest mb-1">PapaKM</h1>
+          <h2 className="text-4xl font-black text-white italic">Feed Social e Comunidade</h2>
         </div>
 
-        {/* Controls: mobile stack / desktop row */}
-        <div className="flex flex-col gap-2 md:flex-row md:items-center">
-          <div className="relative w-full md:w-[360px]">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar"
-              className={[
-                "w-full rounded-full border border-white/10 bg-black/20 px-4 py-2 pr-10",
-                "text-sm text-white/90 placeholder:text-white/30 outline-none",
-                "focus:border-white/20",
-              ].join(" ")}
+        <div className="flex gap-3">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+            <input 
+              value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar atletas..."
+              className="pl-12 pr-6 py-3 rounded-2xl bg-papa-card border border-white/5 text-sm outline-none focus:border-papa-blue/30 w-64"
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40">
-              🔎
-            </span>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 md:flex md:gap-2">
-            <button
-              onClick={refresh}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
-            >
-              Atualizar
-            </button>
-            <button
-              onClick={clearDemo}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
-            >
-              Limpar (demo)
-            </button>
-          </div>
+          <button onClick={refresh} className="p-3 rounded-2xl bg-papa-card border border-white/5 text-white/40 hover:text-white"><RotateCcw size={18}/></button>
+          <button onClick={clearDemo} className="p-3 rounded-2xl bg-papa-card border border-white/5 text-white/40 hover:text-red-400"><Trash2 size={18}/></button>
         </div>
-      </div>
+      </header>
 
-      {/* Empty state */}
-      {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
-          Nenhuma atividade encontrada.
-          <div className="mt-2 text-sm text-white/50">
-            Dica: faça um check-in na Planilha para aparecer aqui.
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Coluna Central: Posts */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="p-5 rounded-3xl bg-papa-card border border-white/5 flex items-center justify-between group cursor-pointer hover:border-papa-blue/20 transition-all">
+             <span className="text-xs font-bold text-white/40 uppercase">Notícias do dia: <span className="text-white">Leia o The News</span></span>
+             <span className="text-white/20 group-hover:text-papa-blue">→</span>
           </div>
+
+          {filtered.length === 0 ? (
+            <div className="p-10 rounded-3xl border border-dashed border-white/10 text-center text-white/30 font-bold uppercase text-xs">Nenhuma atividade encontrada</div>
+          ) : (
+            filtered.map(it => <PostCard key={it.id} it={it} />)
+          )}
         </div>
-      ) : null}
 
-      {/* Feed list */}
-      <div className="space-y-4">
-        {filtered.map((it) => (
-          <article
-            key={it.id}
-            className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5"
-          >
-            {/* top row */}
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className="text-sm text-white/60">
-                  {formatBR(it.dateISO)} • {it.weekdayLabel}
+        {/* Coluna Lateral: Widgets */}
+        <aside className="lg:col-span-5 space-y-8">
+          <RaceCalendar />
+
+          <div className="rounded-3xl bg-papa-card p-6 border border-white/5">
+             <h3 className="text-sm font-black text-white uppercase italic tracking-tighter mb-6">Destaques do grupo</h3>
+             <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                   <div className="text-[10px] font-black text-white/20 uppercase flex items-center gap-1"><Flame size={10}/> Curtidas</div>
+                   <div className="text-2xl font-black text-white mt-1">87</div>
                 </div>
-
-                <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <div className="text-2xl font-semibold">{it.title}</div>
-                  {typeof it.km === "number" || typeof it.km === "string" ? (
-                    <div className="text-sm text-white/60">{it.km} km</div>
-                  ) : null}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                   <div className="text-[10px] font-black text-white/20 uppercase flex items-center gap-1"><Activity size={10}/> Treinos</div>
+                   <div className="text-2xl font-black text-white mt-1">32</div>
                 </div>
-              </div>
-
-              <div className="flex justify-start md:justify-end">
-                {it.zoneKey ? <ZonePill zoneKey={it.zoneKey} /> : null}
-              </div>
-            </div>
-
-            {/* meta pills */}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {it.effort ? <Pill>Esforço: {it.effort}/5</Pill> : null}
-              <Pill>{it.note?.trim() ? "Com nota" : "Sem nota"}</Pill>
-            </div>
-
-            <div className="my-4 h-px w-full bg-white/10" />
-
-            {/* post text */}
-            <div className="text-white/90">
-              <span className="font-semibold">{it.author}</span>
-              <span className="text-white/60">:</span>{" "}
-              {it.note?.trim() ? it.note : it.phraseIfNoNote}
-            </div>
-
-            {/* actions */}
-            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
-              <button
-                disabled
-                className={[
-                  "rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm",
-                  "text-white/60",
-                  "opacity-80 cursor-not-allowed",
-                ].join(" ")}
-                title="Em breve"
-              >
-                🔥 Curtir
-              </button>
-              <button
-                disabled
-                className={[
-                  "rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm",
-                  "text-white/60",
-                  "opacity-80 cursor-not-allowed",
-                ].join(" ")}
-                title="Em breve"
-              >
-                💬 Comentar
-              </button>
-            </div>
-          </article>
-        ))}
+             </div>
+          </div>
+        </aside>
       </div>
-    </section>
+    </div>
   );
 }
+
+// Icone Activity que faltou no import da lucide
+import { Activity } from "lucide-react";
