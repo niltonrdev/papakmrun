@@ -1,8 +1,8 @@
-import { MOCK_WEEK, ZONES } from "./mockWeek";
+import { MOCK_WEEK, ZONES, MOCK_PLAN } from "./mockWeek";
 
-export function getWeekPlan() {
-  return MOCK_WEEK;
-}
+// export function getWeekPlan() {
+//   return MOCK_WEEK;
+// }
 
 export function getZones() {
   return Object.values(ZONES);
@@ -27,4 +27,11 @@ export function getTodayWorkout() {
 
   const week = getWeekPlan();
   return week.blocks.find((b) => b.slug === slug) ?? null;
+}
+export function getWeekPlan(weekNumber = "1") {
+  return MOCK_PLAN[weekNumber] || MOCK_PLAN["1"];
+}
+
+export function getAllWeekNumbers() {
+  return Object.keys(MOCK_PLAN);
 }
