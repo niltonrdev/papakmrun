@@ -8,14 +8,16 @@ import { Calculator, BarChart3, HeartPulse, Activity } from "lucide-react";
 
 function StatCard({ title, value, icon: Icon, unit }) {
   return (
-    <div className="rounded-3xl bg-papa-card p-6 border border-white/5">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-white/30 uppercase font-black tracking-widest">{title}</span>
-        <Icon className="text-papa-blue w-4 h-4 opacity-50" />
+    <div className="flex-1 min-w-[140px] rounded-2xl bg-papa-card p-4 border border-white/5 flex flex-col justify-between">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="text-papa-blue w-3 h-3 opacity-50" />
+        <span className="text-[9px] text-white/30 uppercase font-black tracking-widest leading-none">
+          {title}
+        </span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-3xl font-black text-white">{value}</span>
-        {unit && <span className="text-xs text-white/30 font-bold uppercase">{unit}</span>}
+        <span className="text-xl font-black text-white leading-none">{value}</span>
+        {unit && <span className="text-[10px] text-white/30 font-bold uppercase">{unit}</span>}
       </div>
     </div>
   );
@@ -154,9 +156,9 @@ export default function PlanilhaPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-10">
-      <header>
-        <h1 className="text-sm font-bold text-white/20 uppercase tracking-widest leading-none mb-2">PapaKM</h1>
-        <h2 className="text-4xl font-black text-white italic">Planilha e Performance</h2>
+      <header className="mb-6 lg:mb-10">
+        <h1 className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-none mb-1">PapaKM</h1>
+        <h2 className="text-2xl lg:text-4xl font-black text-white italic">Planilha e Performance</h2>
       </header>
       <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
           {weekNumbers.map((num) => (
@@ -174,7 +176,7 @@ export default function PlanilhaPage() {
           ))}
         </div>
       {/* Grid de Estatísticas Superiores */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="flex lg:grid lg:grid-cols-4 gap-3 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
         <StatCard title="Volume Mensal" value="128" icon={BarChart3} unit="km" />
         <StatCard title="Sessões" value="14" icon={Activity} />
         <StatCard title="Status Saúde" value="Apto" icon={HeartPulse} />
