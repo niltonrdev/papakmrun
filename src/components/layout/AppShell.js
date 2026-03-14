@@ -7,7 +7,7 @@ import Image from "next/image";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: Home },
   { href: "/feed", label: "Feed", icon: Rss },
-  { href: "/planilha", label: "Planilha", icon: Calendar },
+  { href: "/planilha", label: "Performance", icon: Calendar },
   { href: "/perfil", label: "Perfil", icon: User },
 ];
 
