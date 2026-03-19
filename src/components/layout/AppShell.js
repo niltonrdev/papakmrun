@@ -1,5 +1,5 @@
 "use client";
-import { Home, Rss, Calendar, User, LogOut } from "lucide-react";
+import { Home, Rss, Calendar, User, LogOut, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/feed", label: "Feed", icon: Rss },
   { href: "/planilha", label: "Performance", icon: Calendar },
   { href: "/perfil", label: "Perfil", icon: User },
+  { href: "/admin", label: "Gestão", icon: ShieldCheck },
 ];
 
 export default function AppShell({ children }) {
