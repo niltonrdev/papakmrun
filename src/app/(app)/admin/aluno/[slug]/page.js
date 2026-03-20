@@ -103,7 +103,7 @@ export default function DetalheAlunoPage() {
 
             {/* 3. Exibição dos Resultados (Paces Calculados) */}
             {zonas && (
-                <div className="pt-6 space-y-2 border-t border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="pt-6 space-y-2 lg:space-y-3 border-t border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
                 {Object.entries(zonas).map(([key, value]) => (
                     <div key={key} className="flex justify-between items-center p-3 rounded-2xl bg-white/[0.02] border border-white/5 group hover:border-white/10 transition-all">
                     <div className="flex items-center gap-3">
@@ -132,12 +132,14 @@ export default function DetalheAlunoPage() {
             </h2>
             
             {/* Seletor de Templates */}
-            <div className="relative">
-                <select className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-black text-white uppercase outline-none focus:border-papa-blue/40 appearance-none pr-10 cursor-pointer transition-all hover:bg-white/10">
-                <option className="bg-papa-card text-white">Escolher Template...</option>
-                <option className="bg-papa-card text-white">8 Semanas - Base</option>
-                <option className="bg-papa-card text-white">12 Semanas - Intermediário</option>
-                <option className="bg-papa-card text-white">16 Semanas - Performance</option>
+            <div className="relative w-full lg:w-auto"> {/* w-full no mobile, w-auto no desktop */}
+                <select 
+                    className="w-full lg:w-auto bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-black text-white uppercase outline-none focus:border-papa-blue/40 appearance-none pr-10 cursor-pointer transition-all hover:bg-white/10"
+                >
+                    <option className="bg-papa-card text-white">Escolher Template...</option>
+                    <option className="bg-papa-card text-white">8 Semanas - Base</option>
+                    <option className="bg-papa-card text-white">12 Semanas - Intermediário</option>
+                    <option className="bg-papa-card text-white">16 Semanas - Performance</option>
                 </select>
 
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">

@@ -111,9 +111,9 @@ export default function PerfilPage() {
              </div>
           </div>
 
-          <button className="w-full py-4 rounded-2xl bg-white/5 border border-white/5 text-xs font-black uppercase text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+          {/* <button className="w-full py-4 rounded-2xl bg-white/5 border border-white/5 text-xs font-black uppercase text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2">
             Ver Perfil Público <Zap size={14} className="text-papa-blue" />
-          </button>
+          </button> */}
         </div>
 
         {/* Coluna Direita: Assinatura e Medalhas (Estilo Adidas Level) */}
@@ -128,21 +128,29 @@ export default function PerfilPage() {
                 <div>
                    <h3 className="text-xs font-black text-white/20 uppercase tracking-[0.2em] mb-4">Assinatura PapaKM</h3>
                    <div className="flex items-baseline gap-2">
-                      <span className="text-5xl font-black text-white italic tracking-tighter uppercase">PapaKMClub</span>
-                      <span className="text-6xl font-black text-papa-blue italic leading-none">{ATLETA_DATA.stats.nivel}</span>
-                   </div>
-                   <p className="text-[10px] font-bold text-white/40 uppercase mt-4">
+                    <span className="text-2xl lg:text-5xl font-black text-white italic tracking-tighter uppercase leading-none">
+                      PapaKMClub
+                    </span>
+                    <span className="text-3xl lg:text-6xl font-black text-papa-blue italic leading-none drop-shadow-[0_0_15px_rgba(0,209,255,0.4)]">
+                      {ATLETA_DATA.stats.nivel}
+                    </span>
+                </div>
+                  <p className="text-[10px] font-bold text-white/40 uppercase mt-4 tracking-widest leading-relaxed">
                      Faltam <span className="text-white">{ATLETA_DATA.stats.proxNivel} pontos</span> para o nível 3
                    </p>
                 </div>
 
-                <div className="text-right">
-                   <div className="text-[10px] font-black text-white/20 uppercase mb-1">Pontos de Resgate</div>
-                   <div className="flex items-center gap-2 justify-end">
-                      <div className="w-5 h-5 rounded-full border border-white/40 flex items-center justify-center text-[10px] font-bold text-white">★</div>
-                      <span className="text-2xl font-black text-white">{ATLETA_DATA.stats.pontosNivel}</span>
-                   </div>
-                </div>
+                <div className="flex items-center gap-3 md:flex-col md:items-end md:gap-1 text-left md:text-right border-t border-white/5 pt-4 md:border-0 md:pt-0">
+                    <div className="text-[10px] font-black text-white/20 uppercase tracking-widest">
+                      Pontos de Resgate
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full border border-white/40 flex items-center justify-center text-[10px] font-bold text-white">★</div>
+                        <span className="text-2xl lg:text-3xl font-black text-white leading-none">
+                          {ATLETA_DATA.stats.pontosNivel}
+                        </span>
+                    </div>
+                  </div>
              </div>
 
              {/* Barra de Progresso */}
