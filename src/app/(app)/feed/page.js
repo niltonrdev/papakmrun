@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { readAllCheckins, clearAllCheckins } from "@/features/checkins/checkins.storage";
-import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
+import { findWorkoutInPlanBySlug, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import { FEED_AUTHORS, FEED_PHRASES } from "@/features/feed/feed.mock";
-import RaceCalendar from "@/features/events/RaceCalendar"; 
-import { Flame, MessageSquare, Search, RotateCcw, Trash2 } from "lucide-react";
+import RaceCalendar from "@/features/events/RaceCalendar";
+import { Activity, Flame, MessageSquare, Search, RotateCcw, Trash2 } from "lucide-react";
 import dynamic from 'next/dynamic';
 
 /**
@@ -25,18 +25,20 @@ function formatSmartDate(iso) {
 }
 
 function buildFeedItemsFromCheckins(checkins) {
-  const week = getWeekPlan?.() ?? null;
-  const blocks = week?.blocks ?? [];
   const items = (checkins || []).map((c, idx) => {
-    const workout = blocks.find((b) => b.slug === c.workoutSlug);
+    const found = findWorkoutInPlanBySlug(c.workoutSlug);
+    const workout = found?.block;
+    const zone = workout?.zoneKey ? getZoneByKey(workout.zoneKey) : null;
     const author = FEED_AUTHORS[idx % FEED_AUTHORS.length];
     const phrase = FEED_PHRASES[idx % FEED_PHRASES.length];
+    const pace =
+      zone?.paceMin && zone?.paceMax ? `${zone.paceMin}–${zone.paceMax}` : "—";
     return {
       id: `${c.date}-${c.workoutSlug}-${idx}`,
       dateISO: c.date,
       title: workout?.title ?? "Treino",
-      km: workout?.km ?? "8.2", // Mockando KM se não houver
-      pace: "5:10", // Mockando Pace conforme protótipo
+      km: workout?.km ?? "—",
+      pace,
       zoneKey: workout?.zoneKey ?? "z2",
       effort: c.effort ?? null,
       note: c.note ?? "",
@@ -161,6 +163,3 @@ export default function FeedPage() {
     </div>
   );
 }
-
-// Icone Activity que faltou no import da lucide
-import { Activity } from "lucide-react";

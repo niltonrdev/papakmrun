@@ -72,9 +72,9 @@ export const MOCK_PLAN = {
     title: "Semana 1",
     phase: "Base",
     blocks: [
-      { dayLabel: "Terça", slug: "terca-1", km: 6, zoneKey: "z2", title: "Ritmo", description: "Aquecimento + 1 km. 10' acima do pace alvo.", workoutDateISO: "2026-03-03" },
-      { dayLabel: "Quinta", slug: "quinta-1", km: 8, zoneKey: "z3", title: "Intervalado", description: "5x400m + 2km (Z1) + 5x400m + 2km.", workoutDateISO: "2026-03-05" },
-      { dayLabel: "Sábado", slug: "sabado-1", km: 12, zoneKey: "z1", title: "Longo", description: "Pode variar entre Z1 e Z2.", workoutDateISO: "2026-03-07" },
+      { dayLabel: "Terça", slug: "s1-terca", km: 6, zoneKey: "z2", title: "Ritmo", description: "Aquecimento + 1 km. 10' acima do pace alvo.", workoutDateISO: "2026-03-03" },
+      { dayLabel: "Quinta", slug: "s1-quinta", km: 8, zoneKey: "z3", title: "Intervalado", description: "5x400m + 2km (Z1) + 5x400m + 2km.", workoutDateISO: "2026-03-05" },
+      { dayLabel: "Sábado", slug: "s1-sabado", km: 12, zoneKey: "z1", title: "Longo", description: "Pode variar entre Z1 e Z2.", workoutDateISO: "2026-03-07" },
     ],
   },
   "2": {
@@ -82,29 +82,29 @@ export const MOCK_PLAN = {
     title: "Semana 2",
     phase: "Base",
     blocks: [
-      { dayLabel: "Terça", slug: "terca-2", km: 7, zoneKey: "z2", title: "Ritmo", description: "Aquecimento + 2 km. Foco em cadência.", workoutDateISO: "2026-03-10" },
-      { dayLabel: "Quinta", slug: "quinta-2", km: 10, zoneKey: "z3", title: "Intervalado", description: "6x800m com 2' de descanso.", workoutDateISO: "2026-03-12" },
-      { dayLabel: "Sábado", slug: "sabado-2", km: 14, zoneKey: "z1", title: "Longo", description: "Ritmo constante em Z1.", workoutDateISO: "2026-03-14" },
+      { dayLabel: "Terça", slug: "s2-terca", km: 7, zoneKey: "z2", title: "Ritmo", description: "Aquecimento + 2 km. Foco em cadência.", workoutDateISO: "2026-03-10" },
+      { dayLabel: "Quinta", slug: "s2-quinta", km: 10, zoneKey: "z3", title: "Intervalado", description: "6x800m com 2' de descanso.", workoutDateISO: "2026-03-12" },
+      { dayLabel: "Sábado", slug: "s2-sabado", km: 14, zoneKey: "z1", title: "Longo", description: "Ritmo constante em Z1.", workoutDateISO: "2026-03-14" },
     ],
   },
   "3": {
     id: "week-3",
     title: "Semana 3",
-    phase: "Pré-Competitiva", 
-    blocks: [ 
-      { dayLabel: "Terça", slug: "terca-1", km: 6, zoneKey: "z2", title: "Ritmo", description: "Aquecimento + 1 km. 10' acima do pace alvo.", workoutDateISO: "2026-03-03" },
-      { dayLabel: "Quinta", slug: "quinta-1", km: 8, zoneKey: "z3", title: "Intervalado", description: "5x400m + 2km (Z1) + 5x400m + 2km.", workoutDateISO: "2026-03-05" },
-      { dayLabel: "Sábado", slug: "sabado-1", km: 12, zoneKey: "z1", title: "Longo", description: "Pode variar entre Z1 e Z2.", workoutDateISO: "2026-03-07" },
-     ]
+    phase: "Pré-Competitiva",
+    blocks: [
+      { dayLabel: "Terça", slug: "s3-terca", km: 6, zoneKey: "z2", title: "Ritmo", description: "Aquecimento + 1 km. 10' acima do pace alvo.", workoutDateISO: "2026-03-17" },
+      { dayLabel: "Quinta", slug: "s3-quinta", km: 9, zoneKey: "z4", title: "Limiar", description: "4x1km no ritmo de prova com 2' trote.", workoutDateISO: "2026-03-19" },
+      { dayLabel: "Sábado", slug: "s3-sabado", km: 13, zoneKey: "z1", title: "Longo", description: "Progressivo suave nos últimos 3 km.", workoutDateISO: "2026-03-21" },
+    ],
   },
   "4": {
     id: "week-4",
     title: "Semana 4",
     phase: "Polimento",
-    blocks: [ 
-      { dayLabel: "Terça", slug: "terca-2", km: 7, zoneKey: "z2", title: "Ritmo", description: "Aquecimento + 2 km. Foco em cadência.", workoutDateISO: "2026-03-10" },
-      { dayLabel: "Quinta", slug: "quinta-2", km: 10, zoneKey: "z3", title: "Intervalado", description: "6x800m com 2' de descanso.", workoutDateISO: "2026-03-12" },
-      { dayLabel: "Sábado", slug: "sabado-2", km: 14, zoneKey: "z1", title: "Longo", description: "Ritmo constante em Z1.", workoutDateISO: "2026-03-14" },
-     ]
-  }
+    blocks: [
+      { dayLabel: "Terça", slug: "s4-terca", km: 5, zoneKey: "z3", title: "Ritmo", description: "Trote + strides. Sensação fluida.", workoutDateISO: "2026-03-24" },
+      { dayLabel: "Quinta", slug: "s4-quinta", km: 6, zoneKey: "z4", title: "Velocidade", description: "10x200m rápido com recuperação longa.", workoutDateISO: "2026-03-26" },
+      { dayLabel: "Sábado", slug: "s4-sabado", km: 10, zoneKey: "z2", title: "Simulação", description: "Ritmo alvo de prova nos últimos 4 km.", workoutDateISO: "2026-03-28" },
+    ],
+  },
 };

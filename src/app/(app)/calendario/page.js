@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
+import { getAllPlanWorkouts, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import { readAllCheckins } from "@/features/checkins/checkins.storage";
 
@@ -131,17 +131,10 @@ export default function CalendarPage() {
     setSelectedISO(formatISODate(now));
   }, []);
 
-  const plan = useMemo(() => getWeekPlan(), []); // mock atual
   const workouts = useMemo(() => {
-    const blocks = plan?.blocks ?? [];
-    // garantir que todo treino tenha workoutDateISO
-    return blocks
-      .filter((b) => b.workoutDateISO)
-      .map((b) => ({
-        ...b,
-        workoutDateISO: b.workoutDateISO,
-      }));
-  }, [plan]);
+    void refreshKey;
+    return getAllPlanWorkouts().filter((b) => b.workoutDateISO);
+  }, [mounted, refreshKey]);
 
   const checkins = useMemo(() => {
     // re-render quando clicar em “Atualizar”
@@ -156,6 +149,12 @@ export default function CalendarPage() {
       m.get(c.date).push(c);
     }
     return m;
+  }, [checkins]);
+
+  const checkinSlugs = useMemo(() => {
+    const s = new Set();
+    for (const c of checkins) s.add(c.workoutSlug);
+    return s;
   }, [checkins]);
 
   const workoutsByDate = useMemo(() => {
@@ -211,9 +210,8 @@ export default function CalendarPage() {
     setSelectedISO(formatISODate(day));
   }
 
-  function isWorkoutDone(dateISO, workoutSlug) {
-    const arr = checkinsByDate.get(dateISO) ?? [];
-    return arr.some((c) => c.workoutSlug === workoutSlug);
+  function isWorkoutDone(workoutSlug) {
+    return checkinSlugs.has(workoutSlug);
   }
 
   if (!mounted || !cursor) {
@@ -282,7 +280,7 @@ export default function CalendarPage() {
           const isCurrentMonth = day.getMonth() === cursor.getMonth();
           const isToday = todayISO ? sameISO(iso, todayISO) : false;
           const items = workoutsByDate.get(iso) ?? [];
-          const doneCount = items.filter((w) => isWorkoutDone(iso, w.slug)).length;
+          const doneCount = items.filter((w) => isWorkoutDone(w.slug)).length;
 
           return (
             <DayCell
@@ -317,7 +315,7 @@ export default function CalendarPage() {
             <div className="text-sm text-white/60">Sem treino planejado nesse dia (mock).</div>
           ) : (
             selectedDayWorkouts.map((w) => {
-              const done = isWorkoutDone(selectedISO, w.slug);
+              const done = isWorkoutDone(w.slug);
               return (
                 <div
                   key={`${w.workoutDateISO}-${w.slug}`}

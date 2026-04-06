@@ -1,37 +1,89 @@
-import { MOCK_WEEK, ZONES, MOCK_PLAN } from "./mockWeek";
+import { getMergedPlanForSlug } from "@/features/plans/plan.storage";
+import { getCurrentAthleteSlug, getZonesForAthlete } from "@/features/athletes/athletes.storage";
+import { readActiveWeekNumber } from "@/features/session/prefs.storage";
 
-// export function getWeekPlan() {
-//   return MOCK_WEEK;
-// }
+export { getMergedPlanForSlug as getMergedPlanForAthleteSlug };
 
-export function getZones() {
-  return Object.values(ZONES);
+function resolvedPlanForSlug(slug) {
+  return getMergedPlanForSlug(slug);
 }
 
-export function getZoneByKey(key) {
-  return ZONES[key] ?? null;
+function currentSlug() {
+  return getCurrentAthleteSlug();
 }
 
-export function getTodayWorkout() {
-  // V1: mapeia dia da semana -> treino
-  // JS: 0=Dom,1=Seg,2=Ter,3=Qua,4=Qui,5=Sex,6=Sab
-  const day = new Date().getDay();
-  const map = {
-    2: "terca",
-    4: "quinta",
-    6: "sabado",
-  };
-
-  const slug = map[day];
-  if (!slug) return null;
-
-  const week = getWeekPlan();
-  return week.blocks.find((b) => b.slug === slug) ?? null;
+export function getWeekPlan(weekNumber) {
+  const slug = currentSlug();
+  const plan = resolvedPlanForSlug(slug);
+  const wn = String(weekNumber ?? readActiveWeekNumber());
+  return plan[wn] || plan["1"] || Object.values(plan)[0];
 }
-export function getWeekPlan(weekNumber = "1") {
-  return MOCK_PLAN[weekNumber] || MOCK_PLAN["1"];
+
+export function getWeekPlanForAthlete(slug, weekNumber) {
+  const plan = resolvedPlanForSlug(slug);
+  const wn = String(weekNumber ?? "1");
+  return plan[wn] || plan["1"] || Object.values(plan)[0];
 }
 
 export function getAllWeekNumbers() {
-  return Object.keys(MOCK_PLAN);
+  return Object.keys(resolvedPlanForSlug(currentSlug())).sort(
+    (a, b) => Number(a) - Number(b)
+  );
+}
+
+export function getAllWeekNumbersForAthlete(slug) {
+  return Object.keys(resolvedPlanForSlug(slug)).sort((a, b) => Number(a) - Number(b));
+}
+
+function zonesRecordForSlug(slug) {
+  return getZonesForAthlete(slug);
+}
+
+export function getZones() {
+  return Object.values(zonesRecordForSlug(currentSlug()));
+}
+
+export function getZonesForSlug(slug) {
+  return Object.values(zonesRecordForSlug(slug));
+}
+
+export function getZoneByKey(key) {
+  const z = zonesRecordForSlug(currentSlug())[key];
+  return z ?? null;
+}
+
+export function getZoneByKeyForAthlete(slug, key) {
+  return zonesRecordForSlug(slug)[key] ?? null;
+}
+
+export function getTodayWorkout() {
+  const day = new Date().getDay();
+  const dayMap = { 2: "Terça", 4: "Quinta", 6: "Sábado" };
+  const label = dayMap[day];
+  if (!label) return null;
+  const wn = readActiveWeekNumber();
+  const week = getWeekPlan(wn);
+  return week?.blocks?.find((b) => b.dayLabel === label) ?? null;
+}
+
+export function findWorkoutInPlanBySlug(workoutSlug, athleteSlug) {
+  const slug = athleteSlug ?? currentSlug();
+  const plan = resolvedPlanForSlug(slug);
+  for (const wk of Object.keys(plan).sort((a, b) => Number(a) - Number(b))) {
+    const b = plan[wk]?.blocks?.find((x) => x.slug === workoutSlug);
+    if (b) return { weekKey: wk, week: plan[wk], block: b };
+  }
+  return null;
+}
+
+export function getAllPlanWorkouts(athleteSlug) {
+  const slug = athleteSlug ?? currentSlug();
+  const plan = resolvedPlanForSlug(slug);
+  const list = [];
+  for (const wk of Object.keys(plan).sort((a, b) => Number(a) - Number(b))) {
+    for (const b of plan[wk]?.blocks ?? []) {
+      list.push({ ...b, weekKey: wk });
+    }
+  }
+  return list;
 }

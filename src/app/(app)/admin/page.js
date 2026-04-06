@@ -1,44 +1,168 @@
 "use client";
-import { useState } from "react";
-import { 
-  Users, AlertTriangle, Play, Calendar, 
-  Search, Bell, Plus, ChevronRight, FileText, Settings2
+import { useEffect, useState } from "react";
+import {
+  Users,
+  AlertTriangle,
+  Calendar,
+  Search,
+  Bell,
+  Plus,
+  ChevronRight,
+  FileText,
+  Settings2,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  readActiveAnnouncement,
+  writeActiveAnnouncement,
+} from "@/features/announcements/announcements.storage";
+import {
+  readAllPainFeedback,
+  markAllPainRead,
+} from "@/features/pain/pain.storage";
+import {
+  readLibraryItems,
+  addLibraryItem,
+  removeLibraryItem,
+} from "@/features/library/library.storage";
+
+function slugify(name) {
+  return String(name)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState("alunos");
+  const [aviso, setAviso] = useState("");
+  const [painList, setPainList] = useState([]);
+  const [library, setLibrary] = useState([]);
+  const [libTitle, setLibTitle] = useState("");
+  const [libDesc, setLibDesc] = useState("");
+
+  function refresh() {
+    setAviso(readActiveAnnouncement());
+    setPainList(readAllPainFeedback());
+    setLibrary(readLibraryItems());
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const unreadPain = painList.filter((p) => !p.read).length;
+
+  function publishAviso() {
+    writeActiveAnnouncement(aviso.trim());
+    refresh();
+  }
+
+  function clearAviso() {
+    writeActiveAnnouncement("");
+    setAviso("");
+    refresh();
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-10 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-sm font-bold text-white/20 uppercase tracking-widest mb-1">Painel do Professor</h1>
-          <h2 className="text-4xl font-black text-white italic uppercase">Gestão de Performance</h2>
+          <h1 className="text-sm font-bold text-white/20 uppercase tracking-widest mb-1">
+            Painel do Professor
+          </h1>
+          <h2 className="text-4xl font-black text-white italic uppercase">
+            Gestão de Performance
+          </h2>
         </div>
       </header>
 
-      {/* Widgets Superiores (Mantidos para Visão Geral) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-papa-card p-6 rounded-3xl border border-white/5">
-           <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500"><Users size={20}/></div>
-              <span className="text-[10px] font-black text-white/30 uppercase">Atletas Ativos</span>
-           </div>
-           <div className="text-3xl font-black text-white italic">24/32</div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+              <Users size={20} />
+            </div>
+            <span className="text-[10px] font-black text-white/30 uppercase">
+              Atletas Ativos
+            </span>
+          </div>
+          <div className="text-3xl font-black text-white italic">24/32</div>
         </div>
-        {/* Adicione os outros widgets de Feedback de Dor e Testes Pendentes conforme código anterior */}
+        <div className="bg-papa-card p-6 rounded-3xl border border-white/5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-xl bg-red-500/10 text-red-400">
+              <AlertTriangle size={20} />
+            </div>
+            <span className="text-[10px] font-black text-white/30 uppercase">
+              Feedback de Dor (novo)
+            </span>
+          </div>
+          <div className="text-3xl font-black text-white italic">{unreadPain}</div>
+          {unreadPain > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                markAllPainRead();
+                refresh();
+              }}
+              className="mt-3 text-[10px] font-black uppercase text-papa-blue hover:underline"
+            >
+              Marcar como lidos
+            </button>
+          )}
+        </div>
+        <div className="bg-papa-card p-6 rounded-3xl border border-white/5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-xl bg-papa-orange/10 text-papa-orange">
+              <Bell size={20} />
+            </div>
+            <span className="text-[10px] font-black text-white/30 uppercase">
+              Aviso no app
+            </span>
+          </div>
+          <div className="text-xs text-white/50 font-medium line-clamp-3">
+            {readActiveAnnouncement() || "Nenhum aviso publicado."}
+          </div>
+        </div>
       </div>
 
-      {/* 1. Tabela de Gestão de Alunos (Novo Padrão) */}
+      {painList.length > 0 && (
+        <div className="bg-papa-card rounded-3xl border border-red-500/20 p-6 space-y-3">
+          <h3 className="text-xs font-black uppercase text-red-400 tracking-widest">
+            Relatos recentes
+          </h3>
+          <ul className="space-y-2 max-h-48 overflow-y-auto">
+            {painList.slice(0, 8).map((p) => (
+              <li
+                key={p.id}
+                className="text-xs text-white/70 border border-white/5 rounded-xl p-3 bg-white/[0.02]"
+              >
+                <span className="font-black text-white">{p.athleteName}</span> ·{" "}
+                {p.date} · {p.workoutTitle}
+                <p className="mt-1 text-white/50 italic">{p.painNote}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="bg-papa-card rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
           <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-2">
             <Users size={16} className="text-papa-blue" /> Lista de Atletas
           </h3>
           <div className="relative">
-             <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"/>
-             <input placeholder="Buscar aluno..." className="bg-white/5 border border-white/10 pl-10 pr-4 py-2 rounded-xl text-xs text-white outline-none w-64"/>
+            <Search
+              size={14}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"
+            />
+            <input
+              placeholder="Buscar aluno..."
+              className="bg-white/5 border border-white/10 pl-10 pr-4 py-2 rounded-xl text-xs text-white outline-none w-64"
+            />
           </div>
         </div>
 
@@ -56,21 +180,46 @@ export default function AdminPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {[
-                { name: "Nilton Rodrigues", goal: "Sub 20min 5km", test: "12:45 (3km)", health: "Apto", status: "Semana 7", color: "text-emerald-400" },
-                { name: "Bruno Costa", goal: "Primeiros 5km", test: "07:35 (1km)", health: "Atestado Vencido", status: "Atrasado", color: "text-papa-orange" },
+                {
+                  name: "Nilton Rodrigues",
+                  goal: "Sub 20min 5km",
+                  test: "12:45 (3km)",
+                  health: "Apto",
+                  status: "Semana 7",
+                  color: "text-emerald-400",
+                },
+                {
+                  name: "Bruno Costa",
+                  goal: "Primeiros 5km",
+                  test: "07:35 (1km)",
+                  health: "Atestado Vencido",
+                  status: "Atrasado",
+                  color: "text-papa-orange",
+                },
               ].map((aluno, i) => (
                 <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
                   <td className="p-6 text-xs font-black text-white">{aluno.name}</td>
-                  <td className="p-6 text-[10px] text-white/40 font-bold uppercase italic">{aluno.goal}</td>
-                  <td className="p-6 text-xs font-mono font-bold text-papa-blue">{aluno.test}</td>
-                  <td className="p-6">
-                    <span className={`text-[10px] font-black ${aluno.color}`}>{aluno.health}</span>
+                  <td className="p-6 text-[10px] text-white/40 font-bold uppercase italic">
+                    {aluno.goal}
+                  </td>
+                  <td className="p-6 text-xs font-mono font-bold text-papa-blue">
+                    {aluno.test}
                   </td>
                   <td className="p-6">
-                    <span className="text-[10px] font-black px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/60">{aluno.status}</span>
+                    <span className={`text-[10px] font-black ${aluno.color}`}>
+                      {aluno.health}
+                    </span>
+                  </td>
+                  <td className="p-6">
+                    <span className="text-[10px] font-black px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/60">
+                      {aluno.status}
+                    </span>
                   </td>
                   <td className="p-6 text-right">
-                    <Link href={`/admin/aluno/${aluno.name.toLowerCase().replace(' ', '-')}`} className="bg-papa-orange text-papa-dark px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform inline-flex items-center gap-2">
+                    <Link
+                      href={`/admin/aluno/${slugify(aluno.name)}`}
+                      className="bg-papa-orange text-papa-dark px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform inline-flex items-center gap-2"
+                    >
                       Abrir <ChevronRight size={14} />
                     </Link>
                   </td>
@@ -81,22 +230,30 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* 2. Gestão de Provas e Avisos (Nova Div) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-papa-card rounded-3xl border border-white/5 p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-2">
               <Calendar size={16} className="text-papa-orange" /> Provas do Grupo
             </h3>
-            <button className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-white"><Plus size={16}/></button>
+            <button
+              type="button"
+              className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-white"
+            >
+              <Plus size={16} />
+            </button>
           </div>
           <div className="space-y-3">
             <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
               <div>
                 <p className="text-xs font-black text-white">Meia de Brasília</p>
-                <p className="text-[10px] text-white/20 font-bold uppercase">24 de Maio • Eixão Lazer</p>
+                <p className="text-[10px] text-white/20 font-bold uppercase">
+                  24 de Maio • Eixão Lazer
+                </p>
               </div>
-              <span className="text-[9px] font-black px-2 py-1 bg-papa-blue/10 text-papa-blue rounded-lg">12 Atletas</span>
+              <span className="text-[9px] font-black px-2 py-1 bg-papa-blue/10 text-papa-blue rounded-lg">
+                12 Atletas
+              </span>
             </div>
           </div>
         </div>
@@ -106,31 +263,96 @@ export default function AdminPage() {
             <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-2">
               <Bell size={16} className="text-papa-blue" /> Avisos Gerais
             </h3>
-            <button className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-white"><Plus size={16}/></button>
           </div>
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/5 italic text-xs text-white/40">
-            Nenhum aviso ativo para os alunos no momento...
+          <textarea
+            value={aviso}
+            onChange={(e) => setAviso(e.target.value)}
+            rows={3}
+            placeholder="Texto exibido no topo do app dos alunos..."
+            className="w-full rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-papa-blue/40 placeholder:text-white/30"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={publishAviso}
+              className="flex-1 py-3 rounded-2xl bg-papa-blue text-papa-dark text-[10px] font-black uppercase"
+            >
+              Publicar aviso
+            </button>
+            <button
+              type="button"
+              onClick={clearAviso}
+              className="px-4 py-3 rounded-2xl border border-white/10 text-[10px] font-black uppercase text-white/50 hover:text-white"
+            >
+              Limpar
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 3. Biblioteca do Professor */}
       <div className="bg-papa-card rounded-3xl border border-white/5 p-8 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-2">
-            <FileText size={16} className="text-emerald-400" /> Biblioteca de Templates
+            <FileText size={16} className="text-emerald-400" /> Biblioteca do Professor
           </h3>
-          <button className="bg-white/5 border border-white/10 text-white text-[10px] font-black uppercase px-6 py-3 rounded-2xl hover:bg-white/10 transition-all">
-            Criar Planilha do Zero +
-          </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {["Base 8 Semanas", "Base 12 Semanas", "Pico 16 Semanas", "Manutenção"].map((temp, i) => (
-            <div key={i} className="p-6 rounded-3xl bg-white/5 border border-white/5 group hover:border-papa-blue/40 cursor-pointer transition-all">
-              <Settings2 size={20} className="text-white/20 group-hover:text-papa-blue mb-4 transition-colors" />
-              <p className="text-[10px] font-black text-white uppercase leading-tight">{temp}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input
+            value={libTitle}
+            onChange={(e) => setLibTitle(e.target.value)}
+            placeholder="Título do modelo"
+            className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none"
+          />
+          <input
+            value={libDesc}
+            onChange={(e) => setLibDesc(e.target.value)}
+            placeholder="Descrição / observações padrão"
+            className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (!libTitle.trim()) return;
+            addLibraryItem({ title: libTitle, description: libDesc });
+            setLibTitle("");
+            setLibDesc("");
+            refresh();
+          }}
+          className="bg-white/5 border border-white/10 text-white text-[10px] font-black uppercase px-6 py-3 rounded-2xl hover:bg-white/10 transition-all"
+        >
+          Salvar na biblioteca +
+        </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {library.length === 0 ? (
+            <p className="text-xs text-white/30 italic col-span-full">
+              Nenhum modelo salvo ainda. Crie treinos reutilizáveis para copiar nas planilhas.
+            </p>
+          ) : (
+            library.map((item) => (
+              <div
+                key={item.id}
+                className="p-6 rounded-3xl bg-white/5 border border-white/5 flex gap-4 items-start"
+              >
+                <Settings2 size={20} className="text-white/20 shrink-0 mt-1" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black text-white uppercase">{item.title}</p>
+                  <p className="text-xs text-white/50 mt-1 line-clamp-3">{item.description}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeLibraryItem(item.id);
+                    refresh();
+                  }}
+                  className="p-2 text-white/30 hover:text-red-400"
+                  aria-label="Remover"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

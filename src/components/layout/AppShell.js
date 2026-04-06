@@ -1,8 +1,10 @@
 "use client";
-import { Home, Rss, Calendar, User, LogOut, ShieldCheck } from "lucide-react";
+import { Home, Rss, Calendar, User, LogOut, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import { readActiveAnnouncement } from "@/features/announcements/announcements.storage";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: Home },
@@ -14,6 +16,13 @@ const NAV_ITEMS = [
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  const [banner, setBanner] = useState("");
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    setBanner(readActiveAnnouncement());
+    setHidden(false);
+  }, [pathname]);
 
   return (
     <div className="flex min-h-screen bg-papa-dark">
@@ -49,6 +58,22 @@ export default function AppShell({ children }) {
 
       {/* Main Content - Remove a margem no mobile (ml-0) e adiciona no desktop (lg:ml-64) */}
       <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-10 pb-24 lg:pb-10 overflow-y-auto w-full">
+        {banner && !hidden && pathname !== "/admin" && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-papa-blue/30 bg-papa-blue/10 px-4 py-3 text-sm text-white/90">
+            <span className="text-papa-blue font-black uppercase text-[10px] tracking-widest shrink-0 mt-0.5">
+              Aviso
+            </span>
+            <p className="flex-1 leading-relaxed">{banner}</p>
+            <button
+              type="button"
+              onClick={() => setHidden(true)}
+              className="shrink-0 rounded-lg p-1 text-white/40 hover:text-white"
+              aria-label="Fechar aviso"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
         {children}
       </main>
 

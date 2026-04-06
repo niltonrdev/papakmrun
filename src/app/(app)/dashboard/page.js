@@ -1,13 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getTodayWorkout, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import { isWorkoutCheckedToday, getTodayCheckin } from "@/features/checkins/checkins.service";
+import { getZones } from "@/features/plans/plans.service";
 import RankingCard from "@/features/ranking/RankingCard";
 import RaceCalendar from "@/features/events/RaceCalendar";
-import { readAllCheckins } from "@/features/checkins/checkins.storage";
-import { getWeekPlan } from "@/features/plans/plans.service";
 import Link from "next/link";
 import ActivityMural from "@/features/activities/ActivityMural";
 
@@ -33,6 +32,7 @@ function TodayWorkoutCard() {
   );
 
   const checked = done || isWorkoutCheckedToday(w.slug);
+  const todayCheckin = checked ? getTodayCheckin() : null;
 
   return (
     <div className="rounded-3xl bg-papa-card p-8 border border-white/5 relative overflow-hidden">
@@ -58,7 +58,9 @@ function TodayWorkoutCard() {
             </button>
             <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
                <span className="text-white/30 text-[10px] uppercase block font-bold">Esforço</span>
-               <span className="text-papa-blue font-bold tracking-tighter">6/10</span>
+               <span className="text-papa-blue font-bold tracking-tighter">
+                 {todayCheckin?.effort != null ? `${todayCheckin.effort}/5` : "—"}
+               </span>
             </div>
           </div>
         </div>
@@ -90,14 +92,28 @@ function TodayWorkoutCard() {
     </div>
   );
 }
+const ZONE_EFFORT = {
+  z1: "1–2",
+  z2: "3–4",
+  z3: "5–6",
+  z4: "7–8",
+  z5: "9–10",
+};
+
+const ZONE_DOT = {
+  z1: "bg-blue-400",
+  z2: "bg-emerald-400",
+  z3: "bg-yellow-400",
+  z4: "bg-orange-400",
+  z5: "bg-red-400",
+};
+
 function TrainingZonesList() {
-  const zones = [
-    { key: 'Z1', label: 'Regenerativo', pace: '5:33—7:33 /km', effort: '1–2', color: 'bg-blue-400' },
-    { key: 'Z2', label: 'Fácil', pace: '5:03—5:33 /km', effort: '3–4', color: 'bg-emerald-400' },
-    { key: 'Z3', label: 'Moderado', pace: '4:45—5:03 /km', effort: '5–6', color: 'bg-yellow-400' },
-    { key: 'Z4', label: 'Sub-limiar', pace: '4:25—4:45 /km', effort: '7–8', color: 'bg-orange-400' },
-    { key: 'Z5', label: 'Máximo', pace: 'Abaixo de 4:25 /km', effort: '9–10', color: 'bg-red-400' },
-  ];
+  const [zones, setZones] = useState([]);
+
+  useEffect(() => {
+    setZones(getZones());
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -112,13 +128,13 @@ function TrainingZonesList() {
             <div className="w-full">
               <div className="flex items-center justify-between mb-2">
                  <div className="flex items-center gap-2">
-                   <span className={`w-2 h-2 rounded-full ${z.color} shadow-[0_0_8px_rgba(255,255,255,0.2)]`} />
+                   <span className={`w-2 h-2 rounded-full ${ZONE_DOT[z.key] ?? "bg-white/30"} shadow-[0_0_8px_rgba(255,255,255,0.2)]`} />
                    <span className="text-white font-black text-sm uppercase">{z.key}</span>
                  </div>
-                 <span className="text-white/30 text-[10px] font-bold">Esforço {z.effort}</span>
+                 <span className="text-white/30 text-[10px] font-bold">Esforço {ZONE_EFFORT[z.key] ?? "—"}</span>
               </div>
               <div className="text-white/60 text-xs font-bold mb-1">{z.label}</div>
-              <div className="text-white font-mono text-xs">Pace: {z.pace}</div>
+              <div className="text-white font-mono text-xs">Pace: {z.paceMin}—{z.paceMax} /km</div>
             </div>
           </div>
         ))}

@@ -3,23 +3,42 @@
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { saveWorkoutCheckin } from "./checkins.service";
+import { getAthleteRecord, getCurrentAthleteSlug } from "@/features/athletes/athletes.storage";
+import { addPainFeedback } from "@/features/pain/pain.storage";
 
 export default function CheckinModal({ open, onClose, workout, onSaved }) {
   const [effort, setEffort] = useState(3);
   const [note, setNote] = useState("");
+  const [hadPain, setHadPain] = useState(false);
+  const [painNote, setPainNote] = useState("");
 
   if (!workout) return null;
 
   function submit(e) {
     e.preventDefault();
-    saveWorkoutCheckin({ 
-      date: workout.workoutDateISO,
-      workoutSlug: workout.slug, 
-      effort, 
-      note 
+    saveWorkoutCheckin({
+      workoutSlug: workout.slug,
+      effort: Number(effort),
+      note: note?.trim() ?? "",
     });
+    if (hadPain && painNote.trim()) {
+      const slug = getCurrentAthleteSlug();
+      const rec = getAthleteRecord(slug);
+      addPainFeedback({
+        athleteSlug: slug,
+        athleteName: rec.name || slug.replace(/-/g, " "),
+        workoutSlug: workout.slug,
+        workoutTitle: workout.title,
+        date: workout.workoutDateISO,
+        painNote: painNote.trim(),
+        effort: Number(effort),
+      });
+    }
     onSaved?.();
     onClose?.();
+    setHadPain(false);
+    setPainNote("");
+    setNote("");
   }
 
   return (
@@ -35,9 +54,7 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="text-sm text-white/70">
-              Esforço percebido (1–5)
-            </label>
+            <label className="text-sm text-white/70">Esforço percebido (1–5)</label>
             <div className="mt-2 flex items-center gap-3">
               <input
                 type="range"
@@ -47,9 +64,7 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
                 onChange={(e) => setEffort(e.target.value)}
                 className="w-full"
               />
-              <div className="w-10 text-center text-sm font-semibold">
-                {effort}
-              </div>
+              <div className="w-10 text-center text-sm font-semibold">{effort}</div>
             </div>
           </div>
 
@@ -64,6 +79,33 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
             />
           </div>
 
+          <div className="rounded-2xl border border-white/10 bg-orange-500/5 p-4 space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer text-sm text-white/80">
+              <input
+                type="checkbox"
+                checked={hadPain}
+                onChange={(e) => setHadPain(e.target.checked)}
+                className="rounded border-white/20"
+              />
+              Senti dor ou desconforto persistente
+            </label>
+            {hadPain && (
+              <div>
+                <label className="text-xs text-white/50 uppercase font-bold tracking-wider">
+                  Descreva para o professor
+                </label>
+                <textarea
+                  value={painNote}
+                  onChange={(e) => setPainNote(e.target.value)}
+                  rows={2}
+                  required={hadPain}
+                  placeholder="Local, intensidade, quando começou..."
+                  className="mt-2 w-full rounded-2xl border border-orange-500/30 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/40"
+                />
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -74,7 +116,8 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
             </button>
             <button
               type="submit"
-              className="rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white hover:brightness-110"
+              disabled={hadPain && !painNote.trim()}
+              className="rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-40"
             >
               Confirmar
             </button>

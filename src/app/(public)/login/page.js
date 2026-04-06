@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { setCurrentAthleteSlug } from "@/features/athletes/athletes.storage";
 
 function setAuthCookie(value) {
   // cookie simples (V1). Depois vai virar NextAuth.
@@ -19,9 +20,12 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    // Simula login
     setAuthCookie(`1|${role}`);
-    router.push("/dashboard");
+    if (role === "plan" || role === "social") {
+      setCurrentAthleteSlug("nilton-rodrigues");
+    }
+    const goAdmin = role === "admin" || role === "coach";
+    router.push(goAdmin ? "/admin" : "/dashboard");
   }
 
   return (
