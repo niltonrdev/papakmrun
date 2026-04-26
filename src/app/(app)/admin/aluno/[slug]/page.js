@@ -81,7 +81,7 @@ export default function DetalheAlunoPage() {
         vRef,
       });
     }
-    setSaveMsg("Alterações salvas no navegador (localStorage).");
+    setSaveMsg("Alterações salvas.");
     setTimeout(() => setSaveMsg(""), 5000);
   }
 

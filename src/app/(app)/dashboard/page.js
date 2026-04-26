@@ -9,8 +9,11 @@ import RankingCard from "@/features/ranking/RankingCard";
 import RaceCalendar from "@/features/events/RaceCalendar";
 import Link from "next/link";
 import ActivityMural from "@/features/activities/ActivityMural";
+import { useBackendSyncTick } from "@/features/session/backend-sync";
+import { useProfileRole } from "@/features/session/useProfileRole";
 
-function TodayWorkoutCard() {
+function TodayWorkoutCard({ isSocial = false }) {
+  useBackendSyncTick();
   const w = getTodayWorkout();
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
@@ -42,13 +45,18 @@ function TodayWorkoutCard() {
           <h2 className="text-3xl font-black text-white mt-2 leading-tight">
             {w.title} · {w.km}km
           </h2>
-          <div className="text-white/60 text-lg font-medium mt-1">({w.zoneKey.toUpperCase()})</div>
-          
+          {!isSocial && (
+            <div className="text-white/60 text-lg font-medium mt-1">({w.zoneKey.toUpperCase()})</div>
+          )}
+
           <p className="text-white/40 mt-4 flex items-center gap-2 text-sm italic">
-            <span className="text-papa-blue font-bold">⚡</span> Obs: 10' acima do pace alvo
+            <span className="text-papa-blue font-bold">⚡</span>{" "}
+            {isSocial
+              ? "Aluno em modo rede: curta o Feed e, quando fizer o PapaKM Club, suas zonas entram no jogo."
+              : "Obs: 10' acima do pace alvo"}
           </p>
           
-          <div className="mt-8 flex items-center gap-4">
+          <div className="mt-8 flex flex-wrap items-center gap-4">
             <button 
               onClick={() => setOpen(true)}
               disabled={checked}
@@ -143,20 +151,37 @@ function TrainingZonesList() {
   );
 }
 export default function DashboardPage() {
+  useBackendSyncTick();
+  const { isSocial } = useProfileRole();
+
   return (
     <div className="max-w-7xl mx-auto p-6 lg:p-10">
       <header className="mb-10">
         <h1 className="text-sm font-bold text-white/40 uppercase tracking-tighter">Papakm</h1>
         <h2 className="text-4xl font-black text-white">Dashboard do Aluno</h2>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <a
+            href="/api/strava/connect"
+            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-black uppercase text-white/80 hover:bg-white/10"
+          >
+            Conectar Strava
+          </a>
+          <Link
+            href="/perfil"
+            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-black uppercase text-white/50 hover:text-white"
+          >
+            Perfil / Strava
+          </Link>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Coluna Principal */}
         <div className="lg:col-span-8 space-y-8">
           <ActivityMural />
-          <TodayWorkoutCard />
-          
-          <TrainingZonesList />
+          <TodayWorkoutCard isSocial={isSocial} />
+
+          {!isSocial && <TrainingZonesList />}
         </div>
 
         {/* Coluna Lateral */}

@@ -14,17 +14,19 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
 
   if (!workout) return null;
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    saveWorkoutCheckin({
+    await saveWorkoutCheckin({
       workoutSlug: workout.slug,
       effort: Number(effort),
       note: note?.trim() ?? "",
+      workoutTitle: workout.title,
+      planKm: workout.km,
     });
     if (hadPain && painNote.trim()) {
       const slug = getCurrentAthleteSlug();
       const rec = getAthleteRecord(slug);
-      addPainFeedback({
+      const payload = {
         athleteSlug: slug,
         athleteName: rec.name || slug.replace(/-/g, " "),
         workoutSlug: workout.slug,
@@ -32,7 +34,18 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
         date: workout.workoutDateISO,
         painNote: painNote.trim(),
         effort: Number(effort),
-      });
+      };
+      addPainFeedback(payload);
+      try {
+        await fetch("/api/pain-feedback", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        /* fallback local */
+      }
     }
     onSaved?.();
     onClose?.();

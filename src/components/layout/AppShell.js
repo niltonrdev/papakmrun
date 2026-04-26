@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { readActiveAnnouncement } from "@/features/announcements/announcements.storage";
+import { syncBackendSession } from "@/features/session/backend-sync";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: Home },
@@ -18,11 +19,55 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const [banner, setBanner] = useState("");
   const [hidden, setHidden] = useState(false);
+  const [role, setRole] = useState(null);
 
   useEffect(() => {
-    setBanner(readActiveAnnouncement());
     setHidden(false);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/announcements", { credentials: "include" });
+        const j = await res.json();
+        if (!cancelled && j?.body && String(j.body).trim()) {
+          setBanner(String(j.body).trim());
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+      if (!cancelled) setBanner(readActiveAnnouncement());
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
+
+  useEffect(() => {
+    syncBackendSession();
+  }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/me", { credentials: "include" });
+        const j = await res.json();
+        if (!cancelled) setRole(j?.profile?.role ?? null);
+      } catch {
+        if (!cancelled) setRole(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (item.href !== "/admin") return true;
+    return role === "admin" || role === "coach";
+  });
+
+  const showBanner = pathname === "/dashboard";
 
   return (
     <div className="flex min-h-screen bg-papa-dark">
@@ -36,7 +81,7 @@ export default function AppShell({ children }) {
         </div>
 
         <nav className="flex-1 space-y-2">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = pathname === item.href;
             return (
               <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${
@@ -58,7 +103,7 @@ export default function AppShell({ children }) {
 
       {/* Main Content - Remove a margem no mobile (ml-0) e adiciona no desktop (lg:ml-64) */}
       <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-10 pb-24 lg:pb-10 overflow-y-auto w-full">
-        {banner && !hidden && pathname !== "/admin" && (
+        {banner && !hidden && showBanner && (
           <div className="mb-4 flex items-start gap-3 rounded-2xl border border-papa-blue/30 bg-papa-blue/10 px-4 py-3 text-sm text-white/90">
             <span className="text-papa-blue font-black uppercase text-[10px] tracking-widest shrink-0 mt-0.5">
               Aviso
@@ -79,7 +124,7 @@ export default function AppShell({ children }) {
 
       {/* Mobile Nav Bar - Visível apenas no mobile (lg:hidden) conforme protótipo */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-papa-card/80 backdrop-blur-xl border-t border-white/5 px-6 py-3 flex justify-between items-center z-50">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = pathname === item.href;
           return (
             <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1">

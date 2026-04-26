@@ -23,26 +23,42 @@ export function isWorkoutCheckedForBlock(block) {
   return hasCheckinForSlug(block.slug);
 }
 
-export function saveTodayCheckin({ workoutSlug, effort, note }) {
-  const date = formatISODate(new Date());
-  return upsertCheckin({
-    date,
-    workoutSlug,
-    effort: Number(effort),
-    note: note?.trim() ?? "",
-    createdAt: new Date().toISOString(),
-  });
+export async function saveTodayCheckin({ workoutSlug, effort, note }) {
+  return saveWorkoutCheckin({ workoutSlug, effort, note });
 }
 
-export function saveWorkoutCheckin({ workoutSlug, effort, note }) {
+export async function saveWorkoutCheckin({ workoutSlug, effort, note, workoutTitle, planKm }) {
   const date = formatISODate(new Date());
-  return upsertCheckin({
+  const local = upsertCheckin({
     date,
     workoutSlug,
     effort: Number(effort),
     note: note?.trim() ?? "",
     createdAt: new Date().toISOString(),
+    workoutTitle: workoutTitle?.trim?.() ?? "",
+    planKm: planKm != null && Number.isFinite(Number(planKm)) ? Number(planKm) : null,
   });
+
+  try {
+    const payload = {
+      workoutSlug,
+      effort: Number(effort),
+      notes: note?.trim() ?? "",
+      checkinDate: date,
+    };
+    if (workoutTitle?.trim()) payload.workoutTitle = workoutTitle.trim();
+    if (planKm != null && Number.isFinite(Number(planKm))) payload.planKm = Number(planKm);
+    await fetch("/api/checkins", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    /* offline / sem Supabase */
+  }
+
+  return local;
 }
 
 export function isWorkoutChecked(date, workoutSlug) {

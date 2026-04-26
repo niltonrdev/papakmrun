@@ -13,32 +13,73 @@ import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import Link from "next/link";
 import { ChevronLeft, CheckCircle2 } from "lucide-react";
+import { pullWeekPlanFromApi, useBackendSyncTick } from "@/features/session/backend-sync";
+import { useProfileRole } from "@/features/session/useProfileRole";
+import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
 
 export default function PlanilhaDetalhesPage() {
+  const { isSocial, loading: roleLoading } = useProfileRole();
+  const syncTick = useBackendSyncTick();
   const [activeWeek, setActiveWeek] = useState("1");
   const [mounted, setMounted] = useState(false);
   const [checkinWorkout, setCheckinWorkout] = useState(null);
   const [refresh, setRefresh] = useState(0);
+  const [athleteName, setAthleteName] = useState("Aluno");
 
   useEffect(() => {
     setMounted(true);
     setActiveWeek(readActiveWeekNumber());
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/me", { credentials: "include" });
+        if (!res.ok) return;
+        const j = await res.json();
+        const name =
+          j?.profile?.display_name?.trim() ||
+          (j?.user?.email ? String(j.user.email).split("@")[0] : "Aluno");
+        if (!cancelled && name) setAthleteName(name);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    let cancelled = false;
+    (async () => {
+      await pullWeekPlanFromApi(activeWeek);
+      if (!cancelled) setRefresh((x) => x + 1);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeWeek, mounted, syncTick]);
+
   const weekNumbers = useMemo(() => {
     void refresh;
+    void syncTick;
     return getAllWeekNumbers();
-  }, [refresh]);
+  }, [refresh, syncTick]);
 
   const week = useMemo(() => {
     void refresh;
+    void syncTick;
     return getWeekPlan(activeWeek);
-  }, [activeWeek, refresh]);
+  }, [activeWeek, refresh, syncTick]);
 
   const zones = useMemo(() => {
     void refresh;
+    void syncTick;
     return getZones();
-  }, [refresh]);
+  }, [refresh, syncTick]);
 
   function selectWeek(num) {
     setActiveWeek(num);
@@ -68,6 +109,28 @@ export default function PlanilhaDetalhesPage() {
       timeLabel: totalSec ? formatDurationFromSeconds(totalSec) : "—",
     };
   }, [week]);
+
+  if (roleLoading) {
+    return (
+      <div className="mx-auto max-w-7xl py-24 text-center text-sm text-white/40">
+        Carregando…
+      </div>
+    );
+  }
+
+  if (isSocial) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-8 pb-10">
+        <Link
+          href="/planilha"
+          className="flex items-center gap-2 text-xs font-black uppercase text-white/40 hover:text-white"
+        >
+          <ChevronLeft size={16} /> Voltar para Performance
+        </Link>
+        <SocialPlanilhaUpsell />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-10">
@@ -99,7 +162,7 @@ export default function PlanilhaDetalhesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 bg-papa-card p-8 rounded-3xl border border-white/5 flex flex-col justify-center text-center">
           <h3 className="text-lg font-black text-white uppercase tracking-tighter mb-4">
-            PLANILHA NILTON - OBJETIVO SUB20 5KM
+            PLANILHA {String(athleteName).toUpperCase()} - OBJETIVO SUB20 5KM
           </h3>
           <div className="space-y-1 text-sm text-white/60 font-medium italic">
             <p>Ritmos são referências.</p>
@@ -175,6 +238,12 @@ export default function PlanilhaDetalhesPage() {
                           </button>
                         );
                       })()}
+                    <a
+                      href={`/api/workouts/fit?slug=${encodeURIComponent(b.slug)}`}
+                      className="mt-2 inline-flex items-center justify-center rounded-xl border border-papa-blue/40 bg-papa-blue/10 px-3 py-1.5 text-[9px] font-black uppercase text-papa-blue hover:bg-papa-blue/20"
+                    >
+                      Exportar
+                    </a>
                   </th>
                 ))}
                 <th className="p-4 text-papa-blue">Total</th>

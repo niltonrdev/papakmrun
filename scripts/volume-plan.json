@@ -1,0 +1,70 @@
+{
+  "1": {
+    "id": "vol-week-1",
+    "title": "Semana 1 — Volume",
+    "phase": "Base aeróbia",
+    "blocks": [
+      {
+        "dayLabel": "Terça",
+        "slug": "vol-s1-terca",
+        "km": 8,
+        "zoneKey": "z2",
+        "title": "Rodagem",
+        "description": "Ritmo confortável, foco em volume.",
+        "workoutDateISO": "2026-03-03"
+      },
+      {
+        "dayLabel": "Quinta",
+        "slug": "vol-s1-quinta",
+        "km": 10,
+        "zoneKey": "z2",
+        "title": "Progressivo leve",
+        "description": "Últimos 3 km um pouco mais rápidos.",
+        "workoutDateISO": "2026-03-05"
+      },
+      {
+        "dayLabel": "Sábado",
+        "slug": "vol-s1-sabado",
+        "km": 14,
+        "zoneKey": "z1",
+        "title": "Longão",
+        "description": "Hidratação e cadência constantes.",
+        "workoutDateISO": "2026-03-07"
+      }
+    ]
+  },
+  "2": {
+    "id": "vol-week-2",
+    "title": "Semana 2 — Volume",
+    "phase": "Base aeróbia",
+    "blocks": [
+      {
+        "dayLabel": "Terça",
+        "slug": "vol-s2-terca",
+        "km": 9,
+        "zoneKey": "z2",
+        "title": "Rodagem",
+        "description": "Mesmo esforço, mais minutos.",
+        "workoutDateISO": "2026-03-10"
+      },
+      {
+        "dayLabel": "Quinta",
+        "slug": "vol-s2-quinta",
+        "km": 11,
+        "zoneKey": "z3",
+        "title": "Fartlek suave",
+        "description": "30' com surtos curtos de 1'.",
+        "workoutDateISO": "2026-03-12"
+      },
+      {
+        "dayLabel": "Sábado",
+        "slug": "vol-s2-sabado",
+        "km": 16,
+        "zoneKey": "z1",
+        "title": "Longo",
+        "description": "Nutrição e pacing estável.",
+        "workoutDateISO": "2026-03-14"
+      }
+    ]
+  }
+}

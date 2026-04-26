@@ -1,0 +1,58 @@
+import { NextResponse } from "next/server";
+import JSZip from "jszip";
+import { createClient } from "@/lib/supabase/server";
+import { buildWorkoutFitFromBlock } from "@/lib/fit";
+import { loadWeeksDictionary, weekFromWeeksDict } from "@/lib/plan-catalog";
+
+export async function GET(request) {
+  const { searchParams } = request.nextUrl;
+  let activeWeek = searchParams.get("week") || "1";
+  let planKey = "sub20";
+
+  const supabase = await createClient();
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active_week, selected_base_plan")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.selected_base_plan) {
+        planKey = String(profile.selected_base_plan);
+      }
+      if (profile?.active_week && !searchParams.get("week")) {
+        activeWeek = profile.active_week;
+      }
+    }
+  }
+
+  const dict = await loadWeeksDictionary(supabase, planKey);
+  const week = weekFromWeeksDict(dict, activeWeek);
+  const blocks = week?.blocks ?? [];
+
+  if (!blocks.length) {
+    return NextResponse.json({ error: "Semana sem treinos para exportar." }, { status: 404 });
+  }
+
+  const zip = new JSZip();
+  for (const block of blocks) {
+    const fit = buildWorkoutFitFromBlock(block);
+    const fname = `papakm-${block.slug || "treino"}.fit`;
+    zip.file(fname, fit);
+  }
+
+  const out = await zip.generateAsync({ type: "uint8array" });
+  const zipName = `papakm-semana-${activeWeek}.zip`;
+
+  return new NextResponse(out, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${zipName}"`,
+    },
+  });
+}
+

@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
 import Image from "next/image";
 import { 
   Settings, Edit2, MapPin, Users, Award, 
   Crown, Share2, Calendar, Zap, Medal
 } from "lucide-react";
+import StravaPanel from "@/features/strava/StravaPanel";
 
 // Mock de dados do atleta (Nilton)
 const ATLETA_DATA = {
@@ -118,6 +118,8 @@ export default function PerfilPage() {
 
         {/* Coluna Direita: Assinatura e Medalhas (Estilo Adidas Level) */}
         <div className="lg:col-span-8 space-y-8">
+          <StravaPanel />
+
           {/* Card de Nível/Assinatura */}
           <div className="bg-papa-card p-8 rounded-3xl border border-white/5 relative overflow-hidden group">
              <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:opacity-10 transition-opacity">

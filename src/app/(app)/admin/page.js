@@ -18,45 +18,135 @@ import {
   writeActiveAnnouncement,
 } from "@/features/announcements/announcements.storage";
 import {
-  readAllPainFeedback,
-  markAllPainRead,
-} from "@/features/pain/pain.storage";
-import {
   readLibraryItems,
   addLibraryItem,
   removeLibraryItem,
 } from "@/features/library/library.storage";
 
-function slugify(name) {
-  return String(name)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-}
-
 export default function AdminPage() {
   const [aviso, setAviso] = useState("");
+  const [latestAnn, setLatestAnn] = useState("");
   const [painList, setPainList] = useState([]);
   const [library, setLibrary] = useState([]);
   const [libTitle, setLibTitle] = useState("");
   const [libDesc, setLibDesc] = useState("");
+  const [role, setRole] = useState(null);
+  const [coachMsg, setCoachMsg] = useState("");
+  const [planKey, setPlanKey] = useState("sub20");
+  const [planJson, setPlanJson] = useState("");
+  const [planBusy, setPlanBusy] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [studentQuery, setStudentQuery] = useState("");
+
+  async function loadAnnouncementPreview() {
+    try {
+      const res = await fetch("/api/announcements", { credentials: "include" });
+      const j = await res.json();
+      if (j?.body) setLatestAnn(String(j.body));
+      else setLatestAnn("");
+    } catch {
+      setLatestAnn("");
+    }
+  }
+
+  async function loadPainFeedback() {
+    try {
+      const res = await fetch("/api/pain-feedback?limit=80", { credentials: "include" });
+      const j = await res.json();
+      if (res.ok && Array.isArray(j.items)) {
+        setPainList(j.items);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    setPainList([]);
+  }
 
   function refresh() {
     setAviso(readActiveAnnouncement());
-    setPainList(readAllPainFeedback());
     setLibrary(readLibraryItems());
+    loadAnnouncementPreview();
+    loadPainFeedback();
   }
 
   useEffect(() => {
     refresh();
   }, []);
 
-  const unreadPain = painList.filter((p) => !p.read).length;
+  useEffect(() => {
+    let c = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/me", { credentials: "include" });
+        if (!res.ok) return;
+        const j = await res.json();
+        if (!c) setRole(j?.profile?.role ?? null);
+      } catch {
+        if (!c) setRole(null);
+      }
+    })();
+    return () => {
+      c = true;
+    };
+  }, []);
 
-  function publishAviso() {
-    writeActiveAnnouncement(aviso.trim());
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/coach/students", { credentials: "include" });
+        const j = await res.json();
+        if (!cancelled && res.ok) {
+          setStudents(Array.isArray(j.items) ? j.items : []);
+        }
+      } catch {
+        if (!cancelled) setStudents([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
+  const unreadPain = painList.filter((p) => !p.read).length;
+  const filteredStudents = students.filter((s) => {
+    const q = studentQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      s.name.toLowerCase().includes(q) ||
+      s.email.toLowerCase().includes(q) ||
+      (s.athleteSlug || "").toLowerCase().includes(q)
+    );
+  });
+
+  async function publishAviso() {
+    const text = aviso.trim();
+    if (!text) return;
+    setCoachMsg("");
+    if (role === "admin" || role === "coach") {
+      try {
+        const res = await fetch("/api/announcements", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: text }),
+        });
+        const j = await res.json();
+        if (!res.ok) {
+          setCoachMsg(j?.error || "Falha ao publicar no servidor.");
+          return;
+        }
+        setCoachMsg("Aviso publicado para todos.");
+        await loadAnnouncementPreview();
+        return;
+      } catch (e) {
+        setCoachMsg(e?.message || "Erro de rede.");
+        return;
+      }
+    }
+    writeActiveAnnouncement(text);
+    setCoachMsg("Aviso salvo só neste navegador (perfil não é professor).");
     refresh();
   }
 
@@ -76,6 +166,13 @@ export default function AdminPage() {
           <h2 className="text-4xl font-black text-white italic uppercase">
             Gestão de Performance
           </h2>
+          {role && role !== "admin" && role !== "coach" && (
+            <p className="mt-3 text-xs text-amber-200/90 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 max-w-xl">
+              Você está como <span className="font-black">{role}</span>. Avisos globais e edição de planilha no
+              servidor exigem perfil <span className="font-black">coach</span> ou <span className="font-black">admin</span>{" "}
+              (ex.: prof.eron@papakm.test).
+            </p>
+          )}
         </div>
       </header>
 
@@ -89,7 +186,7 @@ export default function AdminPage() {
               Atletas Ativos
             </span>
           </div>
-          <div className="text-3xl font-black text-white italic">24/32</div>
+          <div className="text-3xl font-black text-white italic">{students.length}</div>
         </div>
         <div className="bg-papa-card p-6 rounded-3xl border border-white/5">
           <div className="flex items-center gap-3 mb-4">
@@ -104,8 +201,15 @@ export default function AdminPage() {
           {unreadPain > 0 && (
             <button
               type="button"
-              onClick={() => {
-                markAllPainRead();
+              onClick={async () => {
+                try {
+                  await fetch("/api/pain-feedback", {
+                    method: "PATCH",
+                    credentials: "include",
+                  });
+                } catch {
+                  /* ignore */
+                }
                 refresh();
               }}
               className="mt-3 text-[10px] font-black uppercase text-papa-blue hover:underline"
@@ -124,7 +228,7 @@ export default function AdminPage() {
             </span>
           </div>
           <div className="text-xs text-white/50 font-medium line-clamp-3">
-            {readActiveAnnouncement() || "Nenhum aviso publicado."}
+            {latestAnn || readActiveAnnouncement() || "Nenhum aviso publicado."}
           </div>
         </div>
       </div>
@@ -161,6 +265,8 @@ export default function AdminPage() {
             />
             <input
               placeholder="Buscar aluno..."
+              value={studentQuery}
+              onChange={(e) => setStudentQuery(e.target.value)}
               className="bg-white/5 border border-white/10 pl-10 pr-4 py-2 rounded-xl text-xs text-white outline-none w-64"
             />
           </div>
@@ -179,45 +285,31 @@ export default function AdminPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {[
-                {
-                  name: "Nilton Rodrigues",
-                  goal: "Sub 20min 5km",
-                  test: "12:45 (3km)",
-                  health: "Apto",
-                  status: "Semana 7",
-                  color: "text-emerald-400",
-                },
-                {
-                  name: "Bruno Costa",
-                  goal: "Primeiros 5km",
-                  test: "07:35 (1km)",
-                  health: "Atestado Vencido",
-                  status: "Atrasado",
-                  color: "text-papa-orange",
-                },
-              ].map((aluno, i) => (
-                <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="p-6 text-xs font-black text-white">{aluno.name}</td>
+              {filteredStudents.map((aluno) => (
+                <tr key={aluno.id} className="hover:bg-white/[0.02] transition-colors group">
+                  <td className="p-6 text-xs font-black text-white">
+                    {aluno.name}
+                    <div className="text-[10px] text-white/35 font-mono mt-1">{aluno.email}</div>
+                  </td>
                   <td className="p-6 text-[10px] text-white/40 font-bold uppercase italic">
-                    {aluno.goal}
+                    {aluno.selectedBasePlan ? `Plano ${aluno.selectedBasePlan}` : "Sem plano base"}
                   </td>
                   <td className="p-6 text-xs font-mono font-bold text-papa-blue">
-                    {aluno.test}
+                    {aluno.role === "social" ? "Aluno social" : "Aluno planilha"}
                   </td>
                   <td className="p-6">
-                    <span className={`text-[10px] font-black ${aluno.color}`}>
-                      {aluno.health}
+                    <span className="text-[10px] font-black text-emerald-400">
+                      Ativo
                     </span>
                   </td>
                   <td className="p-6">
                     <span className="text-[10px] font-black px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/60">
-                      {aluno.status}
+                      Semana {aluno.activeWeek}
                     </span>
                   </td>
                   <td className="p-6 text-right">
                     <Link
-                      href={`/admin/aluno/${slugify(aluno.name)}`}
+                      href={`/admin/aluno/${encodeURIComponent(aluno.athleteSlug || aluno.id)}`}
                       className="bg-papa-orange text-papa-dark px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform inline-flex items-center gap-2"
                     >
                       Abrir <ChevronRight size={14} />
@@ -225,6 +317,13 @@ export default function AdminPage() {
                   </td>
                 </tr>
               ))}
+              {filteredStudents.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-xs text-white/35">
+                    Nenhum aluno encontrado.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -271,6 +370,9 @@ export default function AdminPage() {
             placeholder="Texto exibido no topo do app dos alunos..."
             className="w-full rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-papa-blue/40 placeholder:text-white/30"
           />
+          {coachMsg && (
+            <p className="text-[11px] text-white/60 border border-white/10 rounded-2xl px-3 py-2">{coachMsg}</p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"
@@ -289,6 +391,93 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+
+      {(role === "admin" || role === "coach") && (
+        <div className="bg-papa-card rounded-3xl border border-white/5 p-8 space-y-4">
+          <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-2">
+            <FileText size={16} className="text-papa-orange" /> Planilha base no servidor
+          </h3>
+          <p className="text-xs text-white/45">
+            Chaves <span className="font-mono text-white/70">sub20</span> e{" "}
+            <span className="font-mono text-white/70">volume</span> são as mesmas que os alunos escolhem ao
+            entrar. Salvar aqui atualiza treinos, FIT e feed para quem usa cada plano.
+          </p>
+          <div className="flex flex-wrap gap-2 items-center">
+            <label className="text-[10px] font-black uppercase text-white/40">Chave</label>
+            <select
+              value={planKey}
+              onChange={(e) => setPlanKey(e.target.value)}
+              className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none"
+            >
+              <option value="sub20">sub20</option>
+              <option value="volume">volume</option>
+            </select>
+            <button
+              type="button"
+              disabled={planBusy}
+              onClick={async () => {
+                setPlanBusy(true);
+                setCoachMsg("");
+                try {
+                  const res = await fetch(
+                    `/api/coach/plan-template/${encodeURIComponent(planKey)}`,
+                    { credentials: "include" }
+                  );
+                  const j = await res.json();
+                  if (!res.ok) throw new Error(j?.error || "Falha ao carregar");
+                  setPlanJson(JSON.stringify(j.weeks || {}, null, 2));
+                  setCoachMsg("JSON carregado do servidor.");
+                } catch (e) {
+                  setCoachMsg(e?.message || "Erro ao carregar");
+                } finally {
+                  setPlanBusy(false);
+                }
+              }}
+              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-[10px] font-black uppercase text-white/80 hover:bg-white/10 disabled:opacity-40"
+            >
+              Carregar do servidor
+            </button>
+            <button
+              type="button"
+              disabled={planBusy}
+              onClick={async () => {
+                setPlanBusy(true);
+                setCoachMsg("");
+                try {
+                  const weeks = JSON.parse(planJson);
+                  const res = await fetch(
+                    `/api/coach/plan-template/${encodeURIComponent(planKey)}`,
+                    {
+                      method: "PUT",
+                      credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ weeks }),
+                    }
+                  );
+                  const j = await res.json();
+                  if (!res.ok) throw new Error(j?.error || "Falha ao salvar");
+                  setCoachMsg("Planilha salva no Supabase.");
+                } catch (e) {
+                  setCoachMsg(e?.message || "JSON inválido ou erro ao salvar");
+                } finally {
+                  setPlanBusy(false);
+                }
+              }}
+              className="rounded-xl bg-papa-orange px-4 py-2 text-[10px] font-black uppercase text-white hover:brightness-110 disabled:opacity-40"
+            >
+              Salvar no servidor
+            </button>
+          </div>
+          <textarea
+            value={planJson}
+            onChange={(e) => setPlanJson(e.target.value)}
+            rows={16}
+            spellCheck={false}
+            className="w-full rounded-2xl border border-white/10 bg-black/40 p-4 font-mono text-[11px] text-emerald-100/90 outline-none focus:border-papa-blue/40"
+            placeholder='{ "1": { "title": "...", "blocks": [...] } }'
+          />
+        </div>
+      )}
 
       <div className="bg-papa-card rounded-3xl border border-white/5 p-8 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

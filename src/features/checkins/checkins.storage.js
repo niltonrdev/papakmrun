@@ -1,4 +1,9 @@
-const KEY = "papakm_checkins_v1";
+import { getCurrentAthleteSlug } from "@/features/athletes/athletes.storage";
+
+function keyForCurrentAthlete() {
+  const slug = getCurrentAthleteSlug();
+  return `papakm_checkins_v1:${slug || "default"}`;
+}
 
 function safeParse(json, fallback) {
   try {
@@ -10,7 +15,7 @@ function safeParse(json, fallback) {
 
 export function readAllCheckins() {
   if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(KEY);
+  const raw = window.localStorage.getItem(keyForCurrentAthlete());
   if (!raw) return [];
   const data = safeParse(raw, []);
   return Array.isArray(data) ? data : [];
@@ -18,7 +23,7 @@ export function readAllCheckins() {
 
 export function writeAllCheckins(items) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, JSON.stringify(items));
+  window.localStorage.setItem(keyForCurrentAthlete(), JSON.stringify(items));
 }
 
 export function upsertCheckin(checkin) {
@@ -27,11 +32,16 @@ export function upsertCheckin(checkin) {
     (c) => c.date === checkin.date && c.workoutSlug === checkin.workoutSlug
   );
 
-  if (idx >= 0) all[idx] = checkin;
-  else all.unshift(checkin);
+  const merged = {
+    ...((idx >= 0 && all[idx]) || {}),
+    ...checkin,
+  };
+
+  if (idx >= 0) all[idx] = merged;
+  else all.unshift(merged);
 
   writeAllCheckins(all);
-  return checkin;
+  return merged;
 }
 
 export function hasCheckin(date, workoutSlug) {
@@ -46,5 +56,5 @@ export function getCheckin(date, workoutSlug) {
 
 export function clearAllCheckins() {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(KEY);
+  window.localStorage.removeItem(keyForCurrentAthlete());
 }

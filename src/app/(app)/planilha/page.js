@@ -1,8 +1,12 @@
 "use client";
-import { useState } from "react";
-import { getWeekPlan, getAllWeekNumbers } from "@/features/plans/plans.service";
+import { useEffect, useState } from "react";
+import { getWeekPlan } from "@/features/plans/plans.service";
 import { BarChart3, Activity, HeartPulse, ChevronRight, Trophy, Timer, Medal } from "lucide-react";
 import Link from "next/link";
+import { useBackendSyncTick } from "@/features/session/backend-sync";
+import { readActiveWeekNumber } from "@/features/session/prefs.storage";
+import { useProfileRole } from "@/features/session/useProfileRole";
+import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
 
 function StatCard({ title, value, icon: Icon, unit }) {
   return (
@@ -103,9 +107,42 @@ function EvolutionChart() {
 }
 
 export default function PerformancePage() {
+  const syncTick = useBackendSyncTick();
+  const { isSocial, loading: roleLoading } = useProfileRole();
   const [activeWeek, setActiveWeek] = useState("1");
+  const [strava, setStrava] = useState(null);
   const week = getWeekPlan(activeWeek);
-  const weekNumbers = getAllWeekNumbers();
+
+  useEffect(() => {
+    setActiveWeek(readActiveWeekNumber());
+  }, [syncTick]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/strava/summary", { credentials: "include" });
+        const j = await res.json();
+        if (!cancelled) setStrava(j);
+      } catch {
+        if (!cancelled) setStrava(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const volKm =
+    strava?.linked && strava?.totals?.ytdRunKm != null
+      ? String(strava.totals.ytdRunKm)
+      : strava?.linked && strava?.totals?.recentRunKm != null
+        ? String(strava.totals.recentRunKm)
+        : "128";
+  const sessionsVal =
+    strava?.linked && strava?.totals?.allRunSessions != null
+      ? String(strava.totals.allRunSessions)
+      : "14";
 
   return (
     <div className="max-w-7xl mx-auto space-y-10 pb-20">
@@ -115,52 +152,89 @@ export default function PerformancePage() {
 
       {/* 1. KPIs Superiores (Volume, Sessões, etc) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Volume Mensal" value="128" icon={BarChart3} unit="km" />
-        <StatCard title="Sessões" value="14" icon={Activity} />
+        <StatCard
+          title={strava?.linked ? "Volume (Strava)" : "Volume (demo)"}
+          value={volKm}
+          icon={BarChart3}
+          unit="km"
+        />
+        <StatCard
+          title={strava?.linked ? "Sessões (total Strava)" : "Sessões"}
+          value={sessionsVal}
+          icon={Activity}
+        />
         <StatCard title="Status Saúde" value="Apto" icon={HeartPulse} />
         <StatCard title="Pace Médio" value="5:12" icon={BarChart3} unit="/km" />
       </div>
+      {strava && !strava.linked && strava.message && (
+        <p className="text-xs text-white/40 -mt-6">
+          {strava.message}{" "}
+          <a href="/perfil" className="text-papa-blue underline underline-offset-2">
+            Ligar no perfil
+          </a>
+        </p>
+      )}
 
       {/* 2. Gráfico de Evolução */}
       <EvolutionChart />
 
-      {/* 3. Pré-visualização da Planilha */}
-      <div className="bg-papa-card rounded-3xl border border-white/5 overflow-hidden">
-        <div className="p-6 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex flex-col gap-2">
-            <h3 className="text-xl font-black text-white italic uppercase tracking-tighter leading-none">
-              Planilha Semanal
-            </h3>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-white/30 font-black uppercase tracking-widest">{week.title}</span>
-              <span className="w-1 h-1 rounded-full bg-white/10" />
-              <p className="text-[10px] text-papa-blue font-bold uppercase tracking-widest">Fase: {week.phase}</p>
+      {/* 3. Pré-visualização da Planilha (Club: tabela; Social: upsell) */}
+      {roleLoading ? (
+        <div
+          className="h-72 animate-pulse rounded-3xl border border-white/5 bg-white/5"
+          aria-hidden
+        />
+      ) : isSocial ? (
+        <SocialPlanilhaUpsell />
+      ) : (
+        <div className="bg-papa-card rounded-3xl border border-white/5 overflow-hidden">
+          <div className="p-6 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex flex-col gap-2">
+              <h3 className="text-xl font-black text-white italic uppercase tracking-tighter leading-none">
+                Planilha Semanal
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-white/30 font-black uppercase tracking-widest">
+                  {week.title}
+                </span>
+                <span className="w-1 h-1 rounded-full bg-white/10" />
+                <p className="text-[10px] text-papa-blue font-bold uppercase tracking-widest">
+                  Fase: {week.phase}
+                </p>
+              </div>
             </div>
+
+            <Link
+              href="/planilha/detalhes"
+              className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase px-6 py-3 rounded-2xl flex items-center gap-2 transition-all self-start border border-white/5"
+            >
+              Abrir Planilha Full <ChevronRight size={14} />
+            </Link>
           </div>
-          
-          <Link href="/planilha/detalhes" className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase px-6 py-3 rounded-2xl flex items-center gap-2 transition-all self-start border border-white/5">
-            Abrir Planilha Full <ChevronRight size={14} />
-          </Link>
+
+          <div className="p-6 overflow-x-auto">
+            <table className="w-full text-left">
+              <tbody className="divide-y divide-white/5">
+                {week.blocks.map((b) => (
+                  <tr key={b.slug}>
+                    <td className="py-4 text-[10px] font-black text-white/30 uppercase w-20">
+                      {b.dayLabel}
+                    </td>
+                    <td className="py-4 text-xs font-bold text-white">
+                      {b.title} • {b.km}km
+                    </td>
+                    <td className="py-4 text-right">
+                      <span className="text-[9px] font-black uppercase px-2 py-1 rounded bg-white/5 text-papa-blue border border-white/10">
+                        {b.zoneKey}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        
-        <div className="p-6 overflow-x-auto">
-          <table className="w-full text-left">
-            <tbody className="divide-y divide-white/5">
-              {week.blocks.map((b) => (
-                <tr key={b.slug}>
-                  <td className="py-4 text-[10px] font-black text-white/30 uppercase w-20">{b.dayLabel}</td>
-                  <td className="py-4 text-xs font-bold text-white">{b.title} • {b.km}km</td>
-                  <td className="py-4 text-right">
-                    <span className="text-[9px] font-black uppercase px-2 py-1 rounded bg-white/5 text-papa-blue border border-white/10">
-                      {b.zoneKey}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
 
       {/* 4. Previsões e Melhores Marcas (Estilo Strava) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
