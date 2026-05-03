@@ -1,14 +1,43 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { Activity, Link2, Unlink, Download } from "lucide-react";
 
+const STRAVA_RETURN_MESSAGES = {
+  ok: { tone: "ok", text: "Strava conectado com sucesso." },
+  denied: { tone: "err", text: "Autorização cancelada no Strava." },
+  invalid: { tone: "err", text: "Resposta inválida do Strava (sem código)." },
+  state: { tone: "err", text: "Sessão de segurança expirou ou não bateu. Clique em Conectar Strava de novo." },
+  token: { tone: "err", text: "Não foi possível trocar o código pelo token. Confira se STRAVA_REDIRECT_URI no .env é idêntico ao do app no Strava." },
+  noathlete: { tone: "err", text: "Strava respondeu sem dados do atleta." },
+  db: { tone: "err", text: "Erro ao salvar a conexão no banco (tabela strava_connections / RLS)." },
+  config: {
+    tone: "err",
+    text: "Strava não configurada no servidor: defina STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET e STRAVA_REDIRECT_URI no arquivo .env.local (o Next não lê .env.example), salve e reinicie npm run dev.",
+  },
+  nodb: { tone: "err", text: "Supabase não configurado no servidor." },
+};
+
 export default function StravaPanel() {
+  const router = useRouter();
+  const pathname = usePathname();
   const [backend, setBackend] = useState(null);
   const [status, setStatus] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [returnBanner, setReturnBanner] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search).get("strava");
+    if (!q || !STRAVA_RETURN_MESSAGES[q]) return;
+    setReturnBanner(STRAVA_RETURN_MESSAGES[q]);
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete("strava");
+    router.replace(`${pathname}${clean.search}`, { scroll: false });
+  }, [router, pathname]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -56,10 +85,24 @@ export default function StravaPanel() {
     }
   }
 
+  const bannerBlock =
+    returnBanner != null ? (
+      <div
+        className={`rounded-2xl border px-4 py-3 text-xs leading-relaxed ${
+          returnBanner.tone === "ok"
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+            : "border-red-500/35 bg-red-500/10 text-red-100"
+        }`}
+      >
+        {returnBanner.text}
+      </div>
+    ) : null;
+
   if (loading) {
     return (
-      <div className="bg-papa-card p-6 rounded-3xl border border-white/5 text-sm text-white/50">
-        Carregando integrações…
+      <div className="space-y-3 rounded-3xl border border-white/5 bg-papa-card p-6 text-sm text-white/50">
+        {bannerBlock}
+        <div>Carregando integrações…</div>
       </div>
     );
   }
@@ -70,6 +113,7 @@ export default function StravaPanel() {
         <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-2">
           <Activity size={16} className="text-papa-orange" /> Strava
         </h3>
+        {bannerBlock}
         <p className="text-xs text-white/50 leading-relaxed">
           Configure o Supabase e faça login com e-mail para ligar o Strava e sincronizar volume real.
         </p>
@@ -79,6 +123,7 @@ export default function StravaPanel() {
 
   return (
     <div className="bg-papa-card p-6 rounded-3xl border border-white/5 space-y-4">
+      {bannerBlock}
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-2">
           <Activity size={16} className="text-papa-orange" /> Strava
@@ -97,6 +142,8 @@ export default function StravaPanel() {
 
       <p className="text-xs text-white/50 leading-relaxed">
         O login da PapaKM continua separado: aqui você só autoriza a leitura das suas corridas no Strava.
+        Se a página ficar em branco ao conectar, abra o app no Chrome ou Edge — o preview embutido do editor
+        às vezes bloqueia o fluxo do Strava.
       </p>
       <p className="text-[10px] text-papa-blue/80 font-mono leading-relaxed border border-white/10 rounded-xl px-3 py-2 bg-black/20">
         Dica dev: com o Strava ligado, rode <span className="font-black">npm run dev</span> e veja o terminal do

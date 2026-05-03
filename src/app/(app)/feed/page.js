@@ -27,6 +27,7 @@ function buildFeedItemsFromLocalCheckins(checkins) {
     const pace =
       zone?.paceMin && zone?.paceMax ? `${zone.paceMin}–${zone.paceMax}` : "—";
     return {
+      source: "local",
       id: `${c.date}-${c.workoutSlug}-${idx}`,
       dateISO: c.date,
       title: c.workoutTitle?.trim?.() || workout?.title || "Treino",
@@ -37,6 +38,7 @@ function buildFeedItemsFromLocalCheckins(checkins) {
       note: c.note ?? "",
       authorName: "Você",
       phraseIfNoNote: FEED_PHRASES[idx % FEED_PHRASES.length],
+      mapPoints: null,
     };
   });
   return items.sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO)));
@@ -50,6 +52,7 @@ function mapApiFeedItems(rows) {
     const pace =
       zone?.paceMin && zone?.paceMax ? `${zone.paceMin}–${zone.paceMax}` : "—";
     return {
+      source: "checkin",
       id: r.id || `${r.userId}-${r.date}-${r.workoutSlug}`,
       dateISO: r.date,
       title: r.workoutTitle?.trim?.() || workout?.title || "Treino",
@@ -60,32 +63,64 @@ function mapApiFeedItems(rows) {
       note: r.note ?? "",
       authorName: r.authorName || "Atleta",
       phraseIfNoNote: FEED_PHRASES[idx % FEED_PHRASES.length],
+      mapPoints: null,
     };
   });
 }
 
+function mapStravaFeedItems(rows, authorName) {
+  return (rows || []).map((r) => ({
+    source: "strava",
+    id: r.id,
+    dateISO: r.dateISO,
+    title: r.name || "Corrida",
+    km: String(r.distanceKm ?? "—"),
+    pace: r.pacePerKm && r.pacePerKm !== "—" ? `${r.pacePerKm} /km` : "—",
+    effort: null,
+    note:
+      r.movingTimeLabel != null
+        ? `${r.distanceKm} km · ${r.movingTimeLabel}${
+            r.elevationM != null ? ` · ${r.elevationM} m D+` : ""
+          }`
+        : "",
+    authorName: authorName || "Strava",
+    phraseIfNoNote: "Treino registrado no Strava.",
+    mapPoints: Array.isArray(r.mapPoints) && r.mapPoints.length >= 2 ? r.mapPoints : null,
+  }));
+}
+
 function PostCard({ it }) {
+  const isStrava = it.source === "strava";
   return (
     <article className="rounded-3xl border border-white/5 bg-papa-card p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center italic text-white/40">
-            {it.authorName?.[0] ?? "?"}
+          <div
+            className={`flex h-10 w-10 items-center justify-center rounded-full border text-xs font-black italic ${
+              isStrava
+                ? "border-[#fc4c02]/40 bg-[#fc4c02]/15 text-[#fc4c02]"
+                : "border-white/10 bg-white/10 text-white/40"
+            }`}
+          >
+            {isStrava ? "S" : it.authorName?.[0] ?? "?"}
           </div>
           <div>
-            <div className="font-black text-white leading-none">{it.authorName}</div>
-            <div className="text-[10px] text-white/40 font-bold uppercase mt-1">
+            <div className="font-black leading-none text-white">{it.authorName}</div>
+            {it.title ? (
+              <div className="mt-1 text-[11px] font-bold text-white/55">{it.title}</div>
+            ) : null}
+            <div className="mt-0.5 text-[10px] font-bold uppercase text-white/40">
               {it.km}km • Pace {it.pace}
             </div>
           </div>
         </div>
-        <span className="bg-white/5 px-3 py-1 rounded-full text-[10px] font-black text-white/30 uppercase">
+        <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-black uppercase text-white/30">
           {formatSmartDate(it.dateISO)}
         </span>
       </div>
 
-      <div className="aspect-video w-full rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center text-white/10">
-        <WorkoutMap />
+      <div className="aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/5 bg-black/40">
+        <WorkoutMap points={it.mapPoints} />
       </div>
 
       <div className="text-sm text-white/70 leading-relaxed italic">
@@ -116,17 +151,46 @@ export default function FeedPage() {
   const [source, setSource] = useState("");
 
   async function refresh() {
+    let checkItems = [];
+    let stravaActivities = [];
+    let stravaAuthor = "";
+
     try {
-      const res = await fetch("/api/feed/checkins", { credentials: "include" });
-      const j = await res.json();
-      if (res.ok && Array.isArray(j.items) && j.items.length) {
-        setItems(mapApiFeedItems(j.items));
-        setSource("comunidade");
+      const [checkRes, stravaRes] = await Promise.all([
+        fetch("/api/feed/checkins", { credentials: "include" }),
+        fetch("/api/strava/feed", { credentials: "include" }),
+      ]);
+
+      if (checkRes.ok) {
+        const j = await checkRes.json();
+        checkItems = Array.isArray(j.items) ? j.items : [];
+      }
+
+      if (stravaRes.ok) {
+        const s = await stravaRes.json();
+        stravaAuthor = s.authorName || "";
+        stravaActivities = Array.isArray(s.activities) ? s.activities : [];
+      }
+
+      const fromCheckins = mapApiFeedItems(checkItems);
+      const fromStrava = mapStravaFeedItems(stravaActivities, stravaAuthor);
+      const merged = [...fromStrava, ...fromCheckins].sort((a, b) => {
+        const ta = `${a.dateISO}T12:00:00`;
+        const tb = `${b.dateISO}T12:00:00`;
+        return tb.localeCompare(ta);
+      });
+
+      if (merged.length > 0) {
+        setItems(merged);
+        if (fromStrava.length && fromCheckins.length) setSource("strava+comunidade");
+        else if (fromStrava.length) setSource("strava");
+        else setSource("comunidade");
         return;
       }
     } catch {
       /* ignore */
     }
+
     setItems(buildFeedItemsFromLocalCheckins(readAllCheckins()));
     setSource("local");
   }
@@ -159,7 +223,14 @@ export default function FeedPage() {
           <h2 className="text-4xl font-black text-white italic">Feed Social e Comunidade</h2>
           {source && (
             <p className="text-[10px] text-white/30 font-bold uppercase mt-2">
-              Fonte: {source === "comunidade" ? "check-ins de todos (Supabase)" : "apenas este dispositivo (demo)"}
+              Fonte:{" "}
+              {source === "strava+comunidade"
+                ? "suas corridas (Strava) + check-ins da comunidade"
+                : source === "strava"
+                  ? "suas corridas (Strava)"
+                  : source === "comunidade"
+                    ? "check-ins de todos (Supabase)"
+                    : "apenas este dispositivo (demo)"}
             </p>
           )}
         </div>

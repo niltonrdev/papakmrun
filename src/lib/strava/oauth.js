@@ -12,13 +12,16 @@ export function buildStravaAuthorizeUrl({ clientId, redirectUri, state, scope })
   return u.toString();
 }
 
-export async function exchangeStravaCode({ clientId, clientSecret, code }) {
+export async function exchangeStravaCode({ clientId, clientSecret, code, redirectUri }) {
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
     code,
     grant_type: "authorization_code",
   });
+  if (redirectUri) {
+    body.set("redirect_uri", redirectUri);
+  }
   const res = await fetch(STRAVA_TOKEN, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

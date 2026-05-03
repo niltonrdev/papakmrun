@@ -9,7 +9,8 @@ export async function GET(request) {
   const state = url.searchParams.get("state");
   const err = url.searchParams.get("error");
 
-  const base = env.appUrl || url.origin;
+  /** Same host that received the callback (evita NEXT_PUBLIC_APP_URL errado em dev / preview). */
+  const base = url.origin;
 
   if (err) {
     return NextResponse.redirect(`${base}/perfil?strava=denied`);
@@ -45,6 +46,7 @@ export async function GET(request) {
       clientId: env.stravaClientId,
       clientSecret: env.stravaClientSecret,
       code,
+      redirectUri: env.stravaRedirectUri,
     });
 
     const athleteId = token.athlete?.id;

@@ -21,8 +21,16 @@ export async function getAthleteStats(accessToken, athleteId) {
   return stravaFetch(`/athletes/${athleteId}/stats`, accessToken);
 }
 
-export async function getRecentActivities(accessToken, { perPage = 15 } = {}) {
-  return stravaFetch(`/athlete/activities?per_page=${perPage}`, accessToken);
+export async function getRecentActivities(accessToken, { perPage = 15, page = 1 } = {}) {
+  return stravaFetch(
+    `/athlete/activities?per_page=${perPage}&page=${page}`,
+    accessToken
+  );
+}
+
+/** Full activity (incl. map) — use só quando o resumo da lista não trouxe polyline. */
+export async function getActivityById(accessToken, activityId) {
+  return stravaFetch(`/activities/${activityId}`, accessToken);
 }
 
 export async function getActivityStreams(accessToken, activityId, keys = ["latlng", "time"]) {

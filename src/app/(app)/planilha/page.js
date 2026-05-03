@@ -7,6 +7,7 @@ import { useBackendSyncTick } from "@/features/session/backend-sync";
 import { readActiveWeekNumber } from "@/features/session/prefs.storage";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
+import PerformanceEvolutionChart from "@/features/strava/PerformanceEvolutionChart";
 
 function StatCard({ title, value, icon: Icon, unit }) {
   return (
@@ -43,74 +44,13 @@ function PersonalRecord({ label, time, pace, date }) {
   );
 }
 
-function EvolutionChart() {
-  // Pontos do gráfico (escala 0-100 para o SVG)
-  const currentPath = "M 0 80 Q 25 20 50 50 T 100 30"; 
-  const lastPath = "M 0 90 Q 30 70 60 85 T 100 75";
-
-  return (
-    <div className="rounded-3xl bg-papa-card p-8 border border-white/5 mt-10">
-      <div className="flex items-center justify-between mb-10">
-        <div>
-          <h3 className="text-xl font-black text-white italic uppercase tracking-tighter leading-none">
-            Gráfico de Evolução
-          </h3>
-          <p className="text-[10px] text-white/30 font-bold uppercase mt-1 tracking-widest">
-            Volume e Consistência (km)
-          </p>
-        </div>
-        <div className="flex gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-papa-blue shadow-[0_0_10px_rgba(0,209,255,0.6)]" />
-            <span className="text-[10px] text-white/40 font-black uppercase tracking-widest">Atual</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-papa-orange shadow-[0_0_10px_rgba(255,107,0,0.6)]" />
-            <span className="text-[10px] text-white/40 font-black uppercase tracking-widest">Anterior</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="relative h-48 w-full group">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
-          <defs>
-            <linearGradient id="gradBlue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00d1ff" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#00d1ff" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id="gradOrange" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#ff6b00" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#ff6b00" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          {[25, 50, 75].map(y => (
-            <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="white" strokeOpacity="0.05" strokeWidth="0.5" />
-          ))}
-
-          <path d={`${lastPath} L 100 100 L 0 100 Z`} fill="url(#gradOrange)" />
-          <path d={lastPath} fill="none" stroke="#ff6b00" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
-
-          <path d={`${currentPath} L 100 100 L 0 100 Z`} fill="url(#gradBlue)" />
-          <path d={currentPath} fill="none" stroke="#00d1ff" strokeWidth="3" strokeLinecap="round" className="drop-shadow-[0_0_8px_rgba(0,209,255,0.5)]" />
-        </svg>
-
-        <div className="absolute -bottom-6 inset-x-0 flex justify-between text-[10px] text-white/20 font-black uppercase tracking-widest px-1">
-          <span>Sem 1</span>
-          <span>Sem 2</span>
-          <span>Sem 3</span>
-          <span>Sem 4</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function PerformancePage() {
   const syncTick = useBackendSyncTick();
   const { isSocial, loading: roleLoading } = useProfileRole();
   const [activeWeek, setActiveWeek] = useState("1");
   const [strava, setStrava] = useState(null);
+  const [insights, setInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
   const week = getWeekPlan(activeWeek);
 
   useEffect(() => {
@@ -133,6 +73,31 @@ export default function PerformancePage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!strava?.linked) {
+        setInsights(null);
+        setInsightsLoading(false);
+        return;
+      }
+      setInsightsLoading(true);
+      try {
+        const res = await fetch("/api/strava/insights", { credentials: "include" });
+        const j = await res.json();
+        if (!cancelled && res.ok && j?.linked) setInsights(j);
+        else if (!cancelled) setInsights(null);
+      } catch {
+        if (!cancelled) setInsights(null);
+      } finally {
+        if (!cancelled) setInsightsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [strava?.linked]);
+
   const volKm =
     strava?.linked && strava?.totals?.ytdRunKm != null
       ? String(strava.totals.ytdRunKm)
@@ -143,6 +108,13 @@ export default function PerformancePage() {
     strava?.linked && strava?.totals?.allRunSessions != null
       ? String(strava.totals.allRunSessions)
       : "14";
+
+  const paceVal =
+    strava?.linked && insights?.avgPaceRecentRuns
+      ? insights.avgPaceRecentRuns
+      : strava?.linked
+        ? "—"
+        : "5:12";
 
   return (
     <div className="max-w-7xl mx-auto space-y-10 pb-20">
@@ -164,7 +136,12 @@ export default function PerformancePage() {
           icon={Activity}
         />
         <StatCard title="Status Saúde" value="Apto" icon={HeartPulse} />
-        <StatCard title="Pace Médio" value="5:12" icon={BarChart3} unit="/km" />
+        <StatCard
+          title={strava?.linked ? "Pace médio (recentes)" : "Pace Médio"}
+          value={paceVal}
+          icon={BarChart3}
+          unit="/km"
+        />
       </div>
       {strava && !strava.linked && strava.message && (
         <p className="text-xs text-white/40 -mt-6">
@@ -176,7 +153,10 @@ export default function PerformancePage() {
       )}
 
       {/* 2. Gráfico de Evolução */}
-      <EvolutionChart />
+      <PerformanceEvolutionChart
+        weeklyKm={insights?.weeklyKm}
+        loading={Boolean(strava?.linked && insightsLoading)}
+      />
 
       {/* 3. Pré-visualização da Planilha (Club: tabela; Social: upsell) */}
       {roleLoading ? (
@@ -241,23 +221,40 @@ export default function PerformancePage() {
         {/* Previsões */}
         <div className="space-y-6">
           <h3 className="text-sm font-black text-white/30 uppercase tracking-widest flex items-center gap-2">
-            <Timer size={16} /> Previsões de Desempenho
+            <Timer size={16} /> Referência de desempenho
           </h3>
+          <p className="text-[10px] text-white/35 font-bold uppercase tracking-wider">
+            Estimativas a partir das suas melhores corridas no Strava (faixas de distância), não modelo
+            preditivo.
+          </p>
           <div className="grid grid-cols-1 gap-4">
-             <div className="p-6 rounded-3xl bg-papa-card border border-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-2xl border-2 border-papa-orange flex items-center justify-center font-black text-papa-orange italic">5K</div>
-                   <div>
-                      <div className="text-2xl font-black text-white">20:53</div>
-                      <div className="text-xs text-white/40 font-bold">Pace: 4:11 /km</div>
-                   </div>
+            {strava?.linked && Array.isArray(insights?.predictions) && insights.predictions.length > 0 ? (
+              insights.predictions.map((p) => (
+                <div
+                  key={p.label}
+                  className="flex items-center justify-between rounded-3xl border border-white/5 bg-papa-card p-6"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-papa-orange font-black italic text-papa-orange">
+                      {p.label}
+                    </div>
+                    <div>
+                      <div className="text-2xl font-black text-white">{p.time}</div>
+                      <div className="text-xs font-bold text-white/40">Pace: {p.pace} /km</div>
+                    </div>
+                  </div>
+                  <div className="max-w-[44%] text-right">
+                    <div className="text-[10px] font-bold leading-snug text-white/35">{p.hint}</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                   <div className="text-[10px] text-emerald-400 font-black uppercase">▼ 1s</div>
-                   <div className="text-[10px] text-white/20 font-bold">Últimos 30 dias</div>
-                </div>
-             </div>
-             {/* Adicione 10k, 21k conforme necessário */}
+              ))
+            ) : (
+              <div className="rounded-3xl border border-white/5 bg-papa-card p-6 text-center text-xs text-white/40">
+                {strava?.linked
+                  ? "Conecte mais corridas no Strava ou aguarde o carregamento dos insights."
+                  : "Conecte o Strava no perfil para ver referências por distância."}
+              </div>
+            )}
           </div>
         </div>
 
@@ -267,9 +264,25 @@ export default function PerformancePage() {
             <Trophy size={16} /> Melhores Marcas
           </h3>
           <div className="space-y-3">
-            <PersonalRecord label="15 km" time="1:22:03" pace="5:28" date="21 de fev. de 2026" />
-            <PersonalRecord label="10 km" time="47:58" pace="4:48" date="31 de jan. de 2026" />
-            <PersonalRecord label="400 m" time="1:18" pace="3:15" date="5 de nov. de 2025" />
+            {strava?.linked &&
+            Array.isArray(insights?.personalRecords) &&
+            insights.personalRecords.length > 0 ? (
+              insights.personalRecords.map((pr) => (
+                <PersonalRecord
+                  key={pr.label}
+                  label={pr.label}
+                  time={pr.time}
+                  pace={pr.pace}
+                  date={pr.date}
+                />
+              ))
+            ) : (
+              <>
+                <PersonalRecord label="15 km" time="1:22:03" pace="5:28" date="21 de fev. de 2026" />
+                <PersonalRecord label="10 km" time="47:58" pace="4:48" date="31 de jan. de 2026" />
+                <PersonalRecord label="400 m" time="1:18" pace="3:15" date="5 de nov. de 2025" />
+              </>
+            )}
           </div>
         </div>
       </div>

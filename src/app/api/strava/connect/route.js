@@ -4,24 +4,52 @@ import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { buildStravaAuthorizeUrl } from "@/lib/strava/oauth";
 
-export async function GET() {
+function wantsJson(request) {
+  const accept = request.headers.get("accept") || "";
+  return accept.includes("application/json");
+}
+
+export async function GET(request) {
+  const origin = request.nextUrl.origin;
+
   if (!env.stravaConfigured) {
-    return NextResponse.json(
-      { error: "Strava não configurada (STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REDIRECT_URI)." },
-      { status: 503 }
-    );
+    if (wantsJson(request)) {
+      return NextResponse.json(
+        {
+          error:
+            "Strava não configurada (STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REDIRECT_URI).",
+        },
+        { status: 503 }
+      );
+    }
+    const u = new URL(`${origin}/perfil`);
+    u.searchParams.set("strava", "config");
+    return NextResponse.redirect(u);
   }
 
   const supabase = await createClient();
   if (!supabase) {
-    return NextResponse.json({ error: "Supabase não configurado." }, { status: 503 });
+    if (wantsJson(request)) {
+      return NextResponse.json({ error: "Supabase não configurado." }, { status: 503 });
+    }
+    const u = new URL(`${origin}/perfil`);
+    u.searchParams.set("strava", "nodb");
+    return NextResponse.redirect(u);
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Sessão necessária. Entre com e-mail/senha (Supabase)." }, { status: 401 });
+    if (wantsJson(request)) {
+      return NextResponse.json(
+        { error: "Sessão necessária. Entre com e-mail/senha (Supabase)." },
+        { status: 401 }
+      );
+    }
+    const u = new URL(`${origin}/login`);
+    u.searchParams.set("next", "/perfil");
+    return NextResponse.redirect(u);
   }
 
   const state = randomBytes(24).toString("hex");
