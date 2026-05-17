@@ -35,7 +35,9 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, role, display_name, athlete_slug, active_week, selected_base_plan")
+    .select(
+      "id, email, role, display_name, athlete_slug, active_week, selected_base_plan, plan_status, created_at"
+    )
     .in("role", ["plan", "social"])
     .order("created_at", { ascending: false });
 
@@ -52,6 +54,7 @@ export async function GET() {
       "Aluno",
     email: r.email ?? "",
     role: r.role,
+    planStatus: r.plan_status || null,
     athleteSlug: r.athlete_slug || "",
     activeWeek: r.active_week || "1",
     selectedBasePlan: r.selected_base_plan || null,

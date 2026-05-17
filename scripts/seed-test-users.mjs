@@ -59,49 +59,34 @@ async function importVolumePlan() {
 
 const USERS = [
   {
-    email: "test.nilton@papakm.test",
+    email: "admin@papakm.com",
     password: "140548",
     meta: {
       role: "admin",
-      athlete_slug: "nilton-rodrigues",
-      display_name: "Nilton (Admin)",
+      athlete_slug: "admin-papakm",
+      display_name: "Admin PapaKM",
     },
+    profile: { role: "admin", plan_status: null },
   },
   {
-    email: "prof.eron@papakm.test",
-    password: "123456",
+    email: "prof.eron@papakm.com",
+    password: "12345678",
     meta: {
       role: "coach",
       athlete_slug: "prof-eron",
       display_name: "Prof. Eron",
     },
+    profile: { role: "coach", plan_status: null },
   },
   {
-    email: "prof.matheus@papakm.test",
-    password: "123456",
+    email: "prof.matheus@papakm.com",
+    password: "12345678",
     meta: {
       role: "coach",
       athlete_slug: "prof-matheus",
       display_name: "Prof. Matheus",
     },
-  },
-  {
-    email: "aluno.rafael@papakm.test",
-    password: "123456",
-    meta: {
-      role: "plan",
-      athlete_slug: "aluno-rafael",
-      display_name: "Aluno Rafael",
-    },
-  },
-  {
-    email: "aluna.bianca@papakm.test",
-    password: "123456",
-    meta: {
-      role: "social",
-      athlete_slug: "aluna-bianca",
-      display_name: "Aluna Bianca",
-    },
+    profile: { role: "coach", plan_status: null },
   },
 ];
 
@@ -113,9 +98,10 @@ async function upsertUser(u) {
       {
         id: userId,
         email,
-        role: u.meta.role,
+        role: u.profile?.role ?? u.meta.role,
         athlete_slug: u.meta.athlete_slug,
         display_name: u.meta.display_name,
+        plan_status: u.profile?.plan_status ?? null,
       },
       { onConflict: "id" }
     );

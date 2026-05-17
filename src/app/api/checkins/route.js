@@ -85,6 +85,15 @@ export async function POST(request) {
         : null;
   const planKmRaw = body.planKm ?? body.plan_km;
   const planKm = planKmRaw != null && Number.isFinite(Number(planKmRaw)) ? Number(planKmRaw) : null;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, athlete_slug")
+    .eq("id", user.id)
+    .maybeSingle();
+  const authorName =
+    profile?.display_name?.trim() ||
+    profile?.athlete_slug?.trim() ||
+    "Atleta";
 
   const row = {
     user_id: user.id,
@@ -92,6 +101,7 @@ export async function POST(request) {
     checkin_date: checkinDate,
     effort: Number.isFinite(effort) ? effort : null,
     notes,
+    author_name: authorName,
     created_at: new Date().toISOString(),
   };
   if (workoutTitle) row.workout_title = workoutTitle;

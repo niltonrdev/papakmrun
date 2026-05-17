@@ -6,6 +6,8 @@ function truthy(v) {
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? "development",
+  forceHttps:
+    String(process.env.FORCE_HTTPS ?? "1").toLowerCase() !== "0",
 
   get supabaseConfigured() {
     return Boolean(

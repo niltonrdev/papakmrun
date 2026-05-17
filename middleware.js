@@ -25,8 +25,43 @@ function isAuthenticated({ user, req }) {
   return false;
 }
 
+function isHttpsRequest(req) {
+  const proto = req.headers.get("x-forwarded-proto");
+  return proto === "https" || req.nextUrl.protocol === "https:";
+}
+
+function withSecurityHeaders(res, req) {
+  const csp = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://www.strava.com",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self' https://*.supabase.co https://www.strava.com",
+    "font-src 'self' data:",
+  ].join("; ");
+
+  res.headers.set("X-Frame-Options", "DENY");
+  res.headers.set("X-Content-Type-Options", "nosniff");
+  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.headers.set("Content-Security-Policy", csp);
+  if (env.NODE_ENV === "production" && isHttpsRequest(req)) {
+    res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  }
+  return res;
+}
+
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
+
+  if (env.NODE_ENV === "production" && env.forceHttps && !isHttpsRequest(req)) {
+    const secureUrl = req.nextUrl.clone();
+    secureUrl.protocol = "https:";
+    return withSecurityHeaders(NextResponse.redirect(secureUrl, 308), req);
+  }
 
   const { response, user } = await handleSupabaseSession(req);
 
@@ -34,22 +69,25 @@ export async function middleware(req) {
     if (pathname === "/login" && isAuthenticated({ user, req })) {
       const url = req.nextUrl.clone();
       url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      return withSecurityHeaders(NextResponse.redirect(url), req);
     }
-    return response;
+    return withSecurityHeaders(response, req);
   }
 
   if (!isAuthenticated({ user, req })) {
     if (pathname.startsWith("/api")) {
-      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+      return withSecurityHeaders(
+        NextResponse.json({ error: "Não autenticado." }, { status: 401 }),
+        req
+      );
     }
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    return withSecurityHeaders(NextResponse.redirect(url), req);
   }
 
-  return response;
+  return withSecurityHeaders(response, req);
 }
 
 export const config = {

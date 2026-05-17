@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [planBusy, setPlanBusy] = useState(false);
   const [students, setStudents] = useState([]);
   const [studentQuery, setStudentQuery] = useState("");
+  const [approvingId, setApprovingId] = useState(null);
 
   async function loadAnnouncementPreview() {
     try {
@@ -91,23 +92,38 @@ export default function AdminPage() {
     };
   }, []);
 
+  async function loadStudents() {
+    try {
+      const res = await fetch("/api/coach/students", { credentials: "include" });
+      const j = await res.json();
+      if (res.ok) setStudents(Array.isArray(j.items) ? j.items : []);
+    } catch {
+      setStudents([]);
+    }
+  }
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/coach/students", { credentials: "include" });
-        const j = await res.json();
-        if (!cancelled && res.ok) {
-          setStudents(Array.isArray(j.items) ? j.items : []);
-        }
-      } catch {
-        if (!cancelled) setStudents([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    if (role === "admin" || role === "coach") loadStudents();
   }, [role]);
+
+  async function approvePlanStudent(studentId) {
+    setApprovingId(studentId);
+    setCoachMsg("");
+    try {
+      const res = await fetch(`/api/coach/students/${studentId}/approve`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || "Não foi possível aprovar.");
+      setCoachMsg("Aluno aprovado como planilha.");
+      await loadStudents();
+    } catch (e) {
+      setCoachMsg(e?.message || "Erro ao aprovar.");
+    } finally {
+      setApprovingId(null);
+    }
+  }
 
   const unreadPain = painList.filter((p) => !p.read).length;
   const filteredStudents = students.filter((s) => {
@@ -280,7 +296,7 @@ export default function AdminPage() {
                 <th className="p-6">Objetivo Principal</th>
                 <th className="p-6">Último Teste</th>
                 <th className="p-6">Saúde</th>
-                <th className="p-6">Status Planilha</th>
+                <th className="p-6">Plano</th>
                 <th className="p-6 text-right">Ações</th>
               </tr>
             </thead>
@@ -294,26 +310,43 @@ export default function AdminPage() {
                   <td className="p-6 text-[10px] text-white/40 font-bold uppercase italic">
                     {aluno.selectedBasePlan ? `Plano ${aluno.selectedBasePlan}` : "Sem plano base"}
                   </td>
-                  <td className="p-6 text-xs font-mono font-bold text-papa-blue">
-                    {aluno.role === "social" ? "Aluno social" : "Aluno planilha"}
+                  <td className="p-6">
+                    <span className="text-[10px] font-black text-emerald-400">Ativo</span>
                   </td>
                   <td className="p-6">
-                    <span className="text-[10px] font-black text-emerald-400">
-                      Ativo
-                    </span>
-                  </td>
-                  <td className="p-6">
-                    <span className="text-[10px] font-black px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/60">
-                      Semana {aluno.activeWeek}
-                    </span>
+                    {aluno.planStatus === "pending" ? (
+                      <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase text-amber-200">
+                        Aguardando aprovação
+                      </span>
+                    ) : aluno.role === "plan" ? (
+                      <span className="text-[10px] font-black uppercase text-papa-orange">
+                        Planilha ativa
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase text-white/50">
+                        Social
+                      </span>
+                    )}
                   </td>
                   <td className="p-6 text-right">
-                    <Link
-                      href={`/admin/aluno/${encodeURIComponent(aluno.athleteSlug || aluno.id)}`}
-                      className="bg-papa-orange text-papa-dark px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform inline-flex items-center gap-2"
-                    >
-                      Abrir <ChevronRight size={14} />
-                    </Link>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {aluno.planStatus === "pending" && (
+                        <button
+                          type="button"
+                          disabled={approvingId === aluno.id}
+                          onClick={() => approvePlanStudent(aluno.id)}
+                          className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
+                        >
+                          {approvingId === aluno.id ? "…" : "Aprovar planilha"}
+                        </button>
+                      )}
+                      <Link
+                        href={`/admin/aluno/${encodeURIComponent(aluno.athleteSlug || aluno.id)}`}
+                        className="inline-flex items-center gap-2 rounded-xl bg-papa-orange px-4 py-2 text-[10px] font-black uppercase text-papa-dark hover:scale-105 transition-transform"
+                      >
+                        Abrir <ChevronRight size={14} />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -152,10 +152,16 @@ function TrainingZonesList() {
 }
 export default function DashboardPage() {
   useBackendSyncTick();
-  const { isSocial } = useProfileRole();
+  const { isSocial, planPending } = useProfileRole();
 
   return (
     <div className="max-w-7xl mx-auto p-6 lg:p-10">
+      {planPending && (
+        <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Seu cadastro como <strong>aluno planilha</strong> está em análise. Por enquanto você usa o
+          modo <strong>social</strong> (feed e Strava). Um professor liberará a planilha em breve.
+        </div>
+      )}
       <header className="mb-10">
         <h1 className="text-sm font-bold text-white/40 uppercase tracking-tighter">Papakm</h1>
         <h2 className="text-4xl font-black text-white">Dashboard do Aluno</h2>

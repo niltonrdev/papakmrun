@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { buildStravaAuthorizeUrl } from "@/lib/strava/oauth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 function wantsJson(request) {
   const accept = request.headers.get("accept") || "";
@@ -11,6 +12,13 @@ function wantsJson(request) {
 
 export async function GET(request) {
   const origin = request.nextUrl.origin;
+  const rate = checkRateLimit(request, "strava-connect", 20, 60_000);
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Tente novamente em instantes." },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSec || 60) } }
+    );
+  }
 
   if (!env.stravaConfigured) {
     if (wantsJson(request)) {

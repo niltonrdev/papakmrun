@@ -12,6 +12,7 @@ const STRAVA_RETURN_MESSAGES = {
   token: { tone: "err", text: "Não foi possível trocar o código pelo token. Confira se STRAVA_REDIRECT_URI no .env é idêntico ao do app no Strava." },
   noathlete: { tone: "err", text: "Strava respondeu sem dados do atleta." },
   db: { tone: "err", text: "Erro ao salvar a conexão no banco (tabela strava_connections / RLS)." },
+  rate: { tone: "err", text: "Muitas tentativas em sequência. Aguarde um pouco e tente novamente." },
   config: {
     tone: "err",
     text: "Strava não configurada no servidor: defina STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET e STRAVA_REDIRECT_URI no arquivo .env.local (o Next não lê .env.example), salve e reinicie npm run dev.",

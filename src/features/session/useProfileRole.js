@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 export function useProfileRole() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState(null);
+  const [planStatus, setPlanStatus] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,11 +25,13 @@ export function useProfileRole() {
         const j = await res.json();
         if (!cancelled) {
           setRole(j?.profile?.role ?? null);
+          setPlanStatus(j?.profile?.plan_status ?? null);
           setLoading(false);
         }
       } catch {
         if (!cancelled) {
           setRole(null);
+          setPlanStatus(null);
           setLoading(false);
         }
       }
@@ -41,6 +44,8 @@ export function useProfileRole() {
   return {
     loading,
     role,
+    planStatus,
     isSocial: role === "social",
+    planPending: planStatus === "pending",
   };
 }

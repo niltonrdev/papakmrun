@@ -25,7 +25,7 @@ export async function GET(request) {
   const { data, error } = await supabase
     .from("checkins")
     .select(
-      "workout_slug, checkin_date, effort, notes, workout_title, plan_km, created_at, user_id, profiles ( display_name, email )"
+      "workout_slug, checkin_date, effort, notes, workout_title, plan_km, created_at, user_id, author_name"
     )
     .order("checkin_date", { ascending: false })
     .limit(limit);
@@ -35,11 +35,7 @@ export async function GET(request) {
   }
 
   const items = (data || []).map((r) => {
-    const prof = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
-    const name =
-      prof?.display_name?.trim() ||
-      (prof?.email ? String(prof.email).split("@")[0] : null) ||
-      "Atleta";
+    const name = r.author_name?.trim() || "Atleta";
     return {
       id: `${r.user_id}-${r.checkin_date}-${r.workout_slug}`,
       workoutSlug: r.workout_slug,
