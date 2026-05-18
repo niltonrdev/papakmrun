@@ -7,10 +7,7 @@ import { setCurrentAthleteSlug } from "@/features/athletes/athletes.storage";
 import { writeActiveWeekNumber } from "@/features/session/prefs.storage";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseBrowserEnabled } from "@/lib/supabase/enabled";
-
-function setAuthCookie(value) {
-  document.cookie = `papakm_auth=${value}; path=/; max-age=${60 * 60 * 24 * 7}`;
-}
+import { setAuthRoleCookie } from "@/lib/auth/session.client";
 
 async function syncLegacyCookieFromApi() {
   try {
@@ -18,7 +15,7 @@ async function syncLegacyCookieFromApi() {
     if (!res.ok) return null;
     const data = await res.json();
     const role = data?.profile?.role || "social";
-    setAuthCookie(`1|${role}`);
+    setAuthRoleCookie(role);
     const slug = data?.profile?.athlete_slug;
     if (slug) setCurrentAthleteSlug(slug);
     const aw = data?.profile?.active_week;

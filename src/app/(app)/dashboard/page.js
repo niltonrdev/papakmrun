@@ -152,7 +152,7 @@ function TrainingZonesList() {
 }
 export default function DashboardPage() {
   useBackendSyncTick();
-  const { isSocial, planPending } = useProfileRole();
+  const { isSocial, planPending, hasPlanAccess } = useProfileRole();
 
   return (
     <div className="max-w-7xl mx-auto p-6 lg:p-10">
@@ -187,7 +187,7 @@ export default function DashboardPage() {
           <ActivityMural />
           <TodayWorkoutCard isSocial={isSocial} />
 
-          {!isSocial && <TrainingZonesList />}
+          {hasPlanAccess && <TrainingZonesList />}
         </div>
 
         {/* Coluna Lateral */}

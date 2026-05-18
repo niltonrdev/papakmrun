@@ -18,6 +18,13 @@ function hasLegacyAuth(req) {
   return Boolean(req.cookies.get("papakm_auth")?.value);
 }
 
+function legacyRoleFromCookie(req) {
+  const v = req.cookies.get("papakm_auth")?.value;
+  if (!v) return null;
+  const parts = String(v).split("|");
+  return parts[1] || null;
+}
+
 function isAuthenticated({ user, req }) {
   if (user) return true;
   if (!env.supabaseConfigured) return hasLegacyAuth(req);
@@ -68,7 +75,8 @@ export async function middleware(req) {
   if (isPublicPath(pathname)) {
     if (pathname === "/login" && isAuthenticated({ user, req })) {
       const url = req.nextUrl.clone();
-      url.pathname = "/dashboard";
+      const role = legacyRoleFromCookie(req);
+      url.pathname = role === "admin" || role === "coach" ? "/admin" : "/dashboard";
       return withSecurityHeaders(NextResponse.redirect(url), req);
     }
     return withSecurityHeaders(response, req);

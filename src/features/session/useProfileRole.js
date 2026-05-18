@@ -41,11 +41,17 @@ export function useProfileRole() {
     };
   }, []);
 
+  const isStaff = role === "admin" || role === "coach";
+  const isSocial = role === "social";
+  const hasPlanAccess = role === "plan" || isStaff;
+
   return {
     loading,
     role,
     planStatus,
-    isSocial: role === "social",
+    isStaff,
+    isSocial,
     planPending: planStatus === "pending",
+    hasPlanAccess,
   };
 }

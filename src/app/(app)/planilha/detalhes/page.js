@@ -18,7 +18,7 @@ import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
 
 export default function PlanilhaDetalhesPage() {
-  const { isSocial, loading: roleLoading } = useProfileRole();
+  const { hasPlanAccess, loading: roleLoading } = useProfileRole();
   const syncTick = useBackendSyncTick();
   const [activeWeek, setActiveWeek] = useState("1");
   const [mounted, setMounted] = useState(false);
@@ -118,7 +118,7 @@ export default function PlanilhaDetalhesPage() {
     );
   }
 
-  if (isSocial) {
+  if (!hasPlanAccess) {
     return (
       <div className="mx-auto max-w-7xl space-y-8 pb-10">
         <Link

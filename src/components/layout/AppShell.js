@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { readActiveAnnouncement } from "@/features/announcements/announcements.storage";
 import { syncBackendSession } from "@/features/session/backend-sync";
+import { logout, setAuthRoleCookie } from "@/lib/auth/session.client";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: Home },
@@ -52,7 +53,11 @@ export default function AppShell({ children }) {
       try {
         const res = await fetch("/api/me", { credentials: "include" });
         const j = await res.json();
-        if (!cancelled) setRole(j?.profile?.role ?? null);
+        if (!cancelled) {
+          const r = j?.profile?.role ?? null;
+          setRole(r);
+          if (r) setAuthRoleCookie(r);
+        }
       } catch {
         if (!cancelled) setRole(null);
       }
@@ -94,8 +99,11 @@ export default function AppShell({ children }) {
           })}
         </nav>
 
-        <button onClick={() => { document.cookie = "papakm_auth=; path=/; max-age=0"; window.location.href = "/login"; }}
-          className="flex items-center gap-3 px-4 py-3 text-white/40 hover:text-white transition-colors mt-auto">
+        <button
+          type="button"
+          onClick={() => logout()}
+          className="flex items-center gap-3 px-4 py-3 text-white/40 hover:text-white transition-colors mt-auto"
+        >
           <LogOut size={20} />
           <span className="font-bold text-sm">Sair</span>
         </button>

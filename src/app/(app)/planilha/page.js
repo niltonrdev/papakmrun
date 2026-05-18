@@ -46,7 +46,7 @@ function PersonalRecord({ label, time, pace, date }) {
 
 export default function PerformancePage() {
   const syncTick = useBackendSyncTick();
-  const { isSocial, loading: roleLoading } = useProfileRole();
+  const { hasPlanAccess, loading: roleLoading } = useProfileRole();
   const [activeWeek, setActiveWeek] = useState("1");
   const [strava, setStrava] = useState(null);
   const [insights, setInsights] = useState(null);
@@ -164,7 +164,7 @@ export default function PerformancePage() {
           className="h-72 animate-pulse rounded-3xl border border-white/5 bg-white/5"
           aria-hidden
         />
-      ) : isSocial ? (
+      ) : !hasPlanAccess ? (
         <SocialPlanilhaUpsell />
       ) : (
         <div className="bg-papa-card rounded-3xl border border-white/5 overflow-hidden">
