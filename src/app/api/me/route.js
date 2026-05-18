@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { fetchProfileForUser, profileCapabilities } from "@/lib/profiles/fetch-profile";
 
 export async function GET() {
   if (!env.supabaseConfigured) {
@@ -20,18 +21,13 @@ export async function GET() {
     return NextResponse.json({ user: null, profile: null }, { status: 401 });
   }
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select(
-      "role, athlete_slug, display_name, active_week, selected_base_plan, plan_status, bio, city, country, avatar_url, banner_url"
-    )
-    .eq("id", user.id)
-    .maybeSingle();
+  const { profile, error } = await fetchProfileForUser(supabase, user.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const caps = profileCapabilities(profile);
   const needsPlanPicker =
     !profile?.selected_base_plan || String(profile.selected_base_plan).trim() === "";
 
@@ -40,6 +36,7 @@ export async function GET() {
     user: { id: user.id, email: user.email },
     profile: profile ?? null,
     needsPlanPicker,
+    ...caps,
   });
 }
 

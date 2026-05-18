@@ -21,6 +21,7 @@ export default function AppShell({ children }) {
   const [banner, setBanner] = useState("");
   const [hidden, setHidden] = useState(false);
   const [role, setRole] = useState(null);
+  const [isStaff, setIsStaff] = useState(false);
 
   useEffect(() => {
     setHidden(false);
@@ -51,15 +52,23 @@ export default function AppShell({ children }) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/me", { credentials: "include" });
+        const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
         const j = await res.json();
-        if (!cancelled) {
-          const r = j?.profile?.role ?? null;
+        if (!cancelled && res.ok) {
+          const r = j?.role ?? j?.profile?.role ?? null;
+          const staff = Boolean(j?.isStaff) || r === "admin" || r === "coach";
           setRole(r);
+          setIsStaff(staff);
           if (r) setAuthRoleCookie(r);
+        } else if (!cancelled) {
+          setRole(null);
+          setIsStaff(false);
         }
       } catch {
-        if (!cancelled) setRole(null);
+        if (!cancelled) {
+          setRole(null);
+          setIsStaff(false);
+        }
       }
     })();
     return () => {
@@ -69,7 +78,7 @@ export default function AppShell({ children }) {
 
   const navItems = NAV_ITEMS.filter((item) => {
     if (item.href !== "/admin") return true;
-    return role === "admin" || role === "coach";
+    return isStaff;
   });
 
   const showBanner = pathname === "/dashboard";
