@@ -3,11 +3,13 @@ import JSZip from "jszip";
 import { createClient } from "@/lib/supabase/server";
 import { buildWorkoutFitFromBlock } from "@/lib/fit";
 import { loadWeeksDictionary, weekFromWeeksDict } from "@/lib/plan-catalog";
+import { resolveWeeksForUser } from "@/lib/student-plan";
 
 export async function GET(request) {
   const { searchParams } = request.nextUrl;
   let activeWeek = searchParams.get("week") || "1";
   let planKey = "sub20";
+  let userId = null;
 
   const supabase = await createClient();
   if (supabase) {
@@ -15,6 +17,7 @@ export async function GET(request) {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
+      userId = user.id;
       const { data: profile } = await supabase
         .from("profiles")
         .select("active_week, selected_base_plan")
@@ -29,7 +32,13 @@ export async function GET(request) {
     }
   }
 
-  const dict = await loadWeeksDictionary(supabase, planKey);
+  let dict;
+  if (supabase && userId) {
+    const resolved = await resolveWeeksForUser(supabase, userId, planKey);
+    dict = resolved.weeks ?? {};
+  } else {
+    dict = await loadWeeksDictionary(supabase, planKey);
+  }
   const week = weekFromWeeksDict(dict, activeWeek);
   const blocks = week?.blocks ?? [];
 

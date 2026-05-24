@@ -4,6 +4,7 @@ import {
   loadWeeksDictionary,
   todayBlockFromWeeksDict,
 } from "@/lib/plan-catalog";
+import { resolveWeeksForUser } from "@/lib/student-plan";
 
 export async function resolveWeeksForSession(supabase) {
   if (!supabase) return null;
@@ -17,7 +18,9 @@ export async function resolveWeeksForSession(supabase) {
     .eq("id", user.id)
     .maybeSingle();
   const planKey = profile?.selected_base_plan || "sub20";
-  return loadWeeksDictionary(supabase, planKey);
+  const resolved = await resolveWeeksForUser(supabase, user.id, planKey);
+  if (resolved.error) return null;
+  return resolved.weeks;
 }
 
 export async function resolveBlockForAuthenticatedUser(supabase, slug) {

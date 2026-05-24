@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { MOCK_PLAN } from "@/features/plans/mockWeek";
 import { readAthletePlan, writeAthletePlan } from "@/features/plans/plan.storage";
-import { getCurrentAthleteSlug, setCurrentAthleteSlug } from "@/features/athletes/athletes.storage";
+import {
+  getCurrentAthleteSlug,
+  saveAthleteRecord,
+  setCurrentAthleteSlug,
+} from "@/features/athletes/athletes.storage";
 import { writeActiveWeekNumber } from "@/features/session/prefs.storage";
 import { upsertCheckin } from "@/features/checkins/checkins.storage";
 
@@ -34,6 +38,33 @@ function mergeServerWeekPayload(j) {
   const base = { ...MOCK_PLAN, ...prev };
   base[String(j.weekKey)] = j.week;
   writeAthletePlan(slug, base);
+}
+
+function mergeFullPlanPayload(j) {
+  if (!j?.weeks || typeof j.weeks !== "object") return false;
+  const slug = getCurrentAthleteSlug();
+  const merged = { ...MOCK_PLAN, ...j.weeks };
+  writeAthletePlan(slug, merged);
+
+  const athletePatch = {};
+  if (j.zones && typeof j.zones === "object") {
+    athletePatch.zonesRecord = j.zones;
+  }
+  if (j.testDistance != null) athletePatch.distanciaTeste = j.testDistance;
+  if (j.testTime) athletePatch.tempoTeste = j.testTime;
+  if (j.vRef != null) athletePatch.vRef = j.vRef;
+  if (Object.keys(athletePatch).length) {
+    saveAthleteRecord(slug, athletePatch);
+  }
+  return true;
+}
+
+export async function pullFullPlanFromApi() {
+  const res = await fetch("/api/plan/sync", { credentials: "include", cache: "no-store" });
+  if (!res.ok) return null;
+  const j = await res.json();
+  mergeFullPlanPayload(j);
+  return j;
 }
 
 /**
@@ -98,7 +129,10 @@ export async function syncBackendSession() {
   }
 
   try {
-    await pullWeekPlanFromApi(null);
+    const synced = await pullFullPlanFromApi();
+    if (!synced) {
+      await pullWeekPlanFromApi(null);
+    }
   } catch {
     /* ignore */
   }

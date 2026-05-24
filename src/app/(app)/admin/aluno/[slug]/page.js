@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   Calculator,
@@ -7,12 +7,12 @@ import {
   FileText,
   Activity,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { computeZonesFromTest } from "@/features/plans/zones.calculator";
-import { getAthleteRecord, saveAthleteRecord } from "@/features/athletes/athletes.storage";
-import { getMergedPlanForSlug, replaceAthletePlan } from "@/features/plans/plan.storage";
+import { getMergedPlanForSlug } from "@/features/plans/plan.storage";
 import { buildTemplatePlan, TEMPLATE_META, weekDatesForTemplateWeek } from "@/features/plans/templates";
 
 const ZONE_KEYS = ["z1", "z2", "z3", "z4", "z5"];
@@ -26,20 +26,62 @@ export default function DetalheAlunoPage() {
   const slug =
     typeof params?.slug === "string" ? params.slug : params?.slug?.[0] ?? "";
 
+  const [studentId, setStudentId] = useState(null);
+  const [studentName, setStudentName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [distanciaTeste, setDistanciaTeste] = useState(3);
   const [tempoTeste, setTempoTeste] = useState("");
   const [zonas, setZonas] = useState(null);
   const [plan, setPlan] = useState(null);
   const [saveMsg, setSaveMsg] = useState("");
 
-  useEffect(() => {
+  const loadStudentPlan = useCallback(async () => {
     if (!slug) return;
-    const rec = getAthleteRecord(slug);
-    setDistanciaTeste(rec.distanciaTeste ?? 3);
-    setTempoTeste(rec.tempoTeste ?? "");
-    setZonas(rec.zonesRecord ?? null);
-    setPlan(clonePlan(getMergedPlanForSlug(slug)));
+    setLoading(true);
+    setSaveMsg("");
+    try {
+      const listRes = await fetch("/api/coach/students", { credentials: "include" });
+      const listJson = await listRes.json();
+      if (!listRes.ok) throw new Error(listJson?.error || "Não foi possível listar alunos.");
+
+      const match = (listJson.items || []).find(
+        (s) => s.athleteSlug === slug || s.id === slug
+      );
+      if (!match?.id) {
+        throw new Error("Aluno não encontrado no servidor.");
+      }
+
+      setStudentId(match.id);
+      setStudentName(match.name || match.email || slug);
+
+      const planRes = await fetch(`/api/coach/students/${match.id}/plan`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const planJson = await planRes.json();
+      if (!planRes.ok) throw new Error(planJson?.error || "Não foi possível carregar a planilha.");
+
+      const weeks =
+        planJson.weeks && Object.keys(planJson.weeks).length
+          ? planJson.weeks
+          : clonePlan(getMergedPlanForSlug(slug));
+
+      setPlan(clonePlan(weeks));
+      setDistanciaTeste(planJson.testDistance ?? 3);
+      setTempoTeste(planJson.testTime ?? "");
+      setZonas(planJson.zones ?? null);
+    } catch (e) {
+      setSaveMsg(e?.message || "Erro ao carregar aluno.");
+      setPlan(clonePlan(getMergedPlanForSlug(slug)));
+    } finally {
+      setLoading(false);
+    }
   }, [slug]);
+
+  useEffect(() => {
+    loadStudentPlan();
+  }, [loadStudentPlan]);
 
   const weekNumbers = useMemo(() => {
     if (!plan) return [];
@@ -56,8 +98,13 @@ export default function DetalheAlunoPage() {
     }
   }
 
-  function handleSalvarAlteracoes() {
-    if (!slug) return;
+  async function handleSalvarAlteracoes() {
+    if (!studentId || !plan) {
+      setSaveMsg("Aluno não carregado. Recarregue a página.");
+      return;
+    }
+    setSaving(true);
+    setSaveMsg("Salvando…");
     let vRef = null;
     try {
       if (tempoTeste) {
@@ -66,34 +113,38 @@ export default function DetalheAlunoPage() {
     } catch {
       /* ignore */
     }
-    if (plan) replaceAthletePlan(slug, plan);
-    if (zonas) {
-      saveAthleteRecord(slug, {
-        distanciaTeste,
-        tempoTeste,
-        vRef,
-        zonesRecord: zonas,
+    try {
+      const res = await fetch(`/api/coach/students/${studentId}/plan`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          weeks: plan,
+          zones: zonas,
+          testDistance: distanciaTeste,
+          testTime: tempoTeste,
+          vRef,
+        }),
       });
-    } else {
-      saveAthleteRecord(slug, {
-        distanciaTeste,
-        tempoTeste,
-        vRef,
-      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || "Não foi possível salvar.");
+      setSaveMsg("Alterações salvas no servidor.");
+    } catch (e) {
+      setSaveMsg(e?.message || "Erro ao salvar.");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSaveMsg(""), 6000);
     }
-    setSaveMsg("Alterações salvas.");
-    setTimeout(() => setSaveMsg(""), 5000);
   }
 
   function onTemplateChange(e) {
     const id = e.target.value;
-    if (!id || !slug) return;
+    if (!id) return;
     const built = buildTemplatePlan(id);
     if (!built) return;
     const next = clonePlan(built);
     setPlan(next);
-    replaceAthletePlan(slug, next);
-    setSaveMsg(`Template ${TEMPLATE_META[id]?.label ?? id} aplicado.`);
+    setSaveMsg(`Template ${TEMPLATE_META[id]?.label ?? id} aplicado (clique em Salvar).`);
     setTimeout(() => setSaveMsg(""), 4000);
     e.target.value = "";
   }
@@ -157,7 +208,7 @@ export default function DetalheAlunoPage() {
     });
   }
 
-  const rec = slug ? getAthleteRecord(slug) : null;
+  const rec = studentName ? { name: studentName, slug } : null;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
@@ -172,9 +223,11 @@ export default function DetalheAlunoPage() {
           <button
             type="button"
             onClick={handleSalvarAlteracoes}
-            className="bg-emerald-500 text-papa-dark px-6 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2"
+            disabled={saving || loading || !studentId}
+            className="bg-emerald-500 text-papa-dark px-6 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 disabled:opacity-50"
           >
-            <Save size={14} /> Salvar alterações
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {saving ? "Salvando…" : "Salvar alterações"}
           </button>
           {saveMsg ? (
             <span className="text-[10px] text-emerald-400 font-bold max-w-xs text-right">
@@ -304,14 +357,15 @@ export default function DetalheAlunoPage() {
                 </div>
               </div>
               <p className="text-[10px] text-white/30 font-bold uppercase tracking-tight">
-                Editor em grade: ajuste km, zona e observações por semana. Use &quot;Salvar
-                alterações&quot; para persistir planilha e zonas.
+                Editor em grade: ajuste km, zona e observações por semana. &quot;Salvar
+                alterações&quot; grava a planilha deste aluno no servidor (cada aluno vê só a sua).
               </p>
             </div>
 
-            {!plan ? (
-              <div className="min-h-[200px] flex items-center justify-center text-white/30 text-sm">
-                Carregando…
+            {!plan || loading ? (
+              <div className="min-h-[200px] flex items-center justify-center text-white/30 text-sm gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Carregando planilha…
               </div>
             ) : (
               <div className="space-y-8 max-h-[70vh] overflow-y-auto pr-2">

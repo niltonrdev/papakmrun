@@ -13,7 +13,7 @@ import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import Link from "next/link";
 import { ChevronLeft, CheckCircle2 } from "lucide-react";
-import { pullWeekPlanFromApi, useBackendSyncTick } from "@/features/session/backend-sync";
+import { pullFullPlanFromApi, pullWeekPlanFromApi, useBackendSyncTick } from "@/features/session/backend-sync";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
 
@@ -55,7 +55,10 @@ export default function PlanilhaDetalhesPage() {
     if (!mounted) return;
     let cancelled = false;
     (async () => {
-      await pullWeekPlanFromApi(activeWeek);
+      const full = await pullFullPlanFromApi();
+      if (!full) {
+        await pullWeekPlanFromApi(activeWeek);
+      }
       if (!cancelled) setRefresh((x) => x + 1);
     })();
     return () => {
