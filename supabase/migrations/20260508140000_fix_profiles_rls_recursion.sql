@@ -23,3 +23,10 @@ create policy "profiles_select_staff"
   on public.profiles for select
   to authenticated
   using (public.is_staff());
+
+drop policy if exists "profiles_update_staff" on public.profiles;
+create policy "profiles_update_staff"
+  on public.profiles for update
+  to authenticated
+  using (public.is_staff())
+  with check (public.is_staff());

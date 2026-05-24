@@ -55,7 +55,7 @@ export default function ProfileEditor() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/me", { credentials: "include" });
+      const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || "Não foi possível carregar o perfil.");
       const p = j.profile || {};

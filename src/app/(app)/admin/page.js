@@ -107,8 +107,12 @@ export default function AdminPage() {
   }, [role]);
 
   async function approvePlanStudent(studentId) {
+    if (!studentId) {
+      setCoachMsg("ID do aluno inválido. Recarregue a página.");
+      return;
+    }
     setApprovingId(studentId);
-    setCoachMsg("");
+    setCoachMsg("Aprovando…");
     try {
       const res = await fetch(`/api/coach/students/${studentId}/approve`, {
         method: "POST",
@@ -288,6 +292,12 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {coachMsg && (
+          <p className="mx-6 mb-2 text-[11px] text-white/70 border border-white/10 rounded-2xl px-4 py-3 bg-white/[0.03]">
+            {coachMsg}
+          </p>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -327,6 +337,13 @@ export default function AdminPage() {
                         Social
                       </span>
                     )}
+                  </td>
+                  <td className="p-6 text-[10px] font-bold uppercase text-white/40">
+                    {aluno.planStatus === "pending"
+                      ? "Pendente"
+                      : aluno.role === "plan"
+                        ? "Planilha"
+                        : "Social"}
                   </td>
                   <td className="p-6 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-2">
