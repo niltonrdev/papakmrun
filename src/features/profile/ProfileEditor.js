@@ -14,8 +14,29 @@ import {
 import StravaPanel from "@/features/strava/StravaPanel";
 import { createClient } from "@/lib/supabase/client";
 
-const DEFAULT_AVATAR = "/brand/foto-perfil2.png";
-const DEFAULT_BANNER = "/brand/banner3.png";
+function EmptyAvatar() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-papa-card via-black/60 to-black/80 text-white/30">
+      <svg viewBox="0 0 64 64" fill="none" className="h-1/2 w-1/2" aria-hidden>
+        <circle cx="32" cy="22" r="10" stroke="currentColor" strokeWidth="3" />
+        <path
+          d="M12 54c2.5-9 10-14 20-14s17.5 5 20 14"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function EmptyBanner() {
+  return (
+    <div className="absolute inset-0 bg-gradient-to-br from-papa-blue/20 via-papa-card to-papa-orange/15">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.08),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(0,180,255,0.12),transparent_60%)]" />
+    </div>
+  );
+}
 
 function accountLabel(profile) {
   if (profile?.role === "admin") return "Admin";
@@ -199,8 +220,8 @@ export default function ProfileEditor() {
     );
   }
 
-  const avatarSrc = profile.avatarUrl || DEFAULT_AVATAR;
-  const bannerSrc = profile.bannerUrl || DEFAULT_BANNER;
+  const avatarSrc = profile.avatarUrl || null;
+  const bannerSrc = profile.bannerUrl || null;
   const displayName = String(profile.displayName || "Atleta");
   const hasCustomAvatar = Boolean(profile.avatarUrl);
   const hasCustomBanner = Boolean(profile.bannerUrl);
@@ -224,14 +245,18 @@ export default function ProfileEditor() {
 
       <div className="relative mb-20">
         <div className="relative h-48 w-full overflow-hidden rounded-b-[40px] border-b border-white/5 bg-papa-card shadow-2xl lg:h-64">
-          <Image
-            src={bannerSrc}
-            alt="Banner"
-            fill
-            className="object-cover"
-            priority
-            unoptimized={!!profile.bannerUrl}
-          />
+          {bannerSrc ? (
+            <Image
+              src={bannerSrc}
+              alt="Banner do perfil"
+              fill
+              className="object-cover"
+              priority
+              unoptimized
+            />
+          ) : (
+            <EmptyBanner />
+          )}
           <div className="absolute inset-0 bg-black/20" />
           <button
             type="button"
@@ -251,14 +276,18 @@ export default function ProfileEditor() {
         <div className="absolute -bottom-16 left-8 z-20 flex items-end gap-6 lg:-bottom-[70px] lg:left-12">
           <div className="group relative aspect-square">
             <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-papa-dark bg-papa-card shadow-[0_0_40px_rgba(0,0,0,0.7)] lg:h-40 lg:w-40 lg:border-8">
-              <Image
-                src={avatarSrc}
-                alt="Avatar"
-                fill
-                className="object-cover"
-                priority
-                unoptimized={!!profile.avatarUrl}
-              />
+              {avatarSrc ? (
+                <Image
+                  src={avatarSrc}
+                  alt={`Foto de ${displayName}`}
+                  fill
+                  className="object-cover"
+                  priority
+                  unoptimized
+                />
+              ) : (
+                <EmptyAvatar />
+              )}
             </div>
             <button
               type="button"

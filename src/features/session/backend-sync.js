@@ -15,6 +15,7 @@ const listeners = new Set();
 
 /** Evita sobrescrever a semana selecionada na UI após a primeira carga. */
 let appliedServerActiveWeek = false;
+let stravaSyncedThisSession = false;
 
 export function subscribeBackendSync(fn) {
   listeners.add(fn);
@@ -146,6 +147,15 @@ export async function syncBackendSession() {
       }
     } catch {
       /* ignore */
+    }
+
+    if (!stravaSyncedThisSession) {
+      stravaSyncedThisSession = true;
+      try {
+        await fetch("/api/strava/feed", { credentials: "include", cache: "no-store" });
+      } catch {
+        /* ignore: alimenta community_activities em background */
+      }
     }
   }
 
