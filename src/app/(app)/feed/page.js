@@ -1,11 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { readAllCheckins, clearAllCheckins } from "@/features/checkins/checkins.storage";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Activity, Flame, MessageSquare, Search, RotateCcw } from "lucide-react";
+import dynamic from "next/dynamic";
+import RaceCalendar from "@/features/events/RaceCalendar";
 import { findWorkoutInPlanBySlug, getZoneByKey } from "@/features/plans/plans.service";
 import { FEED_PHRASES } from "@/features/feed/feed.mock";
-import RaceCalendar from "@/features/events/RaceCalendar";
-import { Activity, Flame, MessageSquare, Search, RotateCcw, Trash2 } from "lucide-react";
-import dynamic from "next/dynamic";
 
 const WorkoutMap = dynamic(() => import("@/features/feed/WorkoutMap"), {
   ssr: false,
@@ -13,104 +12,88 @@ const WorkoutMap = dynamic(() => import("@/features/feed/WorkoutMap"), {
 });
 
 function formatSmartDate(iso) {
+  if (!iso) return "—";
   const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
   const today = new Date();
   if (d.toDateString() === today.toDateString()) return "hoje";
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
-function buildFeedItemsFromLocalCheckins(checkins) {
-  const items = (checkins || []).map((c, idx) => {
-    const found = findWorkoutInPlanBySlug(c.workoutSlug);
-    const workout = found?.block;
-    const zone = workout?.zoneKey ? getZoneByKey(workout.zoneKey) : null;
-    const pace =
-      zone?.paceMin && zone?.paceMax ? `${zone.paceMin}–${zone.paceMax}` : "—";
-    return {
-      source: "local",
-      id: `${c.date}-${c.workoutSlug}-${idx}`,
-      dateISO: c.date,
-      title: c.workoutTitle?.trim?.() || workout?.title || "Treino",
-      km: c.planKm != null ? String(c.planKm) : workout?.km != null ? String(workout.km) : "—",
-      pace,
-      zoneKey: workout?.zoneKey ?? "z2",
-      effort: c.effort ?? null,
-      note: c.note ?? "",
-      authorName: "Você",
-      phraseIfNoNote: FEED_PHRASES[idx % FEED_PHRASES.length],
-      mapPoints: null,
-    };
-  });
-  return items.sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO)));
+function buildDescription(item, idx) {
+  if (item.kind === "strava") {
+    const km = item.distanceKm != null ? `${item.distanceKm} km` : "";
+    const moving =
+      item.movingTimeSec != null
+        ? new Date(item.movingTimeSec * 1000).toISOString().substr(11, 8).replace(/^00:/, "")
+        : null;
+    const elev = item.elevationM != null ? `${item.elevationM} m D+` : null;
+    return [km, moving, elev].filter(Boolean).join(" · ");
+  }
+  if (item.note?.trim()) return item.note;
+  return FEED_PHRASES[idx % FEED_PHRASES.length];
 }
 
-function mapApiFeedItems(rows) {
-  return (rows || []).map((r, idx) => {
-    const found = findWorkoutInPlanBySlug(r.workoutSlug);
-    const workout = found?.block;
-    const zone = workout?.zoneKey ? getZoneByKey(workout.zoneKey) : null;
-    const pace =
-      zone?.paceMin && zone?.paceMax ? `${zone.paceMin}–${zone.paceMax}` : "—";
-    return {
-      source: "checkin",
-      id: r.id || `${r.userId}-${r.date}-${r.workoutSlug}`,
-      dateISO: r.date,
-      title: r.workoutTitle?.trim?.() || workout?.title || "Treino",
-      km: r.planKm != null ? String(r.planKm) : workout?.km != null ? String(workout.km) : "—",
-      pace,
-      zoneKey: workout?.zoneKey ?? "z2",
-      effort: r.effort ?? null,
-      note: r.note ?? "",
-      authorName: r.authorName || "Atleta",
-      phraseIfNoNote: FEED_PHRASES[idx % FEED_PHRASES.length],
-      mapPoints: null,
-    };
-  });
+function metaFor(item) {
+  if (item.kind === "strava") {
+    const km = item.distanceKm != null ? `${item.distanceKm}km` : "—";
+    const pace = item.pacePerKm ? `${item.pacePerKm} /km` : "—";
+    return `${km} • Pace ${pace}`;
+  }
+  const found = findWorkoutInPlanBySlug(item.title?.toLowerCase?.());
+  const workout = found?.block;
+  const zone = workout?.zoneKey ? getZoneByKey(workout.zoneKey) : null;
+  const km =
+    item.distanceKm != null
+      ? `${item.distanceKm}km`
+      : workout?.km != null
+        ? `${workout.km}km`
+        : "—";
+  const pace =
+    zone?.paceMin && zone?.paceMax ? `${zone.paceMin}–${zone.paceMax}` : "—";
+  return `${km} • Pace ${pace}`;
 }
 
-function mapStravaFeedItems(rows, authorName) {
-  return (rows || []).map((r) => ({
-    source: "strava",
-    id: r.id,
-    dateISO: r.dateISO,
-    title: r.name || "Corrida",
-    km: String(r.distanceKm ?? "—"),
-    pace: r.pacePerKm && r.pacePerKm !== "—" ? `${r.pacePerKm} /km` : "—",
-    effort: null,
-    note:
-      r.movingTimeLabel != null
-        ? `${r.distanceKm} km · ${r.movingTimeLabel}${
-            r.elevationM != null ? ` · ${r.elevationM} m D+` : ""
-          }`
-        : "",
-    authorName: authorName || "Strava",
-    phraseIfNoNote: "Treino registrado no Strava.",
-    mapPoints: Array.isArray(r.mapPoints) && r.mapPoints.length >= 2 ? r.mapPoints : null,
-  }));
+function AuthorAvatar({ author, accent }) {
+  if (author?.avatarUrl) {
+    return (
+      <img
+        src={author.avatarUrl}
+        alt={author.name}
+        className={`h-10 w-10 rounded-full border ${accent} object-cover`}
+      />
+    );
+  }
+  return (
+    <div
+      className={`flex h-10 w-10 items-center justify-center rounded-full border ${accent} text-xs font-black italic`}
+    >
+      {author?.name?.[0] ?? "?"}
+    </div>
+  );
 }
 
-function PostCard({ it }) {
-  const isStrava = it.source === "strava";
+function PostCard({ it, idx }) {
+  const isStrava = it.kind === "strava";
+  const accent = isStrava
+    ? "border-[#fc4c02]/40 bg-[#fc4c02]/15 text-[#fc4c02]"
+    : "border-white/10 bg-white/10 text-white/40";
+  const description = buildDescription(it, idx);
+
   return (
     <article className="rounded-3xl border border-white/5 bg-papa-card p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-full border text-xs font-black italic ${
-              isStrava
-                ? "border-[#fc4c02]/40 bg-[#fc4c02]/15 text-[#fc4c02]"
-                : "border-white/10 bg-white/10 text-white/40"
-            }`}
-          >
-            {isStrava ? "S" : it.authorName?.[0] ?? "?"}
-          </div>
+          <AuthorAvatar author={it.author} accent={accent} />
           <div>
-            <div className="font-black leading-none text-white">{it.authorName}</div>
+            <div className="font-black leading-none text-white">
+              {it.author?.name ?? "Atleta"}
+            </div>
             {it.title ? (
               <div className="mt-1 text-[11px] font-bold text-white/55">{it.title}</div>
             ) : null}
             <div className="mt-0.5 text-[10px] font-bold uppercase text-white/40">
-              {it.km}km • Pace {it.pace}
+              {metaFor(it)}
             </div>
           </div>
         </div>
@@ -119,12 +102,14 @@ function PostCard({ it }) {
         </span>
       </div>
 
-      <div className="aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/5 bg-black/40">
-        <WorkoutMap points={it.mapPoints} />
-      </div>
+      {it.mapPoints && it.mapPoints.length >= 2 ? (
+        <div className="aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/5 bg-black/40">
+          <WorkoutMap points={it.mapPoints} />
+        </div>
+      ) : null}
 
       <div className="text-sm text-white/70 leading-relaxed italic">
-        &quot;{it.note?.trim() ? it.note : it.phraseIfNoNote}&quot;
+        &quot;{description}&quot;
       </div>
 
       <div className="grid grid-cols-2 gap-3 pt-2">
@@ -148,71 +133,49 @@ function PostCard({ it }) {
 export default function FeedPage() {
   const [q, setQ] = useState("");
   const [items, setItems] = useState([]);
-  const [source, setSource] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [empty, setEmpty] = useState(false);
 
-  async function refresh() {
-    let checkItems = [];
-    let stravaActivities = [];
-    let stravaAuthor = "";
-
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setEmpty(false);
     try {
-      const [checkRes, stravaRes] = await Promise.all([
-        fetch("/api/feed/checkins", { credentials: "include" }),
-        fetch("/api/strava/feed", { credentials: "include" }),
-      ]);
-
-      if (checkRes.ok) {
-        const j = await checkRes.json();
-        checkItems = Array.isArray(j.items) ? j.items : [];
+      try {
+        await fetch("/api/strava/feed", { credentials: "include" });
+      } catch {
+        /* ignore: só sincroniza atividades em background */
       }
 
-      if (stravaRes.ok) {
-        const s = await stravaRes.json();
-        stravaAuthor = s.authorName || "";
-        stravaActivities = Array.isArray(s.activities) ? s.activities : [];
-      }
-
-      const fromCheckins = mapApiFeedItems(checkItems);
-      const fromStrava = mapStravaFeedItems(stravaActivities, stravaAuthor);
-      const merged = [...fromStrava, ...fromCheckins].sort((a, b) => {
-        const ta = `${a.dateISO}T12:00:00`;
-        const tb = `${b.dateISO}T12:00:00`;
-        return tb.localeCompare(ta);
-      });
-
-      if (merged.length > 0) {
-        setItems(merged);
-        if (fromStrava.length && fromCheckins.length) setSource("strava+comunidade");
-        else if (fromStrava.length) setSource("strava");
-        else setSource("comunidade");
-        return;
+      const res = await fetch("/api/feed/community", { credentials: "include" });
+      if (res.ok) {
+        const j = await res.json();
+        const list = Array.isArray(j.items) ? j.items : [];
+        setItems(list);
+        setEmpty(list.length === 0);
+      } else {
+        setItems([]);
+        setEmpty(true);
       }
     } catch {
-      /* ignore */
+      setItems([]);
+      setEmpty(true);
+    } finally {
+      setLoading(false);
     }
-
-    setItems(buildFeedItemsFromLocalCheckins(readAllCheckins()));
-    setSource("local");
-  }
-
-  const clearDemo = () => {
-    clearAllCheckins();
-    refresh();
-  };
+  }, []);
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    return query
-      ? items.filter(
-          (it) =>
-            it.authorName.toLowerCase().includes(query) ||
-            it.title.toLowerCase().includes(query)
-        )
-      : items;
+    if (!query) return items;
+    return items.filter(
+      (it) =>
+        (it.author?.name || "").toLowerCase().includes(query) ||
+        (it.title || "").toLowerCase().includes(query)
+    );
   }, [items, q]);
 
   return (
@@ -221,18 +184,9 @@ export default function FeedPage() {
         <div>
           <h1 className="text-sm font-bold text-white/20 uppercase tracking-widest mb-1">PapaKM</h1>
           <h2 className="text-4xl font-black text-white italic">Feed Social e Comunidade</h2>
-          {source && (
-            <p className="text-[10px] text-white/30 font-bold uppercase mt-2">
-              Fonte:{" "}
-              {source === "strava+comunidade"
-                ? "suas corridas (Strava) + check-ins da comunidade"
-                : source === "strava"
-                  ? "suas corridas (Strava)"
-                  : source === "comunidade"
-                    ? "check-ins de todos (Supabase)"
-                    : "apenas este dispositivo (demo)"}
-            </p>
-          )}
+          <p className="text-[10px] text-white/30 font-bold uppercase mt-2">
+            Fonte: check-ins e corridas Strava de toda a comunidade
+          </p>
         </div>
 
         <div className="flex gap-3">
@@ -248,16 +202,10 @@ export default function FeedPage() {
           <button
             type="button"
             onClick={refresh}
-            className="p-3 rounded-2xl bg-papa-card border border-white/5 text-white/40 hover:text-white"
+            disabled={loading}
+            className="p-3 rounded-2xl bg-papa-card border border-white/5 text-white/40 hover:text-white disabled:opacity-50"
           >
-            <RotateCcw size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={clearDemo}
-            className="p-3 rounded-2xl bg-papa-card border border-white/5 text-white/40 hover:text-red-400"
-          >
-            <Trash2 size={18} />
+            <RotateCcw size={18} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       </header>
@@ -271,12 +219,18 @@ export default function FeedPage() {
             <span className="text-white/20 group-hover:text-papa-blue">→</span>
           </div>
 
-          {filtered.length === 0 ? (
+          {loading && filtered.length === 0 ? (
             <div className="p-10 rounded-3xl border border-dashed border-white/10 text-center text-white/30 font-bold uppercase text-xs">
-              Nenhuma atividade encontrada
+              Carregando feed…
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-10 rounded-3xl border border-dashed border-white/10 text-center text-white/30 font-bold uppercase text-xs">
+              {empty
+                ? "Nenhuma atividade ainda. Faça um check-in ou conecte o Strava."
+                : "Nenhuma atividade encontrada"}
             </div>
           ) : (
-            filtered.map((it) => <PostCard key={it.id} it={it} />)
+            filtered.map((it, idx) => <PostCard key={it.id} it={it} idx={idx} />)
           )}
         </div>
 

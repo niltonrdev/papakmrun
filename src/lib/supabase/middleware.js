@@ -14,6 +14,14 @@ export async function handleSupabaseSession(request) {
     return { response, user: null };
   }
 
+  function asSessionCookie(options) {
+    if (!options || typeof options !== "object") return options;
+    const next = { ...options };
+    delete next.maxAge;
+    delete next.expires;
+    return next;
+  }
+
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
@@ -24,7 +32,7 @@ export async function handleSupabaseSession(request) {
           request.cookies.set(name, value);
         });
         cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
+          response.cookies.set(name, value, asSessionCookie(options));
         });
       },
     },

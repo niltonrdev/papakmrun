@@ -43,7 +43,7 @@ function withSecurityHeaders(res, req) {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://www.strava.com",
+    "img-src 'self' data: blob: https://*.supabase.co https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://www.strava.com https://*.googleusercontent.com",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self' 'unsafe-inline'",
     "connect-src 'self' https://*.supabase.co https://www.strava.com",
