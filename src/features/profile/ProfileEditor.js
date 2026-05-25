@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  Edit2,
   MapPin,
   Crown,
   Medal,
@@ -202,7 +201,9 @@ export default function ProfileEditor() {
 
   const avatarSrc = profile.avatarUrl || DEFAULT_AVATAR;
   const bannerSrc = profile.bannerUrl || DEFAULT_BANNER;
-  const nameUpper = String(profile.displayName || "Atleta").toUpperCase();
+  const displayName = String(profile.displayName || "Atleta");
+  const hasCustomAvatar = Boolean(profile.avatarUrl);
+  const hasCustomBanner = Boolean(profile.bannerUrl);
 
   return (
     <div className="mx-auto max-w-5xl pb-24 lg:pb-10">
@@ -236,14 +237,14 @@ export default function ProfileEditor() {
             type="button"
             onClick={() => bannerInputRef.current?.click()}
             disabled={uploading === "banner"}
-            className="absolute right-6 top-6 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-2 text-[10px] font-black uppercase text-white/80 backdrop-blur-md hover:bg-black/70"
+            className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-full border border-white/15 bg-black/60 px-4 py-2.5 text-[11px] font-black uppercase text-white shadow-lg backdrop-blur-md transition hover:bg-papa-blue hover:text-papa-dark disabled:opacity-50"
           >
             {uploading === "banner" ? (
               <Loader2 size={14} className="animate-spin" />
             ) : (
               <Camera size={14} />
             )}
-            Banner
+            {hasCustomBanner ? "Trocar banner" : "Adicionar banner"}
           </button>
         </div>
 
@@ -263,19 +264,23 @@ export default function ProfileEditor() {
               type="button"
               onClick={() => avatarInputRef.current?.click()}
               disabled={uploading === "avatar"}
-              className="absolute bottom-2 right-2 rounded-full border-4 border-papa-dark bg-papa-blue p-2 text-papa-dark transition-transform hover:scale-110"
+              className="absolute bottom-1 right-1 flex items-center gap-1 rounded-full border-4 border-papa-dark bg-papa-blue px-3 py-2 text-[10px] font-black uppercase text-papa-dark shadow-lg transition-transform hover:scale-105 disabled:opacity-60"
+              title={hasCustomAvatar ? "Trocar foto" : "Adicionar foto"}
             >
               {uploading === "avatar" ? (
-                <Loader2 size={16} className="animate-spin" />
+                <Loader2 size={14} className="animate-spin" />
               ) : (
-                <Edit2 size={16} />
+                <Camera size={14} />
               )}
+              <span className="hidden lg:inline">
+                {hasCustomAvatar ? "Trocar" : "Foto"}
+              </span>
             </button>
           </div>
 
           <div className="mb-4 hidden md:block">
-            <h2 className="text-2xl font-black uppercase italic leading-none tracking-tighter text-white">
-              {nameUpper}
+            <h2 className="text-3xl font-black italic leading-none tracking-tight text-white">
+              {displayName}
             </h2>
             <div className="mt-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/40">
               <MapPin size={12} className="text-papa-blue" />
@@ -286,12 +291,22 @@ export default function ProfileEditor() {
       </div>
 
       <div className="mb-8 px-8 md:hidden">
-        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white">{nameUpper}</h2>
+        <h2 className="text-2xl font-black italic tracking-tight text-white">{displayName}</h2>
         <div className="mt-1 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/40">
           <MapPin size={12} className="text-papa-blue" />
           {profile.city || "—"}
         </div>
       </div>
+
+      {(!hasCustomAvatar || !hasCustomBanner) && (
+        <div className="mx-8 mb-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[11px] text-white/60 lg:mx-12">
+          {!hasCustomAvatar && !hasCustomBanner
+            ? "Personalize seu perfil: clique em \"Foto\" no avatar e em \"Adicionar banner\" no topo para enviar suas imagens."
+            : !hasCustomAvatar
+              ? "Clique no botão Foto sobre o avatar para enviar sua imagem de perfil."
+              : "Clique em Adicionar banner no topo da página para enviar sua imagem de capa."}
+        </div>
+      )}
 
       {profile.planStatus === "pending" && (
         <div className="mx-8 mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 lg:mx-12">
