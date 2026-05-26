@@ -177,13 +177,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10 pb-20">
+    <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10 pb-20 w-full min-w-0">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-sm font-bold text-white/20 uppercase tracking-widest mb-1">
+        <div className="min-w-0">
+          <h1 className="text-xs sm:text-sm font-bold text-white/20 uppercase tracking-widest mb-1">
             Painel do Professor
           </h1>
-          <h2 className="text-4xl font-black text-white italic uppercase">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white italic uppercase break-words leading-tight">
             Gestão de Performance
           </h2>
           {role && role !== "admin" && role !== "coach" && (
@@ -196,8 +196,8 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-papa-card p-6 rounded-3xl border border-white/5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+        <div className="bg-papa-card p-5 sm:p-6 rounded-3xl border border-white/5">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
               <Users size={20} />
@@ -206,9 +206,9 @@ export default function AdminPage() {
               Atletas Ativos
             </span>
           </div>
-          <div className="text-3xl font-black text-white italic">{students.length}</div>
+          <div className="text-2xl sm:text-3xl font-black text-white italic">{students.length}</div>
         </div>
-        <div className="bg-papa-card p-6 rounded-3xl border border-white/5">
+        <div className="bg-papa-card p-5 sm:p-6 rounded-3xl border border-white/5">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-xl bg-red-500/10 text-red-400">
               <AlertTriangle size={20} />
@@ -217,7 +217,7 @@ export default function AdminPage() {
               Feedback de Dor (novo)
             </span>
           </div>
-          <div className="text-3xl font-black text-white italic">{unreadPain}</div>
+          <div className="text-2xl sm:text-3xl font-black text-white italic">{unreadPain}</div>
           {unreadPain > 0 && (
             <button
               type="button"
@@ -238,7 +238,7 @@ export default function AdminPage() {
             </button>
           )}
         </div>
-        <div className="bg-papa-card p-6 rounded-3xl border border-white/5">
+        <div className="bg-papa-card p-5 sm:p-6 rounded-3xl border border-white/5 sm:col-span-2 md:col-span-1">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-xl bg-papa-orange/10 text-papa-orange">
               <Bell size={20} />
@@ -274,11 +274,11 @@ export default function AdminPage() {
       )}
 
       <div className="bg-papa-card rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/5 flex items-center justify-between">
+        <div className="p-5 sm:p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-2">
             <Users size={16} className="text-papa-blue" /> Lista de Atletas
           </h3>
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Search
               size={14}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20"
@@ -287,7 +287,7 @@ export default function AdminPage() {
               placeholder="Buscar aluno..."
               value={studentQuery}
               onChange={(e) => setStudentQuery(e.target.value)}
-              className="bg-white/5 border border-white/10 pl-10 pr-4 py-2 rounded-xl text-xs text-white outline-none w-64"
+              className="bg-white/5 border border-white/10 pl-10 pr-4 py-2 rounded-xl text-xs text-white outline-none w-full sm:w-64"
             />
           </div>
         </div>
@@ -298,7 +298,8 @@ export default function AdminPage() {
           </p>
         )}
 
-        <div className="overflow-x-auto">
+        {/* Tabela em telas md+; lista de cartões no mobile */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-white/5 text-[10px] font-black text-white/20 uppercase tracking-widest">
@@ -315,7 +316,7 @@ export default function AdminPage() {
                 <tr key={aluno.id} className="hover:bg-white/[0.02] transition-colors group">
                   <td className="p-6 text-xs font-black text-white">
                     {aluno.name}
-                    <div className="text-[10px] text-white/35 font-mono mt-1">{aluno.email}</div>
+                    <div className="text-[10px] text-white/35 font-mono mt-1 break-all">{aluno.email}</div>
                   </td>
                   <td className="p-6 text-[10px] text-white/40 font-bold uppercase italic">
                     {aluno.selectedBasePlan ? `Plano ${aluno.selectedBasePlan}` : "Sem plano base"}
@@ -376,6 +377,60 @@ export default function AdminPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden divide-y divide-white/5">
+          {filteredStudents.map((aluno) => (
+            <div key={aluno.id} className="p-5 space-y-3">
+              <div>
+                <div className="text-sm font-black text-white">{aluno.name}</div>
+                <div className="mt-0.5 break-all text-[10px] font-mono text-white/35">
+                  {aluno.email}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {aluno.planStatus === "pending" ? (
+                  <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase text-amber-200">
+                    Aguardando
+                  </span>
+                ) : aluno.role === "plan" ? (
+                  <span className="rounded-full bg-papa-orange/15 px-3 py-1 text-[10px] font-black uppercase text-papa-orange">
+                    Planilha
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-black uppercase text-white/50">
+                    Social
+                  </span>
+                )}
+                <span className="text-[10px] font-bold uppercase text-white/35">
+                  {aluno.selectedBasePlan ? `Plano ${aluno.selectedBasePlan}` : "Sem plano"}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {aluno.planStatus === "pending" && (
+                  <button
+                    type="button"
+                    disabled={approvingId === aluno.id}
+                    onClick={() => approvePlanStudent(aluno.id)}
+                    className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50"
+                  >
+                    {approvingId === aluno.id ? "…" : "Aprovar"}
+                  </button>
+                )}
+                <Link
+                  href={`/admin/aluno/${encodeURIComponent(aluno.athleteSlug || aluno.id)}`}
+                  className="inline-flex items-center gap-2 rounded-xl bg-papa-orange px-4 py-2 text-[10px] font-black uppercase text-papa-dark"
+                >
+                  Abrir <ChevronRight size={14} />
+                </Link>
+              </div>
+            </div>
+          ))}
+          {filteredStudents.length === 0 && (
+            <p className="p-6 text-center text-xs text-white/35">
+              Nenhum aluno encontrado.
+            </p>
+          )}
         </div>
       </div>
 

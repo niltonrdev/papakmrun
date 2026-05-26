@@ -10,9 +10,12 @@ import {
   Camera,
   Loader2,
   Clock,
+  LogOut,
 } from "lucide-react";
 import StravaPanel from "@/features/strava/StravaPanel";
 import { createClient } from "@/lib/supabase/client";
+import { logout } from "@/lib/auth/session.client";
+import ImageCropModal from "./ImageCropModal";
 
 function EmptyAvatar() {
   return (
@@ -58,6 +61,7 @@ export default function ProfileEditor() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(null);
   const [message, setMessage] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState(null);
   const [profile, setProfile] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({
@@ -68,6 +72,10 @@ export default function ProfileEditor() {
   });
   const [newPassword, setNewPassword] = useState("");
   const [passwordBusy, setPasswordBusy] = useState(false);
+
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropKind, setCropKind] = useState("avatar");
+  const [cropFile, setCropFile] = useState(null);
 
   const avatarInputRef = useRef(null);
   const bannerInputRef = useRef(null);
@@ -111,6 +119,12 @@ export default function ProfileEditor() {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!passwordMessage) return;
+    const id = setTimeout(() => setPasswordMessage(null), 5000);
+    return () => clearTimeout(id);
+  }, [passwordMessage]);
+
   async function saveProfile(e) {
     e?.preventDefault?.();
     setSaving(true);
@@ -141,33 +155,58 @@ export default function ProfileEditor() {
 
   async function changePassword(e) {
     e.preventDefault();
+    setPasswordMessage(null);
     if (!newPassword || newPassword.length < 6) {
-      setMessage("Use uma senha com pelo menos 6 caracteres.");
+      setPasswordMessage({
+        tone: "err",
+        text: "Use uma senha com pelo menos 6 caracteres.",
+      });
       return;
     }
     const supabase = createClient();
-    if (!supabase) return;
+    if (!supabase) {
+      setPasswordMessage({
+        tone: "err",
+        text: "Serviço de autenticação indisponível.",
+      });
+      return;
+    }
     setPasswordBusy(true);
-    setMessage("");
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       setNewPassword("");
-      setMessage("Senha atualizada com sucesso.");
+      setPasswordMessage({
+        tone: "ok",
+        text: "Senha atualizada com sucesso.",
+      });
     } catch (e) {
-      setMessage(e?.message || "Não foi possível alterar a senha.");
+      setPasswordMessage({
+        tone: "err",
+        text: e?.message || "Não foi possível alterar a senha.",
+      });
     } finally {
       setPasswordBusy(false);
     }
   }
 
-  async function uploadImage(kind, file) {
+  function openCropper(kind, file) {
+    if (!file) return;
+    setCropKind(kind);
+    setCropFile(file);
+    setCropOpen(true);
+  }
+
+  async function uploadCroppedImage(file) {
     if (!file) return;
     const supabase = createClient();
     if (!supabase) {
       setMessage("Upload indisponível.");
       return;
     }
+    const kind = cropKind;
+    setCropOpen(false);
+    setCropFile(null);
     setUploading(kind);
     setMessage("");
     try {
@@ -176,11 +215,11 @@ export default function ProfileEditor() {
       const userId = me?.user?.id;
       if (!userId) throw new Error("Sessão necessária.");
 
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const ext = "jpg";
       const path = `${userId}/${kind}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("profile-media")
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
       if (upErr) throw upErr;
 
       const { data: pub } = supabase.storage.from("profile-media").getPublicUrl(path);
@@ -205,6 +244,13 @@ export default function ProfileEditor() {
     }
   }
 
+  function cancelCropper() {
+    setCropOpen(false);
+    setCropFile(null);
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
+    if (bannerInputRef.current) bannerInputRef.current.value = "";
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-white/50">
@@ -227,24 +273,30 @@ export default function ProfileEditor() {
   const hasCustomBanner = Boolean(profile.bannerUrl);
 
   return (
-    <div className="mx-auto max-w-5xl pb-24 lg:pb-10">
+    <div className="mx-auto w-full max-w-5xl pb-24 lg:pb-10">
       <input
         ref={avatarInputRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => uploadImage("avatar", e.target.files?.[0])}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) openCropper("avatar", f);
+        }}
       />
       <input
         ref={bannerInputRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => uploadImage("banner", e.target.files?.[0])}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) openCropper("banner", f);
+        }}
       />
 
-      <div className="relative mb-20">
-        <div className="relative h-48 w-full overflow-hidden rounded-b-[40px] border-b border-white/5 bg-papa-card shadow-2xl lg:h-64">
+      <div className="relative mb-20 sm:mb-24">
+        <div className="relative h-40 w-full overflow-hidden rounded-b-[32px] border-b border-white/5 bg-papa-card shadow-2xl sm:h-48 lg:h-64 lg:rounded-b-[40px]">
           {bannerSrc ? (
             <Image
               src={bannerSrc}
@@ -262,20 +314,25 @@ export default function ProfileEditor() {
             type="button"
             onClick={() => bannerInputRef.current?.click()}
             disabled={uploading === "banner"}
-            className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-full border border-white/15 bg-black/60 px-4 py-2.5 text-[11px] font-black uppercase text-white shadow-lg backdrop-blur-md transition hover:bg-papa-blue hover:text-papa-dark disabled:opacity-50"
+            className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-3 py-2 text-[10px] font-black uppercase text-white shadow-lg backdrop-blur-md transition hover:bg-papa-blue hover:text-papa-dark disabled:opacity-50 sm:right-4 sm:top-4 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-[11px]"
           >
             {uploading === "banner" ? (
               <Loader2 size={14} className="animate-spin" />
             ) : (
               <Camera size={14} />
             )}
-            {hasCustomBanner ? "Trocar banner" : "Adicionar banner"}
+            <span className="hidden sm:inline">
+              {hasCustomBanner ? "Trocar banner" : "Adicionar banner"}
+            </span>
+            <span className="sm:hidden">
+              {hasCustomBanner ? "Trocar" : "Banner"}
+            </span>
           </button>
         </div>
 
-        <div className="absolute -bottom-16 left-8 z-20 flex items-end gap-6 lg:-bottom-[70px] lg:left-12">
+        <div className="absolute -bottom-14 left-4 z-20 flex items-end gap-4 sm:-bottom-16 sm:left-8 sm:gap-6 lg:-bottom-[70px] lg:left-12">
           <div className="group relative aspect-square">
-            <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-papa-dark bg-papa-card shadow-[0_0_40px_rgba(0,0,0,0.7)] lg:h-40 lg:w-40 lg:border-8">
+            <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-papa-dark bg-papa-card shadow-[0_0_40px_rgba(0,0,0,0.7)] sm:h-32 sm:w-32 lg:h-40 lg:w-40 lg:border-8">
               {avatarSrc ? (
                 <Image
                   src={avatarSrc}
@@ -293,7 +350,7 @@ export default function ProfileEditor() {
               type="button"
               onClick={() => avatarInputRef.current?.click()}
               disabled={uploading === "avatar"}
-              className="absolute bottom-1 right-1 flex items-center gap-1 rounded-full border-4 border-papa-dark bg-papa-blue px-3 py-2 text-[10px] font-black uppercase text-papa-dark shadow-lg transition-transform hover:scale-105 disabled:opacity-60"
+              className="absolute bottom-1 right-1 flex items-center gap-1 rounded-full border-4 border-papa-dark bg-papa-blue px-2.5 py-1.5 text-[10px] font-black uppercase text-papa-dark shadow-lg transition-transform hover:scale-105 disabled:opacity-60 sm:px-3 sm:py-2"
               title={hasCustomAvatar ? "Trocar foto" : "Adicionar foto"}
             >
               {uploading === "avatar" ? (
@@ -307,8 +364,8 @@ export default function ProfileEditor() {
             </button>
           </div>
 
-          <div className="mb-4 hidden md:block">
-            <h2 className="text-3xl font-black italic leading-none tracking-tight text-white">
+          <div className="mb-3 hidden min-w-0 md:block">
+            <h2 className="truncate text-2xl font-black italic leading-none tracking-tight text-white lg:text-3xl">
               {displayName}
             </h2>
             <div className="mt-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/40">
@@ -319,26 +376,28 @@ export default function ProfileEditor() {
         </div>
       </div>
 
-      <div className="mb-8 px-8 md:hidden">
-        <h2 className="text-2xl font-black italic tracking-tight text-white">{displayName}</h2>
-        <div className="mt-1 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/40">
+      <div className="mb-6 px-4 sm:px-8 md:hidden">
+        <h2 className="break-words text-2xl font-black italic leading-tight tracking-tight text-white">
+          {displayName}
+        </h2>
+        <div className="mt-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-white/40">
           <MapPin size={12} className="text-papa-blue" />
           {profile.city || "—"}
         </div>
       </div>
 
       {(!hasCustomAvatar || !hasCustomBanner) && (
-        <div className="mx-8 mb-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[11px] text-white/60 lg:mx-12">
+        <div className="mx-4 mb-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[11px] text-white/60 sm:mx-8 lg:mx-12">
           {!hasCustomAvatar && !hasCustomBanner
-            ? "Personalize seu perfil: clique em \"Foto\" no avatar e em \"Adicionar banner\" no topo para enviar suas imagens."
+            ? "Personalize seu perfil: toque em \"Foto\" no avatar e em \"Banner\" no topo para enviar suas imagens."
             : !hasCustomAvatar
-              ? "Clique no botão Foto sobre o avatar para enviar sua imagem de perfil."
-              : "Clique em Adicionar banner no topo da página para enviar sua imagem de capa."}
+              ? "Toque no botão Foto sobre o avatar para enviar sua imagem de perfil."
+              : "Toque em Banner no topo da página para enviar sua imagem de capa."}
         </div>
       )}
 
       {profile.planStatus === "pending" && (
-        <div className="mx-8 mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 lg:mx-12">
+        <div className="mx-4 mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 sm:mx-8 lg:mx-12">
           <Clock size={18} className="mt-0.5 shrink-0" />
           <p>
             Seu cadastro como <strong>aluno planilha</strong> está em análise. Enquanto isso você usa a
@@ -348,13 +407,13 @@ export default function ProfileEditor() {
       )}
 
       {message && (
-        <p className="mx-8 mb-4 text-center text-xs text-white/60 lg:mx-12">{message}</p>
+        <p className="mx-4 mb-4 text-center text-xs text-white/60 sm:mx-8 lg:mx-12">{message}</p>
       )}
 
-      <div className="grid grid-cols-1 gap-8 px-8 lg:grid-cols-12 lg:px-12">
+      <div className="grid grid-cols-1 gap-6 px-4 sm:px-8 lg:grid-cols-12 lg:gap-8 lg:px-12">
         <div className="space-y-6 lg:col-span-4">
-          <div className="space-y-4 rounded-3xl border border-white/5 bg-papa-card p-6">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4 rounded-3xl border border-white/5 bg-papa-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span
                 className={`flex items-center gap-1 rounded-full px-3 py-1 text-[10px] font-black uppercase ${accountBadgeClass(profile)}`}
               >
@@ -410,7 +469,7 @@ export default function ProfileEditor() {
               </p>
             )}
 
-            <p className="border-t border-white/5 pt-3 text-[10px] text-white/30">{profile.email}</p>
+            <p className="break-all border-t border-white/5 pt-3 text-[10px] text-white/30">{profile.email}</p>
 
             <form onSubmit={changePassword} className="space-y-2 border-t border-white/5 pt-4">
               <label className="block text-[10px] font-bold uppercase text-white/40">
@@ -431,21 +490,42 @@ export default function ProfileEditor() {
               >
                 {passwordBusy ? "Salvando…" : "Alterar senha"}
               </button>
+              {passwordMessage && (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className={`mt-2 rounded-xl border px-3 py-2 text-[11px] font-medium ${
+                    passwordMessage.tone === "ok"
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+                      : "border-red-500/40 bg-red-500/10 text-red-100"
+                  }`}
+                >
+                  {passwordMessage.text}
+                </p>
+              )}
             </form>
+
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 py-2.5 text-[11px] font-black uppercase tracking-wider text-red-200 hover:bg-red-500/20 lg:hidden"
+            >
+              <LogOut size={14} /> Sair da conta
+            </button>
           </div>
         </div>
 
-        <div className="space-y-8 lg:col-span-8">
+        <div className="space-y-6 lg:col-span-8 lg:space-y-8">
           <StravaPanel />
 
-          <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-papa-card p-8">
+          <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-papa-card p-6 sm:p-8">
             <div className="absolute right-0 top-0 p-10 opacity-5">
               <Award size={120} className="text-papa-blue" />
             </div>
             <h3 className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-white/20">
               Assinatura PapaKM
             </h3>
-            <p className="text-lg font-black text-white">
+            <p className="text-base font-black text-white sm:text-lg">
               {profile.role === "plan"
                 ? "Acesso completo à planilha e performance."
                 : profile.planStatus === "pending"
@@ -464,6 +544,14 @@ export default function ProfileEditor() {
           </div>
         </div>
       </div>
+
+      <ImageCropModal
+        open={cropOpen}
+        file={cropFile}
+        kind={cropKind}
+        onCancel={cancelCropper}
+        onConfirm={uploadCroppedImage}
+      />
     </div>
   );
 }

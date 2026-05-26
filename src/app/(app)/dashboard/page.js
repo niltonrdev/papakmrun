@@ -20,10 +20,10 @@ function TodayWorkoutCard({ isSocial = false }) {
 
   // Se não houver treino, mostramos um card de "Descanso" estilizado para não quebrar o layout
   if (!w) return (
-    <div className="rounded-3xl bg-papa-card p-8 border border-white/5 flex items-center justify-between">
-      <div>
-        <span className="text-papa-orange font-bold text-xs uppercase tracking-widest">Treino de Hoje</span>
-        <h2 className="text-3xl font-black text-white mt-2 leading-tight">Dia de Descanso</h2>
+    <div className="rounded-3xl bg-papa-card p-6 sm:p-8 border border-white/5 flex items-center justify-between gap-4">
+      <div className="min-w-0">
+        <span className="text-papa-orange font-bold text-[11px] sm:text-xs uppercase tracking-widest">Treino de Hoje</span>
+        <h2 className="text-2xl sm:text-3xl font-black text-white mt-2 leading-tight break-words">Dia de Descanso</h2>
         <p className="text-white/40 mt-1 italic text-sm">Aproveite para recuperar as energias! 🏃‍♂️</p>
       </div>
       <div className="hidden md:flex gap-1 h-12 items-end">
@@ -38,11 +38,11 @@ function TodayWorkoutCard({ isSocial = false }) {
   const todayCheckin = checked ? getTodayCheckin() : null;
 
   return (
-    <div className="rounded-3xl bg-papa-card p-8 border border-white/5 relative overflow-hidden">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-        <div>
-          <span className="text-papa-orange font-bold text-xs uppercase tracking-widest">Treino de Hoje</span>
-          <h2 className="text-3xl font-black text-white mt-2 leading-tight">
+    <div className="rounded-3xl bg-papa-card p-6 sm:p-8 border border-white/5 relative overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-center">
+        <div className="min-w-0">
+          <span className="text-papa-orange font-bold text-[11px] sm:text-xs uppercase tracking-widest">Treino de Hoje</span>
+          <h2 className="text-2xl sm:text-3xl font-black text-white mt-2 leading-tight break-words">
             {w.title} · {w.km}km
           </h2>
           {!isSocial && (
@@ -155,33 +155,35 @@ export default function DashboardPage() {
   const { isSocial, planPending, hasPlanAccess } = useProfileRole();
 
   return (
-    <div className="max-w-7xl mx-auto p-6 lg:p-10">
+    <div className="max-w-7xl mx-auto w-full min-w-0">
       {planPending && (
         <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           Seu cadastro como <strong>aluno planilha</strong> está em análise. Por enquanto você usa o
           modo <strong>social</strong> (feed e Strava). Um professor liberará a planilha em breve.
         </div>
       )}
-      <header className="mb-10">
-        <h1 className="text-sm font-bold text-white/40 uppercase tracking-tighter">Papakm</h1>
-        <h2 className="text-4xl font-black text-white">Dashboard do Aluno</h2>
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+      <header className="mb-8 sm:mb-10">
+        <h1 className="text-xs sm:text-sm font-bold text-white/40 uppercase tracking-tighter">Papakm</h1>
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white break-words leading-tight">
+          Dashboard do Aluno
+        </h2>
+        <div className="mt-5 flex flex-wrap items-center gap-2 sm:gap-3">
           <a
             href="/api/strava/connect"
-            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-black uppercase text-white/80 hover:bg-white/10"
+            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-white/80 hover:bg-white/10"
           >
             Conectar Strava
           </a>
           <Link
             href="/perfil"
-            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-black uppercase text-white/50 hover:text-white"
+            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-white/50 hover:text-white"
           >
             Perfil / Strava
           </Link>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
         {/* Coluna Principal */}
         <div className="lg:col-span-8 space-y-8">
           <ActivityMural />

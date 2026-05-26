@@ -242,31 +242,34 @@ export default function FeedPage() {
   }, [items, q]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8 w-full min-w-0">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-sm font-bold text-white/20 uppercase tracking-widest mb-1">PapaKM</h1>
-          <h2 className="text-4xl font-black text-white italic">Feed Social e Comunidade</h2>
+        <div className="min-w-0">
+          <h1 className="text-xs sm:text-sm font-bold text-white/20 uppercase tracking-widest mb-1">PapaKM</h1>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white italic break-words leading-tight">
+            Feed Social e Comunidade
+          </h2>
           <p className="text-[10px] text-white/30 font-bold uppercase mt-2">
             Fonte: check-ins e corridas Strava da comunidade — últimos 7 dias
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <div className="relative">
+        <div className="flex gap-3 w-full md:w-auto">
+          <div className="relative flex-1 md:flex-none">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar atletas..."
-              className="pl-12 pr-6 py-3 rounded-2xl bg-papa-card border border-white/5 text-sm outline-none focus:border-papa-blue/30 w-64"
+              className="pl-12 pr-6 py-3 rounded-2xl bg-papa-card border border-white/5 text-sm outline-none focus:border-papa-blue/30 w-full md:w-64"
             />
           </div>
           <button
             type="button"
             onClick={refresh}
             disabled={loading}
-            className="p-3 rounded-2xl bg-papa-card border border-white/5 text-white/40 hover:text-white disabled:opacity-50"
+            className="shrink-0 p-3 rounded-2xl bg-papa-card border border-white/5 text-white/40 hover:text-white disabled:opacity-50"
+            aria-label="Atualizar feed"
           >
             <RotateCcw size={18} className={loading ? "animate-spin" : ""} />
           </button>

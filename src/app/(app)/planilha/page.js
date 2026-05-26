@@ -11,13 +11,13 @@ import PerformanceEvolutionChart from "@/features/strava/PerformanceEvolutionCha
 
 function StatCard({ title, value, icon: Icon, unit }) {
   return (
-    <div className="bg-papa-card p-5 rounded-3xl border border-white/5 flex flex-col justify-between">
+    <div className="bg-papa-card p-4 sm:p-5 rounded-3xl border border-white/5 flex flex-col justify-between min-w-0">
       <div className="flex items-center gap-2 mb-1">
-        <Icon className="text-papa-blue w-3 h-3 opacity-50" />
-        <span className="text-[10px] text-white/30 uppercase font-black tracking-widest">{title}</span>
+        <Icon className="text-papa-blue w-3 h-3 opacity-50 shrink-0" />
+        <span className="text-[9px] sm:text-[10px] text-white/30 uppercase font-black tracking-widest truncate">{title}</span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-black text-white">{value}</span>
+        <span className="text-xl sm:text-2xl font-black text-white truncate">{value}</span>
         {unit && <span className="text-[10px] text-white/30 font-bold uppercase">{unit}</span>}
       </div>
     </div>
@@ -117,13 +117,15 @@ export default function PerformancePage() {
         : "5:12";
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10 pb-20">
+    <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10 pb-20 w-full min-w-0">
       <header>
-        <h2 className="text-4xl font-black text-white italic uppercase italic">Performance</h2>
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white italic uppercase break-words leading-tight">
+          Performance
+        </h2>
       </header>
 
       {/* 1. KPIs Superiores (Volume, Sessões, etc) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title={strava?.linked ? "Volume (Strava)" : "Volume (demo)"}
           value={volKm}
