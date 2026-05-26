@@ -49,7 +49,7 @@ export async function GET(request) {
     supabase
       .from("checkins")
       .select(
-        "workout_slug, checkin_date, effort, notes, workout_title, plan_km, created_at, user_id, author_name"
+        "id, workout_slug, checkin_date, effort, notes, workout_title, plan_km, created_at, user_id, author_name"
       )
       .gte("checkin_date", cutoff)
       .order("checkin_date", { ascending: false })
@@ -77,12 +77,18 @@ export async function GET(request) {
 
   let profilesById = new Map();
   if (userIds.size > 0) {
-    const { data: profs } = await supabase
-      .from("profiles")
-      .select("id, display_name, athlete_slug, avatar_url")
-      .in("id", Array.from(userIds));
-    if (Array.isArray(profs)) {
-      profilesById = new Map(profs.map((p) => [p.id, p]));
+    const idsArr = Array.from(userIds);
+    const rpc = await supabase.rpc("get_public_profiles", { target_ids: idsArr });
+    if (!rpc.error && Array.isArray(rpc.data)) {
+      profilesById = new Map(rpc.data.map((p) => [p.id, p]));
+    } else {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, display_name, athlete_slug, avatar_url")
+        .in("id", idsArr);
+      if (Array.isArray(profs)) {
+        profilesById = new Map(profs.map((p) => [p.id, p]));
+      }
     }
   }
 
@@ -96,6 +102,7 @@ export async function GET(request) {
         p?.athlete_slug ||
         "Atleta",
       avatarUrl: p?.avatar_url || null,
+      slug: p?.athlete_slug || null,
     };
   }
 
@@ -103,7 +110,9 @@ export async function GET(request) {
     const author = authorFor(r.user_id, r.author_name);
     return {
       kind: "checkin",
-      id: `checkin-${r.user_id}-${r.checkin_date}-${r.workout_slug}`,
+      id: `checkin-${r.id}`,
+      activityKind: "checkin",
+      activityId: r.id,
       dateISO: r.checkin_date,
       createdAt: r.created_at,
       title: r.workout_title?.trim() || "Treino",
@@ -121,6 +130,8 @@ export async function GET(request) {
     return {
       kind: "strava",
       id: `strava-${r.id}`,
+      activityKind: "strava",
+      activityId: r.id,
       dateISO: r.date_iso,
       createdAt: r.created_at,
       title: r.name || "Corrida",
@@ -139,6 +150,49 @@ export async function GET(request) {
     const kb = `${b.dateISO || ""}T${(b.createdAt || "").slice(11, 19) || "00:00:00"}`;
     return kb.localeCompare(ka);
   });
+
+  // Engajamento: contagem de curtidas, comentários e curtida do próprio usuário.
+  const activityUuids = items.map((it) => it.activityId).filter(Boolean);
+  const likeCounts = new Map();
+  const commentCounts = new Map();
+  const myLikes = new Set();
+
+  if (activityUuids.length > 0) {
+    const [allLikesRes, myLikesRes, allCommentsRes] = await Promise.all([
+      supabase
+        .from("feed_likes")
+        .select("activity_kind, activity_id")
+        .in("activity_id", activityUuids),
+      supabase
+        .from("feed_likes")
+        .select("activity_kind, activity_id")
+        .eq("user_id", user.id)
+        .in("activity_id", activityUuids),
+      supabase
+        .from("feed_comments")
+        .select("activity_kind, activity_id")
+        .in("activity_id", activityUuids),
+    ]);
+
+    for (const r of allLikesRes.data || []) {
+      const k = `${r.activity_kind}::${r.activity_id}`;
+      likeCounts.set(k, (likeCounts.get(k) || 0) + 1);
+    }
+    for (const r of myLikesRes.data || []) {
+      myLikes.add(`${r.activity_kind}::${r.activity_id}`);
+    }
+    for (const r of allCommentsRes.data || []) {
+      const k = `${r.activity_kind}::${r.activity_id}`;
+      commentCounts.set(k, (commentCounts.get(k) || 0) + 1);
+    }
+  }
+
+  for (const it of items) {
+    const k = `${it.activityKind}::${it.activityId}`;
+    it.likeCount = likeCounts.get(k) || 0;
+    it.commentCount = commentCounts.get(k) || 0;
+    it.likedByMe = myLikes.has(k);
+  }
 
   return NextResponse.json({ items, days, cutoff });
 }

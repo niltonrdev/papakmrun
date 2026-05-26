@@ -18,21 +18,8 @@ function TodayWorkoutCard({ isSocial = false }) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Se não houver treino, mostramos um card de "Descanso" estilizado para não quebrar o layout
-  if (!w) return (
-    <div className="rounded-3xl bg-papa-card p-6 sm:p-8 border border-white/5 flex items-center justify-between gap-4">
-      <div className="min-w-0">
-        <span className="text-papa-orange font-bold text-[11px] sm:text-xs uppercase tracking-widest">Treino de Hoje</span>
-        <h2 className="text-2xl sm:text-3xl font-black text-white mt-2 leading-tight break-words">Dia de Descanso</h2>
-        <p className="text-white/40 mt-1 italic text-sm">Aproveite para recuperar as energias! 🏃‍♂️</p>
-      </div>
-      <div className="hidden md:flex gap-1 h-12 items-end">
-         {[20, 15, 25, 20, 30].map((h, i) => (
-           <div key={i} style={{ height: `${h}%` }} className="w-1.5 bg-white/10 rounded-full" />
-         ))}
-      </div>
-    </div>
-  );
+  // Sem treino agendado para o perfil/dia: não renderiza o card.
+  if (!w) return null;
 
   const checked = done || isWorkoutCheckedToday(w.slug);
   const todayCheckin = checked ? getTodayCheckin() : null;
@@ -151,9 +138,19 @@ function TrainingZonesList() {
   );
 }
 export default function DashboardPage() {
-  useBackendSyncTick();
+  const syncTick = useBackendSyncTick();
   const { isSocial, planPending, hasPlanAccess } = useProfileRole();
+  const [todayWorkout, setTodayWorkout] = useState(null);
 
+  useEffect(() => {
+    setTodayWorkout(getTodayWorkout());
+  }, [syncTick]);
+
+  const showTodayCard = hasPlanAccess && Boolean(todayWorkout);
+
+  // Layout:
+  // Mobile (até lg): Mural → Treino → Ranking → Calendário → Zonas
+  // Desktop (lg+): coluna principal [Mural, Treino, Zonas] + lateral [Ranking, Calendário]
   return (
     <div className="max-w-7xl mx-auto w-full min-w-0">
       {planPending && (
@@ -184,19 +181,29 @@ export default function DashboardPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
-        {/* Coluna Principal */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="order-1 lg:order-none lg:col-span-8 lg:col-start-1 lg:row-start-1">
           <ActivityMural />
-          <TodayWorkoutCard isSocial={isSocial} />
-
-          {hasPlanAccess && <TrainingZonesList />}
         </div>
 
-        {/* Coluna Lateral */}
-        <div className="lg:col-span-4 space-y-8">
+        {showTodayCard && (
+          <div className="order-2 lg:order-none lg:col-span-8 lg:col-start-1 lg:row-start-2">
+            <TodayWorkoutCard isSocial={isSocial} />
+          </div>
+        )}
+
+        <div className="order-3 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1">
           <RankingCard />
+        </div>
+
+        <div className="order-4 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-2">
           <RaceCalendar />
         </div>
+
+        {hasPlanAccess && (
+          <div className="order-5 lg:order-none lg:col-span-8 lg:col-start-1 lg:row-start-3">
+            <TrainingZonesList />
+          </div>
+        )}
       </div>
     </div>
   );
