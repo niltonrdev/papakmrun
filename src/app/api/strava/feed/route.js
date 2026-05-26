@@ -10,44 +10,7 @@ import {
   isDistanceSport,
 } from "@/lib/strava/insights";
 import { fetchProfileForUser } from "@/lib/profiles/fetch-profile";
-
-async function cacheActivitiesForCommunity(supabase, userId, authorName, activities, rawList) {
-  if (!supabase || !userId || !Array.isArray(activities) || activities.length === 0) return;
-  const rawById = new Map((rawList || []).map((r) => [String(r?.id ?? ""), r]));
-
-  const rows = activities
-    .map((a) => {
-      const raw = rawById.get(String(a.stravaId)) || {};
-      return {
-        user_id: userId,
-        source: "strava",
-        source_id: a.stravaId != null ? String(a.stravaId) : null,
-        name: a.name || "Corrida",
-        date_iso: a.dateISO || null,
-        start_at: a.startAt || null,
-        distance_km: a.distanceKm ?? null,
-        moving_time_sec: a.movingTimeSec ?? null,
-        pace_per_km: a.pacePerKm ?? null,
-        elevation_m: a.elevationM ?? null,
-        summary_polyline:
-          raw?.map?.summary_polyline ||
-          raw?.map?.polyline ||
-          null,
-        author_name: authorName || null,
-      };
-    })
-    .filter((r) => r.source_id);
-
-  if (rows.length === 0) return;
-
-  try {
-    await supabase
-      .from("community_activities")
-      .upsert(rows, { onConflict: "user_id,source,source_id" });
-  } catch (err) {
-    console.warn("community_activities upsert failed", err);
-  }
-}
+import { cacheStravaActivities } from "@/lib/strava/community-cache";
 
 export async function GET() {
   if (!env.stravaConfigured) {
@@ -121,9 +84,20 @@ export async function GET() {
       });
     }
 
-    await cacheActivitiesForCommunity(supabase, user.id, author, activities, list);
+    const cacheResult = await cacheStravaActivities({
+      supabase,
+      userId: user.id,
+      authorName: author,
+      rawList: list,
+      normalizedList: activities,
+    });
 
-    return NextResponse.json({ linked: true, authorName: author, activities });
+    return NextResponse.json({
+      linked: true,
+      authorName: author,
+      activities,
+      cache: cacheResult,
+    });
   } catch (e) {
     console.error(e);
     return NextResponse.json(

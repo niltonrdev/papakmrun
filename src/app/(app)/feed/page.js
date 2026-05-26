@@ -140,22 +140,76 @@ export default function FeedPage() {
     setLoading(true);
     setEmpty(false);
     try {
+      let me = null;
       try {
-        await fetch("/api/strava/feed", { credentials: "include" });
+        const meRes = await fetch("/api/me", { credentials: "include", cache: "no-store" });
+        if (meRes.ok) me = await meRes.json();
       } catch {
-        /* ignore: só sincroniza atividades em background */
+        /* ignore */
       }
 
-      const res = await fetch("/api/feed/community", { credentials: "include" });
-      if (res.ok) {
-        const j = await res.json();
-        const list = Array.isArray(j.items) ? j.items : [];
-        setItems(list);
-        setEmpty(list.length === 0);
-      } else {
-        setItems([]);
-        setEmpty(true);
+      const [communityRes, stravaRes] = await Promise.all([
+        fetch("/api/feed/community", { credentials: "include", cache: "no-store" }).catch(
+          () => null
+        ),
+        fetch("/api/strava/feed", { credentials: "include", cache: "no-store" }).catch(
+          () => null
+        ),
+      ]);
+
+      let community = [];
+      if (communityRes?.ok) {
+        const j = await communityRes.json();
+        community = Array.isArray(j.items) ? j.items : [];
       }
+
+      let stravaSelf = [];
+      if (stravaRes?.ok) {
+        const s = await stravaRes.json();
+        const author = {
+          id: me?.user?.id || "self",
+          name:
+            s.authorName ||
+            me?.profile?.display_name ||
+            (me?.user?.email ? String(me.user.email).split("@")[0] : "Você"),
+          avatarUrl: me?.profile?.avatar_url || null,
+        };
+        stravaSelf = (Array.isArray(s.activities) ? s.activities : []).map((a) => ({
+          kind: "strava",
+          id: `self-strava-${a.stravaId ?? a.id}`,
+          dateISO: a.dateISO,
+          createdAt: a.startAt || a.dateISO,
+          title: a.name || "Corrida",
+          distanceKm: a.distanceKm ?? null,
+          movingTimeSec: a.movingTimeSec ?? null,
+          pacePerKm: a.pacePerKm ?? null,
+          elevationM: a.elevationM ?? null,
+          note: "",
+          author,
+          mapPoints: Array.isArray(a.mapPoints) && a.mapPoints.length >= 2 ? a.mapPoints : null,
+        }));
+      }
+
+      const seen = new Set();
+      const merged = [];
+      for (const it of [...stravaSelf, ...community]) {
+        const key =
+          it.kind === "strava"
+            ? `${it.author?.id || "?"}::${it.dateISO || ""}::${it.distanceKm ?? "?"}`
+            : it.id;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(it);
+      }
+
+      merged.sort((a, b) => {
+        const ka = `${a.dateISO || ""}T${(a.createdAt || "").slice(11, 19) || "00:00:00"}`;
+        const kb = `${b.dateISO || ""}T${(b.createdAt || "").slice(11, 19) || "00:00:00"}`;
+        return kb.localeCompare(ka);
+      });
+
+      setItems(merged);
+      setEmpty(merged.length === 0);
     } catch {
       setItems([]);
       setEmpty(true);

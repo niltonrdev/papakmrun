@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { ensureStravaAccess } from "@/lib/strava/token";
 import { getAthlete, getAthleteStats, getRecentActivities } from "@/lib/strava/api";
+import { cacheStravaActivities } from "@/lib/strava/community-cache";
+import { fetchProfileForUser } from "@/lib/profiles/fetch-profile";
 
 function metersToKm(m) {
   if (m == null || Number.isNaN(Number(m))) return null;
@@ -37,7 +39,24 @@ export async function GET() {
   try {
     const athlete = await getAthlete(session.accessToken);
     const stats = await getAthleteStats(session.accessToken, athlete.id);
-    const activities = await getRecentActivities(session.accessToken, { perPage: 12 });
+    const activities = await getRecentActivities(session.accessToken, { perPage: 30 });
+
+    let authorName = `${athlete?.firstname ?? ""} ${athlete?.lastname ?? ""}`.trim();
+    if (!authorName) {
+      const { profile } = await fetchProfileForUser(supabase, user.id);
+      authorName =
+        profile?.display_name?.trim() ||
+        (user.email ? String(user.email).split("@")[0] : "Atleta");
+    }
+
+    cacheStravaActivities({
+      supabase,
+      userId: user.id,
+      authorName,
+      rawList: Array.isArray(activities) ? activities : [],
+    }).catch(() => {
+      /* ignore: feed da comunidade é best-effort */
+    });
 
     const all = stats?.all_run_totals;
     const ytd = stats?.ytd_run_totals;
