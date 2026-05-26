@@ -163,6 +163,13 @@ export default function FeedPage() {
         community = Array.isArray(j.items) ? j.items : [];
       }
 
+      const cutoffMs = Date.now() - 7 * 86400 * 1000;
+      const within7d = (iso) => {
+        if (!iso) return false;
+        const t = new Date(`${iso}T12:00:00`).getTime();
+        return Number.isFinite(t) && t >= cutoffMs;
+      };
+
       let stravaSelf = [];
       if (stravaRes?.ok) {
         const s = await stravaRes.json();
@@ -174,20 +181,22 @@ export default function FeedPage() {
             (me?.user?.email ? String(me.user.email).split("@")[0] : "Você"),
           avatarUrl: me?.profile?.avatar_url || null,
         };
-        stravaSelf = (Array.isArray(s.activities) ? s.activities : []).map((a) => ({
-          kind: "strava",
-          id: `self-strava-${a.stravaId ?? a.id}`,
-          dateISO: a.dateISO,
-          createdAt: a.startAt || a.dateISO,
-          title: a.name || "Corrida",
-          distanceKm: a.distanceKm ?? null,
-          movingTimeSec: a.movingTimeSec ?? null,
-          pacePerKm: a.pacePerKm ?? null,
-          elevationM: a.elevationM ?? null,
-          note: "",
-          author,
-          mapPoints: Array.isArray(a.mapPoints) && a.mapPoints.length >= 2 ? a.mapPoints : null,
-        }));
+        stravaSelf = (Array.isArray(s.activities) ? s.activities : [])
+          .filter((a) => within7d(a.dateISO))
+          .map((a) => ({
+            kind: "strava",
+            id: `self-strava-${a.stravaId ?? a.id}`,
+            dateISO: a.dateISO,
+            createdAt: a.startAt || a.dateISO,
+            title: a.name || "Corrida",
+            distanceKm: a.distanceKm ?? null,
+            movingTimeSec: a.movingTimeSec ?? null,
+            pacePerKm: a.pacePerKm ?? null,
+            elevationM: a.elevationM ?? null,
+            note: "",
+            author,
+            mapPoints: Array.isArray(a.mapPoints) && a.mapPoints.length >= 2 ? a.mapPoints : null,
+          }));
       }
 
       const seen = new Set();
@@ -239,7 +248,7 @@ export default function FeedPage() {
           <h1 className="text-sm font-bold text-white/20 uppercase tracking-widest mb-1">PapaKM</h1>
           <h2 className="text-4xl font-black text-white italic">Feed Social e Comunidade</h2>
           <p className="text-[10px] text-white/30 font-bold uppercase mt-2">
-            Fonte: check-ins e corridas Strava de toda a comunidade
+            Fonte: check-ins e corridas Strava da comunidade — últimos 7 dias
           </p>
         </div>
 

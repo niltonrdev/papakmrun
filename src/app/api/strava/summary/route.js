@@ -49,14 +49,16 @@ export async function GET() {
         (user.email ? String(user.email).split("@")[0] : "Atleta");
     }
 
-    cacheStravaActivities({
-      supabase,
-      userId: user.id,
-      authorName,
-      rawList: Array.isArray(activities) ? activities : [],
-    }).catch(() => {
-      /* ignore: feed da comunidade é best-effort */
-    });
+    try {
+      await cacheStravaActivities({
+        supabase,
+        userId: user.id,
+        authorName,
+        rawList: Array.isArray(activities) ? activities : [],
+      });
+    } catch {
+      /* feed da comunidade é best-effort */
+    }
 
     const all = stats?.all_run_totals;
     const ytd = stats?.ytd_run_totals;

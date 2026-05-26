@@ -4,6 +4,14 @@ import { env } from "@/lib/env";
 import { decodePolyline, downsamplePoints } from "@/lib/strava/polyline";
 
 const PAGE_LIMIT = 60;
+const FEED_DAYS = 7;
+
+function cutoffDateIso(days) {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
 
 function pointsFromPolyline(encoded) {
   if (!encoded) return null;
@@ -31,6 +39,11 @@ export async function GET(request) {
 
   const { searchParams } = request.nextUrl;
   const limit = Math.min(Number(searchParams.get("limit") || PAGE_LIMIT), 150);
+  const days = Math.min(
+    Math.max(Number(searchParams.get("days") || FEED_DAYS), 1),
+    60
+  );
+  const cutoff = cutoffDateIso(days);
 
   const [checkinsRes, activitiesRes] = await Promise.all([
     supabase
@@ -38,6 +51,7 @@ export async function GET(request) {
       .select(
         "workout_slug, checkin_date, effort, notes, workout_title, plan_km, created_at, user_id, author_name"
       )
+      .gte("checkin_date", cutoff)
       .order("checkin_date", { ascending: false })
       .limit(limit),
     supabase
@@ -45,6 +59,7 @@ export async function GET(request) {
       .select(
         "id, user_id, source, source_id, name, date_iso, start_at, distance_km, moving_time_sec, pace_per_km, elevation_m, summary_polyline, author_name, created_at"
       )
+      .gte("date_iso", cutoff)
       .order("date_iso", { ascending: false })
       .limit(limit),
   ]);
@@ -125,5 +140,5 @@ export async function GET(request) {
     return kb.localeCompare(ka);
   });
 
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, days, cutoff });
 }
