@@ -8,6 +8,8 @@ import {
   Activity,
   ChevronDown,
   Loader2,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -16,9 +18,41 @@ import { getMergedPlanForSlug } from "@/features/plans/plan.storage";
 import { buildTemplatePlan, TEMPLATE_META, weekDatesForTemplateWeek } from "@/features/plans/templates";
 
 const ZONE_KEYS = ["z1", "z2", "z3", "z4", "z5"];
+const WEEKDAY_OPTIONS = [
+  { label: "Segunda", offset: 0 },
+  { label: "Terça", offset: 1 },
+  { label: "Quarta", offset: 2 },
+  { label: "Quinta", offset: 3 },
+  { label: "Sexta", offset: 4 },
+  { label: "Sábado", offset: 5 },
+  { label: "Domingo", offset: 6 },
+];
+const BASE_MONDAY_ISO = "2026-03-02";
 
 function clonePlan(plan) {
   return JSON.parse(JSON.stringify(plan));
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function dayOffsetFromLabel(dayLabel) {
+  const normalized = normalizeText(dayLabel);
+  const opt = WEEKDAY_OPTIONS.find((x) => normalizeText(x.label) === normalized);
+  return opt ? opt.offset : null;
+}
+
+function computeWorkoutDateISO(weekKey, dayLabel) {
+  const offset = dayOffsetFromLabel(dayLabel);
+  if (offset == null) return null;
+  const weekNumber = Math.max(1, Number(weekKey) || 1);
+  const d = new Date(`${BASE_MONDAY_ISO}T12:00:00`);
+  d.setDate(d.getDate() + (weekNumber - 1) * 7 + offset);
+  return d.toISOString().slice(0, 10);
 }
 
 export default function DetalheAlunoPage() {
@@ -156,9 +190,58 @@ export default function DetalheAlunoPage() {
       const w = next[weekKey];
       if (!w?.blocks?.[blockIdx]) return prev;
       const block = { ...w.blocks[blockIdx] };
-      if (field === "km") block.km = Number(value) || 0;
-      else block[field] = value;
+      if (field === "km") {
+        block.km = Number(value) || 0;
+      } else {
+        block[field] = value;
+      }
+      if (field === "dayLabel") {
+        const iso = computeWorkoutDateISO(weekKey, value);
+        if (iso) block.workoutDateISO = iso;
+      }
       w.blocks[blockIdx] = block;
+      w.blocks.sort((a, b) => {
+        const ao = dayOffsetFromLabel(a.dayLabel);
+        const bo = dayOffsetFromLabel(b.dayLabel);
+        return (ao == null ? 999 : ao) - (bo == null ? 999 : bo);
+      });
+      return next;
+    });
+  }
+
+  function addBlock(weekKey) {
+    setPlan((prev) => {
+      if (!prev?.[weekKey]) return prev;
+      const next = clonePlan(prev);
+      const w = next[weekKey];
+      const used = new Set((w.blocks || []).map((b) => dayOffsetFromLabel(b.dayLabel)));
+      const picked = WEEKDAY_OPTIONS.find((x) => !used.has(x.offset)) ?? WEEKDAY_OPTIONS[0];
+      const blockIdx = (w.blocks?.length || 0) + 1;
+      const workoutDateISO = computeWorkoutDateISO(weekKey, picked.label);
+      const newBlock = {
+        dayLabel: picked.label,
+        slug: `s${weekKey}-custom-${Date.now()}-${blockIdx}`,
+        km: 6,
+        zoneKey: "z2",
+        title: "Treino",
+        description: "Ajuste o conteúdo conforme o aluno.",
+        workoutDateISO: workoutDateISO ?? null,
+      };
+      w.blocks = [...(w.blocks || []), newBlock].sort((a, b) => {
+        const ao = dayOffsetFromLabel(a.dayLabel);
+        const bo = dayOffsetFromLabel(b.dayLabel);
+        return (ao == null ? 999 : ao) - (bo == null ? 999 : bo);
+      });
+      return next;
+    });
+  }
+
+  function removeBlock(weekKey, blockIdx) {
+    setPlan((prev) => {
+      if (!prev?.[weekKey]) return prev;
+      const next = clonePlan(prev);
+      const w = next[weekKey];
+      w.blocks = (w.blocks || []).filter((_, idx) => idx !== blockIdx);
       return next;
     });
   }
@@ -390,13 +473,26 @@ export default function DetalheAlunoPage() {
                               <th className="pb-2 pr-2">Km</th>
                               <th className="pb-2 pr-2">Zona</th>
                               <th className="pb-2">Observações</th>
+                              <th className="pb-2 w-10"></th>
                             </tr>
                           </thead>
                           <tbody className="text-white/80">
                             {(week.blocks ?? []).map((b, idx) => (
                               <tr key={b.slug} className="border-b border-white/5 align-top">
                                 <td className="py-2 pr-2 font-bold text-white whitespace-nowrap">
-                                  {b.dayLabel}
+                                  <select
+                                    value={b.dayLabel}
+                                    onChange={(e) =>
+                                      updateBlock(wk, idx, "dayLabel", e.target.value)
+                                    }
+                                    className="bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white text-[10px] font-black uppercase"
+                                  >
+                                    {WEEKDAY_OPTIONS.map((opt) => (
+                                      <option key={opt.label} value={opt.label} className="bg-papa-dark">
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </td>
                                 <td className="py-2 pr-2">
                                   <input
@@ -435,10 +531,29 @@ export default function DetalheAlunoPage() {
                                     className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
                                   />
                                 </td>
+                                <td className="py-2 pl-2 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeBlock(wk, idx)}
+                                    className="inline-flex items-center justify-center p-1.5 rounded-lg border border-rose-400/30 text-rose-300 hover:bg-rose-500/10"
+                                    title="Remover treino"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => addBlock(wk)}
+                          className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 inline-flex items-center gap-2"
+                        >
+                          <Plus size={12} /> Adicionar treino na semana
+                        </button>
                       </div>
                     </div>
                   );

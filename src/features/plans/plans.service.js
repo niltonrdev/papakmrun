@@ -57,12 +57,23 @@ export function getZoneByKeyForAthlete(slug, key) {
 }
 
 export function getTodayWorkout() {
-  const day = new Date().getDay();
-  const dayMap = { 2: "Terça", 4: "Quinta", 6: "Sábado" };
-  const label = dayMap[day];
-  if (!label) return null;
   const wn = readActiveWeekNumber();
   const week = getWeekPlan(wn);
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const byDate = week?.blocks?.find((b) => b.workoutDateISO === todayISO);
+  if (byDate) return byDate;
+  const day = new Date().getDay();
+  const dayMap = {
+    0: "Domingo",
+    1: "Segunda",
+    2: "Terça",
+    3: "Quarta",
+    4: "Quinta",
+    5: "Sexta",
+    6: "Sábado",
+  };
+  const label = dayMap[day];
+  if (!label) return null;
   return week?.blocks?.find((b) => b.dayLabel === label) ?? null;
 }
 

@@ -6,13 +6,23 @@ export function getServerWeekPlan(weekNumber) {
   return plan[wn] || plan["1"] || Object.values(plan)[0];
 }
 
-const DAY_MAP = { 2: "Terça", 4: "Quinta", 6: "Sábado" };
-
 export function getServerTodayWorkout(weekNumber) {
-  const day = new Date().getDay();
-  const label = DAY_MAP[day];
-  if (!label) return null;
   const week = getServerWeekPlan(weekNumber);
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const byDate = week?.blocks?.find((b) => b.workoutDateISO === todayISO);
+  if (byDate) return byDate;
+  const day = new Date().getDay();
+  const dayMap = {
+    0: "Domingo",
+    1: "Segunda",
+    2: "Terça",
+    3: "Quarta",
+    4: "Quinta",
+    5: "Sexta",
+    6: "Sábado",
+  };
+  const label = dayMap[day];
+  if (!label) return null;
   return week?.blocks?.find((b) => b.dayLabel === label) ?? null;
 }
 
