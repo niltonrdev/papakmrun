@@ -31,17 +31,17 @@ function weekTickLabel(weekStart) {
   return `${parts[2]}/${parts[1]}`;
 }
 
-export default function PerformanceEvolutionChart({ weeklyKm, loading }) {
+export default function PerformanceEvolutionChart({ weeklyKm, loading, stravaLinked = false }) {
   const hasData =
     Array.isArray(weeklyKm) &&
     weeklyKm.length > 1 &&
     weeklyKm.some((w) => w.km > 0);
 
-  const currentPath = hasData
-    ? valuesToPath(weeklyKm.map((w) => w.km))
-    : "M 0 80 Q 25 20 50 50 T 100 30";
+  const showDemo = !stravaLinked && !hasData && !loading;
+
+  const currentPath = hasData ? valuesToPath(weeklyKm.map((w) => w.km)) : "";
   const roll = hasData ? rollingMeanSeries(weeklyKm, 4) : null;
-  const lastPath = roll ? valuesToPath(roll) : "M 0 90 Q 30 70 60 85 T 100 75";
+  const lastPath = roll ? valuesToPath(roll) : "";
 
   const ticks = hasData ? weeklyKm : null;
 
@@ -55,20 +55,22 @@ export default function PerformanceEvolutionChart({ weeklyKm, loading }) {
           <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/30">
             {hasData
               ? "Volume semanal Strava — corridas e trilhas (últimas 12 semanas)"
-              : "Volume e consistência (demo)"}
+              : stravaLinked
+                ? "Aguardando dados das suas corridas no Strava"
+                : "Conecte o Strava no perfil para ver seu volume semanal"}
           </p>
         </div>
         <div className="flex gap-6">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-papa-blue shadow-[0_0_10px_rgba(0,209,255,0.6)]" />
             <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-              {hasData ? "Km / semana" : "Atual"}
+              Km / semana
             </span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-papa-orange shadow-[0_0_10px_rgba(255,107,0,0.6)]" />
             <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-              {hasData ? "Média 4 sem." : "Anterior"}
+              Média 4 sem.
             </span>
           </div>
         </div>
@@ -76,6 +78,14 @@ export default function PerformanceEvolutionChart({ weeklyKm, loading }) {
 
       {loading ? (
         <div className="h-48 w-full animate-pulse rounded-2xl bg-white/5" />
+      ) : showDemo || !hasData ? (
+        <div className="flex h-48 w-full items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 text-center">
+          <p className="text-xs font-bold uppercase tracking-wide text-white/30">
+            {stravaLinked
+              ? "Sem volume registrado nas últimas semanas."
+              : "Conecte o Strava no perfil para ver o gráfico."}
+          </p>
+        </div>
       ) : (
         <div className="group relative h-48 w-full">
           <svg

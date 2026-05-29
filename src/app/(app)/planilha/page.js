@@ -10,6 +10,12 @@ import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
 import PerformanceEvolutionChart from "@/features/strava/PerformanceEvolutionChart";
 
+const EMPTY_PERSONAL_RECORDS = [
+  { label: "15 km", time: "—", pace: "—", date: "—" },
+  { label: "10 km", time: "—", pace: "—", date: "—" },
+  { label: "400 m", time: "—", pace: "—", date: "—" },
+];
+
 function WorkoutPreviewCard({ block }) {
   const zone = getZoneByKey(block.zoneKey);
 
@@ -53,36 +59,58 @@ function WorkoutPreviewCard({ block }) {
   );
 }
 
-function StatCard({ title, value, icon: Icon, unit }) {
+function StatCard({ title, value, icon: Icon, unit, empty = false }) {
+  const isEmpty = empty || value === "—";
   return (
     <div className="bg-papa-card p-4 sm:p-5 rounded-3xl border border-white/5 flex flex-col justify-between min-w-0">
       <div className="flex items-center gap-2 mb-1">
-        <Icon className="text-papa-blue w-3 h-3 opacity-50 shrink-0" />
-        <span className="text-[9px] sm:text-[10px] text-white/30 uppercase font-black tracking-widest truncate">{title}</span>
+        <Icon
+          className={`w-3 h-3 shrink-0 ${isEmpty ? "text-white/15" : "text-papa-blue opacity-50"}`}
+        />
+        <span className="text-[9px] sm:text-[10px] text-white/30 uppercase font-black tracking-widest truncate">
+          {title}
+        </span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-xl sm:text-2xl font-black text-white truncate">{value}</span>
-        {unit && <span className="text-[10px] text-white/30 font-bold uppercase">{unit}</span>}
+        <span
+          className={`text-xl sm:text-2xl font-black truncate ${
+            isEmpty ? "text-white/25" : "text-white"
+          }`}
+        >
+          {value}
+        </span>
+        {unit && !isEmpty ? (
+          <span className="text-[10px] text-white/30 font-bold uppercase">{unit}</span>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function PersonalRecord({ label, time, pace, date }) {
+function PersonalRecord({ label, time, pace, date, empty = false }) {
+  const muted = empty ? "text-white/25" : "text-white";
+  const mutedSub = empty ? "text-white/20" : "text-white/30";
+
   return (
     <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-white/20 transition-all">
       <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-papa-orange/10 flex items-center justify-center text-papa-orange">
+        <div
+          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            empty ? "bg-white/5 text-white/20" : "bg-papa-orange/10 text-papa-orange"
+          }`}
+        >
           <Medal size={18} />
         </div>
         <div>
-          <div className="text-sm font-black text-white">{label}</div>
-          <div className="text-[10px] text-white/30 font-bold uppercase">{date}</div>
+          <div className={`text-sm font-black ${muted}`}>{label}</div>
+          <div className={`text-[10px] font-bold uppercase ${mutedSub}`}>{date}</div>
         </div>
       </div>
       <div className="text-right">
-        <div className="text-sm font-mono font-black text-white">{time}</div>
-        <div className="text-[10px] text-white/30 font-bold">{pace} /km</div>
+        <div className={`text-sm font-mono font-black ${muted}`}>{time}</div>
+        <div className={`text-[10px] font-bold ${mutedSub}`}>
+          {pace === "—" ? "—" : `${pace} /km`}
+        </div>
       </div>
     </div>
   );
@@ -148,23 +176,21 @@ export default function PerformancePage() {
     };
   }, [strava?.linked]);
 
+  const stravaLinked = Boolean(strava?.linked);
+
   const volKm =
-    strava?.linked && strava?.totals?.ytdRunKm != null
+    stravaLinked && strava?.totals?.ytdRunKm != null
       ? String(strava.totals.ytdRunKm)
-      : strava?.linked && strava?.totals?.recentRunKm != null
+      : stravaLinked && strava?.totals?.recentRunKm != null
         ? String(strava.totals.recentRunKm)
-        : "128";
+        : "—";
   const sessionsVal =
-    strava?.linked && strava?.totals?.allRunSessions != null
+    stravaLinked && strava?.totals?.allRunSessions != null
       ? String(strava.totals.allRunSessions)
-      : "14";
+      : "—";
 
   const paceVal =
-    strava?.linked && insights?.avgPaceRecentRuns
-      ? insights.avgPaceRecentRuns
-      : strava?.linked
-        ? "—"
-        : "5:12";
+    stravaLinked && insights?.avgPaceRecentRuns ? insights.avgPaceRecentRuns : "—";
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10 pb-20 w-full min-w-0">
@@ -177,22 +203,25 @@ export default function PerformancePage() {
       {/* 1. KPIs Superiores (Volume, Sessões, etc) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
-          title={strava?.linked ? "Volume (Strava)" : "Volume (demo)"}
+          title="Volume (Strava)"
           value={volKm}
           icon={BarChart3}
           unit="km"
+          empty={!stravaLinked}
         />
         <StatCard
-          title={strava?.linked ? "Sessões (total Strava)" : "Sessões"}
+          title="Sessões (Strava)"
           value={sessionsVal}
           icon={Activity}
+          empty={!stravaLinked}
         />
         <StatCard title="Status Saúde" value="Apto" icon={HeartPulse} />
         <StatCard
-          title={strava?.linked ? "Pace médio (recentes)" : "Pace Médio"}
+          title="Pace médio (recentes)"
           value={paceVal}
           icon={BarChart3}
           unit="/km"
+          empty={!stravaLinked || paceVal === "—"}
         />
       </div>
       {strava && !strava.linked && strava.message && (
@@ -261,7 +290,8 @@ export default function PerformancePage() {
       {/* 3. Gráfico de evolução */}
       <PerformanceEvolutionChart
         weeklyKm={insights?.weeklyKm}
-        loading={Boolean(strava?.linked && insightsLoading)}
+        loading={Boolean(stravaLinked && insightsLoading)}
+        stravaLinked={stravaLinked}
       />
 
       {/* 4. Previsões e Melhores Marcas (Estilo Strava) */}
@@ -325,11 +355,16 @@ export default function PerformancePage() {
                 />
               ))
             ) : (
-              <>
-                <PersonalRecord label="15 km" time="1:22:03" pace="5:28" date="21 de fev. de 2026" />
-                <PersonalRecord label="10 km" time="47:58" pace="4:48" date="31 de jan. de 2026" />
-                <PersonalRecord label="400 m" time="1:18" pace="3:15" date="5 de nov. de 2025" />
-              </>
+              EMPTY_PERSONAL_RECORDS.map((pr) => (
+                <PersonalRecord
+                  key={pr.label}
+                  label={pr.label}
+                  time={pr.time}
+                  pace={pr.pace}
+                  date={pr.date}
+                  empty
+                />
+              ))
             )}
           </div>
         </div>
