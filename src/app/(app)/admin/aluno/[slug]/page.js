@@ -7,6 +7,7 @@ import {
   FileText,
   Activity,
   ChevronDown,
+  ChevronUp,
   Loader2,
   Plus,
   Trash2,
@@ -69,6 +70,7 @@ export default function DetalheAlunoPage() {
   const [zonas, setZonas] = useState(null);
   const [plan, setPlan] = useState(null);
   const [saveMsg, setSaveMsg] = useState("");
+  const [calcOpen, setCalcOpen] = useState(false);
 
   const loadStudentPlan = useCallback(async () => {
     if (!slug) return;
@@ -105,6 +107,7 @@ export default function DetalheAlunoPage() {
       setDistanciaTeste(planJson.testDistance ?? 3);
       setTempoTeste(planJson.testTime ?? "");
       setZonas(planJson.zones ?? null);
+      setCalcOpen(!planJson.zones && Boolean(planJson.testTime));
     } catch (e) {
       setSaveMsg(e?.message || "Erro ao carregar aluno.");
       setPlan(clonePlan(getMergedPlanForSlug(slug)));
@@ -126,6 +129,7 @@ export default function DetalheAlunoPage() {
     try {
       const { zonesRecord } = computeZonesFromTest(distanciaTeste, tempoTeste);
       setZonas(zonesRecord);
+      setCalcOpen(true);
       setSaveMsg("");
     } catch {
       setSaveMsg("Informe o tempo do teste em MM:SS.");
@@ -292,9 +296,16 @@ export default function DetalheAlunoPage() {
   }
 
   const rec = studentName ? { name: studentName, slug } : null;
+  const calcSummary = [
+    distanciaTeste === 2.4 ? "2.4K" : `${distanciaTeste}K`,
+    tempoTeste || null,
+    zonas ? `${Object.keys(zonas).length} zonas` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20">
+    <div className="max-w-7xl mx-auto space-y-6 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Link
           href="/admin"
@@ -326,25 +337,53 @@ export default function DetalheAlunoPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-papa-card p-8 rounded-[40px] border border-white/5 shadow-2xl">
-            <h2 className="text-xl font-black text-white italic uppercase mb-6 leading-none">
-              Calculadora de Zonas
-            </h2>
+      <div className="bg-papa-card rounded-3xl border border-white/10 shadow-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setCalcOpen((v) => !v)}
+          className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-white/[0.02] transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-papa-blue/10 text-papa-blue">
+              <Calculator size={18} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-black text-white italic uppercase leading-none">
+                Calculadora de Zonas
+              </h2>
+              {!calcOpen && calcSummary ? (
+                <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide mt-1 truncate">
+                  {calcSummary}
+                </p>
+              ) : !calcOpen ? (
+                <p className="text-[10px] text-white/30 font-bold uppercase tracking-wide mt-1">
+                  Clique para calcular paces do teste
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 text-white/30">
+            <span className="text-[9px] font-black uppercase hidden sm:inline">
+              {calcOpen ? "Recolher" : "Expandir"}
+            </span>
+            {calcOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </div>
+        </button>
 
-            <div className="space-y-6">
-              <div>
-                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-3 block">
-                  Distância do Teste
+        {calcOpen ? (
+          <div className="border-t border-white/10 px-5 pb-5 pt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+              <div className="lg:col-span-4">
+                <label className="text-[9px] font-black text-white/25 uppercase tracking-widest mb-2 block">
+                  Distância do teste
                 </label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   {[1, 2.4, 3, 5].map((d) => (
                     <button
                       key={d}
                       type="button"
                       onClick={() => setDistanciaTeste(d)}
-                      className={`py-2 rounded-xl text-[10px] font-black border transition-all ${
+                      className={`py-1.5 rounded-lg text-[10px] font-black border transition-all ${
                         distanciaTeste === d
                           ? "bg-papa-blue text-papa-dark border-papa-blue"
                           : "bg-white/5 text-white/40 border-white/5"
@@ -356,57 +395,61 @@ export default function DetalheAlunoPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-3 block">
-                  Tempo Total do Teste
+              <div className="lg:col-span-4">
+                <label className="text-[9px] font-black text-white/25 uppercase tracking-widest mb-2 block">
+                  Tempo total (MM:SS)
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={tempoTeste}
                     onChange={(e) => setTempoTeste(e.target.value)}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white font-mono outline-none focus:border-papa-blue transition-all"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono outline-none focus:border-papa-blue transition-all"
                     placeholder="MM:SS"
                   />
                   <button
                     type="button"
                     onClick={calcularZonas}
-                    className="p-3 bg-papa-blue rounded-2xl text-papa-dark hover:scale-105 transition-all shadow-lg shadow-papa-blue/20"
-                    title="Calcular Paces"
+                    className="px-3 py-2 bg-papa-blue rounded-xl text-papa-dark hover:bg-papa-blue/90 transition-all"
+                    title="Calcular paces"
                   >
-                    <Calculator size={20} />
+                    <Calculator size={18} />
                   </button>
                 </div>
               </div>
 
-              {zonas && (
-                <div className="pt-6 space-y-2 lg:space-y-3 border-t border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
-                  {Object.entries(zonas).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className="flex justify-between items-center p-3 rounded-2xl bg-white/[0.02] border border-white/5 group hover:border-white/10 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-2.5 h-2.5 rounded-full ${value.color} shadow-[0_0_10px_currentColor]`}
-                        />
-                        <span className="text-[10px] font-black text-white/40 uppercase group-hover:text-white transition-colors">
-                          {value.label}
+              {zonas ? (
+                <div className="lg:col-span-4">
+                  <label className="text-[9px] font-black text-white/25 uppercase tracking-widest mb-2 block">
+                    Zonas calculadas
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1">
+                    {Object.entries(zonas).map(([key, value]) => (
+                      <div
+                        key={key}
+                        className="flex justify-between items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/5"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${value.color}`} />
+                          <span className="text-[9px] font-black text-white/50 uppercase truncate">
+                            {value.label}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold text-white shrink-0">
+                          {value.pace ?? `${value.paceMin} - ${value.paceMax}`}
                         </span>
                       </div>
-                      <span className="text-xs font-mono font-bold text-white tracking-tighter">
-                        {value.pace ?? `${value.paceMin} - ${value.paceMax}`}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
-        </div>
+        ) : null}
+      </div>
 
-        <div className="lg:col-span-8 space-y-6">
-          <div className="bg-papa-card p-8 rounded-[40px] border border-white/5 shadow-2xl">
+      <div className="space-y-6">
+          <div className="bg-papa-card p-6 sm:p-8 rounded-[32px] border border-white/10 shadow-2xl">
             <div className="flex flex-col gap-6 mb-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-xl font-black text-white italic uppercase flex items-center gap-3">
@@ -451,7 +494,7 @@ export default function DetalheAlunoPage() {
                 Carregando planilha…
               </div>
             ) : (
-              <div className="space-y-8 max-h-[70vh] overflow-y-auto pr-2">
+              <div className="space-y-8 max-h-[75vh] overflow-y-auto pr-2">
                 {weekNumbers.map((wk) => {
                   const week = plan[wk];
                   return (
@@ -466,7 +509,7 @@ export default function DetalheAlunoPage() {
                         <span className="text-[10px] text-white/30 font-mono">#{wk}</span>
                       </div>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left text-[11px] min-w-[640px]">
+                        <table className="w-full text-left text-[11px]">
                           <thead>
                             <tr className="text-[9px] font-black uppercase text-white/30 border-b border-white/10">
                               <th className="pb-2 pr-2">Dia</th>
@@ -571,7 +614,6 @@ export default function DetalheAlunoPage() {
               </button>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

@@ -1,13 +1,57 @@
 "use client";
-import { useEffect, useState } from "react";
-import { getWeekPlan } from "@/features/plans/plans.service";
-import { BarChart3, Activity, HeartPulse, ChevronRight, Trophy, Timer, Medal } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
+import { zoneClasses } from "@/features/plans/zones.ui";
+import { BarChart3, Activity, HeartPulse, ChevronRight, Trophy, Timer, Medal, CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { useBackendSyncTick } from "@/features/session/backend-sync";
 import { readActiveWeekNumber } from "@/features/session/prefs.storage";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
 import PerformanceEvolutionChart from "@/features/strava/PerformanceEvolutionChart";
+
+function WorkoutPreviewCard({ block }) {
+  const zone = getZoneByKey(block.zoneKey);
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="shrink-0 sm:w-24">
+        <div className="inline-flex items-center gap-2 rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-3 py-2">
+          <CalendarDays size={14} className="text-papa-blue shrink-0" />
+          <span className="text-xs font-black uppercase text-papa-blue tracking-wide">
+            {block.dayLabel}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="text-base sm:text-lg font-black text-white">{block.title}</div>
+        {block.description ? (
+          <p className="text-sm text-white/55 mt-1 leading-relaxed line-clamp-2">
+            {block.description}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="shrink-0 flex sm:flex-col items-start sm:items-end gap-2 sm:gap-1.5">
+        <div className="text-2xl font-black text-white leading-none">
+          {block.km}
+          <span className="text-sm text-white/40 ml-1 font-bold">km</span>
+        </div>
+        <span
+          className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${zoneClasses(block.zoneKey)}`}
+        >
+          {zone?.label ?? block.zoneKey.toUpperCase()}
+        </span>
+        {zone ? (
+          <span className="text-[10px] font-mono text-white/45">
+            {zone.paceMin} – {zone.paceMax} /km
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function StatCard({ title, value, icon: Icon, unit }) {
   return (
@@ -51,7 +95,13 @@ export default function PerformancePage() {
   const [strava, setStrava] = useState(null);
   const [insights, setInsights] = useState(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
-  const week = getWeekPlan(activeWeek);
+  const week = useMemo(() => getWeekPlan(activeWeek), [activeWeek, syncTick]);
+
+  const weekSummary = useMemo(() => {
+    const blocks = week?.blocks ?? [];
+    const totalKm = blocks.reduce((sum, b) => sum + (Number(b.km) || 0), 0);
+    return { sessions: blocks.length, totalKm };
+  }, [week]);
 
   useEffect(() => {
     setActiveWeek(readActiveWeekNumber());
@@ -154,13 +204,7 @@ export default function PerformancePage() {
         </p>
       )}
 
-      {/* 2. Gráfico de Evolução */}
-      <PerformanceEvolutionChart
-        weeklyKm={insights?.weeklyKm}
-        loading={Boolean(strava?.linked && insightsLoading)}
-      />
-
-      {/* 3. Pré-visualização da Planilha (Club: tabela; Social: upsell) */}
+      {/* 2. Planilha semanal — visão principal do aluno */}
       {roleLoading ? (
         <div
           className="h-72 animate-pulse rounded-3xl border border-white/5 bg-white/5"
@@ -169,54 +213,56 @@ export default function PerformancePage() {
       ) : !hasPlanAccess ? (
         <SocialPlanilhaUpsell />
       ) : (
-        <div className="bg-papa-card rounded-3xl border border-white/5 overflow-hidden">
-          <div className="p-6 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex flex-col gap-2">
-              <h3 className="text-xl font-black text-white italic uppercase tracking-tighter leading-none">
+        <div className="bg-papa-card rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+          <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div className="flex flex-col gap-3 min-w-0">
+              <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tighter leading-none">
                 Planilha Semanal
               </h3>
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-white/30 font-black uppercase tracking-widest">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="text-xs text-white/70 font-black uppercase tracking-widest">
                   {week.title}
                 </span>
-                <span className="w-1 h-1 rounded-full bg-white/10" />
-                <p className="text-[10px] text-papa-blue font-bold uppercase tracking-widest">
+                <span className="w-1 h-1 rounded-full bg-white/20 hidden sm:block" />
+                <span className="text-xs text-papa-blue font-bold uppercase tracking-widest">
                   Fase: {week.phase}
-                </p>
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <span className="inline-flex items-center rounded-xl bg-white/5 border border-white/10 px-3 py-1.5 text-[11px] font-black uppercase text-white/60">
+                  {weekSummary.sessions} {weekSummary.sessions === 1 ? "treino" : "treinos"}
+                </span>
+                <span className="inline-flex items-center rounded-xl bg-papa-orange/10 border border-papa-orange/20 px-3 py-1.5 text-[11px] font-black uppercase text-papa-orange">
+                  {weekSummary.totalKm.toFixed(weekSummary.totalKm % 1 ? 1 : 0)} km na semana
+                </span>
               </div>
             </div>
 
             <Link
               href="/planilha/detalhes"
-              className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase px-6 py-3 rounded-2xl flex items-center gap-2 transition-all self-start border border-white/5"
+              className="bg-papa-blue hover:bg-papa-blue/90 text-papa-dark text-[10px] font-black uppercase px-6 py-3 rounded-2xl flex items-center gap-2 transition-all self-start shrink-0"
             >
-              Abrir Planilha Full <ChevronRight size={14} />
+              Abrir planilha completa <ChevronRight size={14} />
             </Link>
           </div>
 
-          <div className="p-6 overflow-x-auto">
-            <table className="w-full text-left">
-              <tbody className="divide-y divide-white/5">
-                {week.blocks.map((b) => (
-                  <tr key={b.slug}>
-                    <td className="py-4 text-[10px] font-black text-white/30 uppercase w-20">
-                      {b.dayLabel}
-                    </td>
-                    <td className="py-4 text-xs font-bold text-white">
-                      {b.title} • {b.km}km
-                    </td>
-                    <td className="py-4 text-right">
-                      <span className="text-[9px] font-black uppercase px-2 py-1 rounded bg-white/5 text-papa-blue border border-white/10">
-                        {b.zoneKey}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-6 sm:p-8 space-y-3">
+            {(week.blocks ?? []).length > 0 ? (
+              week.blocks.map((b) => <WorkoutPreviewCard key={b.slug} block={b} />)
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/40">
+                Nenhum treino cadastrado para esta semana.
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* 3. Gráfico de evolução */}
+      <PerformanceEvolutionChart
+        weeklyKm={insights?.weeklyKm}
+        loading={Boolean(strava?.linked && insightsLoading)}
+      />
 
       {/* 4. Previsões e Melhores Marcas (Estilo Strava) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
