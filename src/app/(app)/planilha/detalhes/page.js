@@ -13,7 +13,13 @@ import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import Link from "next/link";
 import { ChevronLeft, CheckCircle2 } from "lucide-react";
-import { pullFullPlanFromApi, pullWeekPlanFromApi, useBackendSyncTick } from "@/features/session/backend-sync";
+import {
+  getPlanMetaFromSync,
+  pullFullPlanFromApi,
+  pullWeekPlanFromApi,
+  useBackendSyncTick,
+} from "@/features/session/backend-sync";
+import { formatWeekRangeLabel } from "@/lib/plan-calendar";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
 
@@ -28,8 +34,11 @@ export default function PlanilhaDetalhesPage() {
 
   useEffect(() => {
     setMounted(true);
-    setActiveWeek(readActiveWeekNumber());
-  }, []);
+    const meta = getPlanMetaFromSync();
+    const aw = meta?.activeWeek || readActiveWeekNumber();
+    setActiveWeek(aw);
+    writeActiveWeekNumber(aw);
+  }, [syncTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,19 +155,36 @@ export default function PlanilhaDetalhesPage() {
         </Link>
 
         <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-          {weekNumbers.map((num) => (
-            <button
-              key={num}
-              onClick={() => selectWeek(num)}
-              className={`px-6 py-2 rounded-2xl font-black text-xs uppercase transition-all border ${
-                activeWeek === num
-                  ? "bg-papa-blue text-papa-dark border-papa-blue shadow-[0_0_15px_rgba(0,209,255,0.3)]"
-                  : "bg-white/5 text-white/40 border-white/5 hover:border-white/20"
-              }`}
-            >
-              Semana {num}
-            </button>
-          ))}
+          {weekNumbers.map((num) => {
+            const meta = getPlanMetaFromSync();
+            const rangeLabel =
+              meta?.weekRanges?.[num] ||
+              (meta?.planStartDate
+                ? formatWeekRangeLabel(meta.planStartDate, num)
+                : null);
+            return (
+              <button
+                key={num}
+                onClick={() => selectWeek(num)}
+                className={`px-4 py-2 rounded-2xl font-black text-xs uppercase transition-all border shrink-0 ${
+                  activeWeek === num
+                    ? "bg-papa-blue text-papa-dark border-papa-blue shadow-[0_0_15px_rgba(0,209,255,0.3)]"
+                    : "bg-white/5 text-white/40 border-white/5 hover:border-white/20"
+                }`}
+              >
+                <span className="block">Semana {num}</span>
+                {rangeLabel ? (
+                  <span
+                    className={`block text-[8px] font-bold normal-case mt-0.5 ${
+                      activeWeek === num ? "text-papa-dark/70" : "text-white/25"
+                    }`}
+                  >
+                    {rangeLabel}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       </div>
 

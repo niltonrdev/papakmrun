@@ -7,6 +7,7 @@ import {
   resolveWeeksForUser,
   studentPlanPayload,
 } from "@/lib/student-plan";
+import { computeCalendarWeek, defaultPlanStartMonday } from "@/lib/plan-calendar";
 
 async function assertStaff(supabase, userId) {
   const { profile, error } = await fetchProfileForUser(supabase, userId);
@@ -67,6 +68,7 @@ export async function GET(_request, context) {
       testDistance: custom.testDistance,
       testTime: custom.testTime,
       vRef: custom.vRef,
+      planStartDate: custom.planStartDate,
       updatedAt: custom.updatedAt,
     });
   }
@@ -81,6 +83,7 @@ export async function GET(_request, context) {
     testDistance: custom?.testDistance ?? null,
     testTime: custom?.testTime ?? null,
     vRef: custom?.vRef ?? null,
+    planStartDate: custom?.planStartDate ?? null,
     updatedAt: custom?.updatedAt ?? null,
   });
 }
@@ -120,6 +123,12 @@ export async function PUT(request, context) {
     return NextResponse.json({ error: "weeks deve ser um objeto JSON." }, { status: 400 });
   }
 
+  const { row: existing } = await loadStudentPlanRow(supabase, studentId);
+  const planStart =
+    typeof body?.planStartDate === "string" && body.planStartDate.trim()
+      ? body.planStartDate.trim().slice(0, 10)
+      : existing?.plan_start_date || defaultPlanStartMonday();
+
   const row = {
     user_id: studentId,
     weeks,
@@ -130,9 +139,20 @@ export async function PUT(request, context) {
     v_ref: body?.vRef != null && body.vRef !== "" ? Number(body.vRef) : null,
     source_plan_key:
       typeof body?.sourcePlanKey === "string" ? body.sourcePlanKey.trim() || null : null,
+    plan_start_date: planStart,
     updated_by: user.id,
     updated_at: new Date().toISOString(),
   };
+
+  const maxWeeks = Object.keys(weeks).length || 1;
+  const calendarWeek = computeCalendarWeek(planStart, maxWeeks);
+  await supabase
+    .from("profiles")
+    .update({
+      active_week: calendarWeek,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", studentId);
 
   const { data, error } = await supabase
     .from("student_plans")

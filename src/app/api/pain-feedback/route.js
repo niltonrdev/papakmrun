@@ -39,11 +39,14 @@ export async function GET(request) {
 
   const { searchParams } = request.nextUrl;
   const limit = Math.min(Number(searchParams.get("limit") || 80), 200);
-  const { data, error } = await supabase
+  const unreadOnly = searchParams.get("unread") === "1";
+  let query = supabase
     .from("pain_feedback")
     .select("id, athlete_name, workout_title, workout_date, pain_note, effort, read, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
+  if (unreadOnly) query = query.eq("read", false);
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -111,7 +114,7 @@ export async function POST(request) {
   return NextResponse.json({ ok: true });
 }
 
-export async function PATCH() {
+export async function PATCH(request) {
   if (!env.supabaseConfigured) {
     return NextResponse.json({ error: "Supabase não configurado." }, { status: 503 });
   }
@@ -130,6 +133,27 @@ export async function PATCH() {
     .maybeSingle();
   if (!isCoach(profile?.role)) {
     return NextResponse.json({ error: "Apenas professor/admin." }, { status: 403 });
+  }
+
+  let body = {};
+  try {
+    if (request.headers.get("content-type")?.includes("json")) {
+      body = await request.json();
+    }
+  } catch {
+    /* bulk mark all */
+  }
+
+  const id = typeof body.id === "string" ? body.id.trim() : null;
+  if (id) {
+    const { error } = await supabase
+      .from("pain_feedback")
+      .update({ read: true })
+      .eq("id", id);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
   }
 
   const { error } = await supabase

@@ -6,6 +6,11 @@ import {
   resolveWeeksForUser,
   studentPlanPayload,
 } from "@/lib/student-plan";
+import {
+  computeCalendarWeek,
+  defaultPlanStartMonday,
+  formatWeekRangeLabel,
+} from "@/lib/plan-calendar";
 
 export async function GET() {
   const supabase = await createClient();
@@ -26,7 +31,6 @@ export async function GET() {
   }
 
   const planKey = profile?.selected_base_plan || "sub20";
-  const activeWeek = profile?.active_week || "1";
   const { weeks, source, error, studentPlan } = await resolveWeeksForUser(
     supabase,
     user.id,
@@ -38,10 +42,35 @@ export async function GET() {
   }
 
   const custom = studentPlanPayload(studentPlan);
+  const maxWeeks = Object.keys(weeks || {}).length || 1;
+  const planStart =
+    custom?.planStartDate ||
+    (source === "student" && studentPlan?.plan_start_date) ||
+    defaultPlanStartMonday();
+
+  const calendarWeek = computeCalendarWeek(planStart, maxWeeks);
+  const storedWeek = profile?.active_week || "1";
+
+  if (String(storedWeek) !== calendarWeek) {
+    await supabase
+      .from("profiles")
+      .update({
+        active_week: calendarWeek,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+  }
+
+  const weekRanges = {};
+  for (let w = 1; w <= maxWeeks; w++) {
+    weekRanges[String(w)] = formatWeekRangeLabel(planStart, w);
+  }
 
   return NextResponse.json({
     planKey,
-    activeWeek: String(activeWeek),
+    activeWeek: calendarWeek,
+    planStartDate: planStart,
+    weekRanges,
     source,
     weeks: weeks ?? {},
     zones: custom?.zones ?? null,

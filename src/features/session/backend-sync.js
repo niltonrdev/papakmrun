@@ -13,8 +13,12 @@ import { upsertCheckin } from "@/features/checkins/checkins.storage";
 
 const listeners = new Set();
 
-/** Evita sobrescrever a semana selecionada na UI após a primeira carga. */
-let appliedServerActiveWeek = false;
+let lastSyncedActiveWeek = null;
+let planMetaCache = null;
+
+export function getPlanMetaFromSync() {
+  return planMetaCache;
+}
 let stravaSyncedThisSession = false;
 
 export function subscribeBackendSync(fn) {
@@ -46,6 +50,20 @@ function mergeFullPlanPayload(j) {
   const slug = getCurrentAthleteSlug();
   const merged = { ...MOCK_PLAN, ...j.weeks };
   writeAthletePlan(slug, merged);
+
+  planMetaCache = {
+    planStartDate: j.planStartDate ?? null,
+    weekRanges: j.weekRanges ?? {},
+    activeWeek: j.activeWeek ?? null,
+  };
+
+  if (j.activeWeek != null && String(j.activeWeek).trim() !== "") {
+    const aw = String(j.activeWeek);
+    if (lastSyncedActiveWeek !== aw) {
+      writeActiveWeekNumber(aw);
+      lastSyncedActiveWeek = aw;
+    }
+  }
 
   const athletePatch = {};
   if (j.zones && typeof j.zones === "object") {
@@ -119,9 +137,9 @@ export async function syncBackendSession() {
           setCurrentAthleteSlug(slug);
         }
         const aw = me?.profile?.active_week;
-        if (!appliedServerActiveWeek && aw != null && String(aw).trim() !== "") {
+        if (aw != null && String(aw).trim() !== "" && lastSyncedActiveWeek == null) {
           writeActiveWeekNumber(String(aw));
-          appliedServerActiveWeek = true;
+          lastSyncedActiveWeek = String(aw);
         }
       }
     }
