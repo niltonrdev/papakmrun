@@ -37,7 +37,7 @@ function escapeCsvCell(val) {
   return s;
 }
 
-/** CSV com separador ; (Excel PT-BR). */
+/** CSV com separador ; (Excel PT-BR), UTF-8 com BOM. */
 export function planWeeksToCsv(weeks, planStartMonday) {
   const header = [
     "Semana",
@@ -76,26 +76,118 @@ export function planWeeksToCsv(weeks, planStartMonday) {
   return "\uFEFF" + lines.join("\r\n");
 }
 
-function parseCsvLine(line) {
-  const out = [];
-  let cur = "";
-  let inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQ) {
-      if (ch === '"' && line[i + 1] === '"') {
-        cur += '"';
-        i++;
-      } else if (ch === '"') inQ = false;
-      else cur += ch;
-    } else if (ch === '"') inQ = true;
-    else if (ch === ";" || ch === ",") {
-      out.push(cur);
-      cur = "";
-    } else cur += ch;
+/** Decodifica bytes exportados pelo Excel (UTF-8 ou Windows-1252). */
+export function decodeCsvTextFromBuffer(buffer) {
+  const u8 = new Uint8Array(buffer);
+  let start = 0;
+  if (u8[0] === 0xef && u8[1] === 0xbb && u8[2] === 0xbf) {
+    start = 3;
   }
-  out.push(cur);
-  return out;
+  const slice = u8.subarray(start);
+  const utf8 = new TextDecoder("utf-8").decode(slice);
+  if (!looksLikeMojibake(utf8)) return utf8;
+  try {
+    return new TextDecoder("windows-1252").decode(slice);
+  } catch {
+    return new TextDecoder("iso-8859-1").decode(slice);
+  }
+}
+
+function looksLikeMojibake(text) {
+  return /Ã[§£ªº©¢´`]|ï¿½|â€/.test(text);
+}
+
+function detectSeparator(firstLine) {
+  const semi = (firstLine.match(/;/g) || []).length;
+  const comma = (firstLine.match(/,/g) || []).length;
+  return semi >= comma ? ";" : ",";
+}
+
+/**
+ * Parser RFC 4180: respeita aspas e quebras de linha dentro da célula.
+ * @returns {string[][]}
+ */
+export function parseCsvRecords(text) {
+  const raw = String(text || "").replace(/^\uFEFF/, "");
+  if (!raw.trim()) return [];
+
+  const sep = detectSeparator(raw.split(/\r\n|\n|\r/)[0] || "");
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    const next = raw[i + 1];
+
+    if (inQuotes) {
+      if (ch === '"' && next === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        cell += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (ch === sep) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if (ch === "\n" || (ch === "\r" && next === "\n")) {
+      row.push(cell);
+      if (row.some((c) => String(c).trim() !== "")) {
+        rows.push(row);
+      }
+      row = [];
+      cell = "";
+      if (ch === "\r" && next === "\n") i++;
+      continue;
+    }
+
+    if (ch === "\r") {
+      row.push(cell);
+      if (row.some((c) => String(c).trim() !== "")) {
+        rows.push(row);
+      }
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += ch;
+  }
+
+  row.push(cell);
+  if (row.some((c) => String(c).trim() !== "")) {
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function parseWeekKey(val) {
+  const s = String(val ?? "").trim();
+  if (!/^\d{1,3}$/.test(s)) return null;
+  const n = parseInt(s, 10);
+  if (n < 1 || n > 104) return null;
+  return String(n);
+}
+
+function normalizeZoneKey(val) {
+  const s = String(val ?? "").trim().toLowerCase();
+  const m = s.match(/^z[1-5]$/);
+  return m ? m[0] : s || "z2";
 }
 
 function parseDateCell(val) {
@@ -111,12 +203,10 @@ function parseDateCell(val) {
 }
 
 export function csvToPlanWeeks(text) {
-  const raw = String(text || "").replace(/^\uFEFF/, "");
-  const lines = raw.split(/\r?\n/).filter((l) => l.trim());
-  if (!lines.length) return {};
+  const rows = parseCsvRecords(text);
+  if (!rows.length) return {};
 
-  const sep = lines[0].includes(";") ? ";" : ",";
-  const header = parseCsvLine(lines[0]).map((c) => normDay(c));
+  const header = rows[0].map((c) => normDay(c));
   const col = (name) =>
     header.findIndex((h) => h === name || h.includes(name));
 
@@ -131,32 +221,42 @@ export function csvToPlanWeeks(text) {
   );
   const iData = col("data");
 
+  if (iSemana < 0) return {};
+
   const plan = {};
-  for (let li = 1; li < lines.length; li++) {
-    const cells =
-      sep === ";"
-        ? parseCsvLine(lines[li])
-        : lines[li].split(",");
-    const wk = String(cells[iSemana >= 0 ? iSemana : 0] || "").trim();
+  for (let ri = 1; ri < rows.length; ri++) {
+    const cells = rows[ri];
+    const wk = parseWeekKey(cells[iSemana]);
     if (!wk) continue;
+
     if (!plan[wk]) {
       plan[wk] = {
         id: `week-${wk}`,
         title: `Semana ${wk}`,
         phase:
-          iFase >= 0 ? String(cells[iFase] || "").trim() || "Personalizado" : "Personalizado",
+          iFase >= 0
+            ? String(cells[iFase] ?? "").trim() || "Personalizado"
+            : "Personalizado",
         blocks: [],
       };
     }
+
+    const dayRaw = iDia >= 0 ? String(cells[iDia] ?? "").trim() : "";
+    const dayLabel = dayRaw || "Terça";
+
     plan[wk].blocks.push({
-      dayLabel: iDia >= 0 ? String(cells[iDia] || "Terça").trim() : "Terça",
-      slug: `s${wk}-import-${li}`,
-      km: Number(cells[iKm >= 0 ? iKm : 3]) || 0,
-      zoneKey: iZona >= 0 ? String(cells[iZona] || "z2").trim() || "z2" : "z2",
-      title: iTitulo >= 0 ? String(cells[iTitulo] || "Treino").trim() : "Treino",
-      description: iObs >= 0 ? String(cells[iObs] || "").trim() : "",
+      dayLabel,
+      slug: `s${wk}-import-${ri}`,
+      km: Number(String(cells[iKm >= 0 ? iKm : 3] ?? "").replace(",", ".")) || 0,
+      zoneKey: iZona >= 0 ? normalizeZoneKey(cells[iZona]) : "z2",
+      title:
+        iTitulo >= 0
+          ? String(cells[iTitulo] ?? "Treino").trim() || "Treino"
+          : "Treino",
+      description: iObs >= 0 ? String(cells[iObs] ?? "").trim() : "",
       workoutDateISO: iData >= 0 ? parseDateCell(cells[iData]) : null,
     });
   }
+
   return plan;
 }

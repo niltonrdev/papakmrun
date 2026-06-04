@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchProfileForUser, profileCapabilities } from "@/lib/profiles/fetch-profile";
-import { csvToPlanWeeks } from "@/lib/plan-excel";
+import { csvToPlanWeeks, decodeCsvTextFromBuffer } from "@/lib/plan-excel";
 import { defaultPlanStartMonday } from "@/lib/plan-calendar";
 
 export async function POST(request, context) {
@@ -28,7 +28,8 @@ export async function POST(request, context) {
     return NextResponse.json({ error: "Arquivo obrigatório." }, { status: 400 });
   }
 
-  const text = await file.text();
+  const buffer = await file.arrayBuffer();
+  const text = decodeCsvTextFromBuffer(buffer);
   const weeks = csvToPlanWeeks(text);
   if (!Object.keys(weeks).length) {
     return NextResponse.json({ error: "Planilha vazia ou formato inválido." }, { status: 400 });
