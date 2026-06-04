@@ -4,8 +4,12 @@ import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import { BarChart3, Activity, HeartPulse, ChevronRight, Trophy, Timer, Medal, CalendarDays } from "lucide-react";
 import Link from "next/link";
-import { useBackendSyncTick } from "@/features/session/backend-sync";
-import { readActiveWeekNumber } from "@/features/session/prefs.storage";
+import {
+  getPlanMetaFromSync,
+  useBackendSyncTick,
+} from "@/features/session/backend-sync";
+import { readActiveWeekNumber, writeActiveWeekNumber } from "@/features/session/prefs.storage";
+import { formatWeekRangeLabel } from "@/lib/plan-calendar";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
 import PerformanceEvolutionChart from "@/features/strava/PerformanceEvolutionChart";
@@ -132,8 +136,21 @@ export default function PerformancePage() {
   }, [week]);
 
   useEffect(() => {
-    setActiveWeek(readActiveWeekNumber());
+    const meta = getPlanMetaFromSync();
+    const aw = meta?.activeWeek || readActiveWeekNumber();
+    setActiveWeek(aw);
+    writeActiveWeekNumber(aw);
   }, [syncTick]);
+
+  const weekRangeLabel = useMemo(() => {
+    const meta = getPlanMetaFromSync();
+    return (
+      meta?.weekRanges?.[activeWeek] ||
+      (meta?.planStartDate
+        ? formatWeekRangeLabel(meta.planStartDate, activeWeek)
+        : null)
+    );
+  }, [activeWeek, syncTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -256,6 +273,14 @@ export default function PerformancePage() {
                 <span className="text-xs text-papa-blue font-bold uppercase tracking-widest">
                   Fase: {week.phase}
                 </span>
+                {weekRangeLabel ? (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-white/20 hidden sm:block" />
+                    <span className="text-[10px] text-white/45 font-bold normal-case">
+                      {weekRangeLabel}
+                    </span>
+                  </>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-3">
                 <span className="inline-flex items-center rounded-xl bg-white/5 border border-white/10 px-3 py-1.5 text-[11px] font-black uppercase text-white/60">

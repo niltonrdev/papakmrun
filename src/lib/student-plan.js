@@ -5,7 +5,7 @@ export async function loadStudentPlanRow(supabase, userId) {
   const { data, error } = await supabase
     .from("student_plans")
     .select(
-      "user_id, source_plan_key, weeks, zones, test_distance, test_time, v_ref, updated_at"
+      "user_id, source_plan_key, weeks, zones, test_distance, test_time, v_ref, plan_start_date, updated_at"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -35,6 +35,7 @@ export function studentPlanPayload(row) {
     testTime: row.test_time ?? null,
     vRef: row.v_ref ?? null,
     sourcePlanKey: row.source_plan_key ?? null,
+    planStartDate: row.plan_start_date ?? null,
     updatedAt: row.updated_at ?? null,
   };
 }

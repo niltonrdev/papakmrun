@@ -16,7 +16,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { computeZonesFromTest } from "@/features/plans/zones.calculator";
 import { getMergedPlanForSlug } from "@/features/plans/plan.storage";
-import { buildTemplatePlan, TEMPLATE_META, weekDatesForTemplateWeek } from "@/features/plans/templates";
+import { buildTemplatePlan, TEMPLATE_META } from "@/features/plans/templates";
+import {
+  addDaysISO,
+  formatWeekRangeLabel,
+  renumberPlanWeeks,
+  defaultPlanStartMonday,
+} from "@/lib/plan-calendar";
 
 const ZONE_KEYS = ["z1", "z2", "z3", "z4", "z5"];
 const WEEKDAY_OPTIONS = [
@@ -28,7 +34,6 @@ const WEEKDAY_OPTIONS = [
   { label: "Sábado", offset: 5 },
   { label: "Domingo", offset: 6 },
 ];
-const BASE_MONDAY_ISO = "2026-03-02";
 
 function clonePlan(plan) {
   return JSON.parse(JSON.stringify(plan));
@@ -47,13 +52,11 @@ function dayOffsetFromLabel(dayLabel) {
   return opt ? opt.offset : null;
 }
 
-function computeWorkoutDateISO(weekKey, dayLabel) {
+function computeWorkoutDateISO(planStartMonday, weekKey, dayLabel) {
   const offset = dayOffsetFromLabel(dayLabel);
-  if (offset == null) return null;
+  if (offset == null || !planStartMonday) return null;
   const weekNumber = Math.max(1, Number(weekKey) || 1);
-  const d = new Date(`${BASE_MONDAY_ISO}T12:00:00`);
-  d.setDate(d.getDate() + (weekNumber - 1) * 7 + offset);
-  return d.toISOString().slice(0, 10);
+  return addDaysISO(planStartMonday, (weekNumber - 1) * 7 + offset);
 }
 
 export default function DetalheAlunoPage() {
@@ -71,6 +74,9 @@ export default function DetalheAlunoPage() {
   const [plan, setPlan] = useState(null);
   const [saveMsg, setSaveMsg] = useState("");
   const [calcOpen, setCalcOpen] = useState(false);
+  const [planStartDate, setPlanStartDate] = useState(defaultPlanStartMonday());
+  const [importBusy, setImportBusy] = useState(false);
+  const [serverTemplates, setServerTemplates] = useState([]);
 
   const loadStudentPlan = useCallback(async () => {
     if (!slug) return;
@@ -104,6 +110,9 @@ export default function DetalheAlunoPage() {
           : clonePlan(getMergedPlanForSlug(slug));
 
       setPlan(clonePlan(weeks));
+      setPlanStartDate(
+        planJson.planStartDate?.slice?.(0, 10) || defaultPlanStartMonday()
+      );
       setDistanciaTeste(planJson.testDistance ?? 3);
       setTempoTeste(planJson.testTime ?? "");
       setZonas(planJson.zones ?? null);
@@ -119,6 +128,35 @@ export default function DetalheAlunoPage() {
   useEffect(() => {
     loadStudentPlan();
   }, [loadStudentPlan]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/coach/plan-templates", { credentials: "include" });
+        const j = await res.json();
+        if (res.ok) setServerTemplates(Array.isArray(j.items) ? j.items : []);
+      } catch {
+        setServerTemplates([]);
+      }
+    })();
+  }, []);
+
+  async function applyServerTemplate(planKey) {
+    if (!planKey) return;
+    try {
+      const res = await fetch(
+        `/api/coach/plan-template/${encodeURIComponent(planKey)}`,
+        { credentials: "include" }
+      );
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || "Falha");
+      setPlan(clonePlan(j.weeks || {}));
+      setSaveMsg(`Template "${j.title || planKey}" aplicado.`);
+      setTimeout(() => setSaveMsg(""), 4000);
+    } catch (e) {
+      setSaveMsg(e?.message || "Erro ao carregar template.");
+    }
+  }
 
   const weekNumbers = useMemo(() => {
     if (!plan) return [];
@@ -162,6 +200,7 @@ export default function DetalheAlunoPage() {
           testDistance: distanciaTeste,
           testTime: tempoTeste,
           vRef,
+          planStartDate,
         }),
       });
       const j = await res.json();
@@ -178,6 +217,11 @@ export default function DetalheAlunoPage() {
   function onTemplateChange(e) {
     const id = e.target.value;
     if (!id) return;
+    if (id.startsWith("server:")) {
+      applyServerTemplate(id.slice(7));
+      e.target.value = "";
+      return;
+    }
     const built = buildTemplatePlan(id);
     if (!built) return;
     const next = clonePlan(built);
@@ -200,7 +244,7 @@ export default function DetalheAlunoPage() {
         block[field] = value;
       }
       if (field === "dayLabel") {
-        const iso = computeWorkoutDateISO(weekKey, value);
+        const iso = computeWorkoutDateISO(planStartDate, weekKey, value);
         if (iso) block.workoutDateISO = iso;
       }
       w.blocks[blockIdx] = block;
@@ -221,7 +265,7 @@ export default function DetalheAlunoPage() {
       const used = new Set((w.blocks || []).map((b) => dayOffsetFromLabel(b.dayLabel)));
       const picked = WEEKDAY_OPTIONS.find((x) => !used.has(x.offset)) ?? WEEKDAY_OPTIONS[0];
       const blockIdx = (w.blocks?.length || 0) + 1;
-      const workoutDateISO = computeWorkoutDateISO(weekKey, picked.label);
+      const workoutDateISO = computeWorkoutDateISO(planStartDate, weekKey, picked.label);
       const newBlock = {
         dayLabel: picked.label,
         slug: `s${weekKey}-custom-${Date.now()}-${blockIdx}`,
@@ -250,49 +294,113 @@ export default function DetalheAlunoPage() {
     });
   }
 
+  function blankWeekBlocks(weekKey) {
+    return [
+      {
+        dayLabel: "Terça",
+        slug: `s${weekKey}-terca`,
+        km: 6,
+        zoneKey: "z2",
+        title: "Ritmo",
+        description: "Aquecimento + bloco principal.",
+        workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Terça"),
+      },
+      {
+        dayLabel: "Quinta",
+        slug: `s${weekKey}-quinta`,
+        km: 8,
+        zoneKey: "z3",
+        title: "Intervalado",
+        description: "Bloco principal conforme orientação.",
+        workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Quinta"),
+      },
+      {
+        dayLabel: "Sábado",
+        slug: `s${weekKey}-sabado`,
+        km: 12,
+        zoneKey: "z1",
+        title: "Longo",
+        description: "Ritmo fácil a moderado.",
+        workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Sábado"),
+      },
+    ];
+  }
+
   function addWeek() {
     setPlan((prev) => {
       const base = prev && Object.keys(prev).length ? prev : {};
       const nums = Object.keys(base).map(Number);
       const n = (nums.length ? Math.max(...nums) : 0) + 1;
-      const d = weekDatesForTemplateWeek(n);
       const next = clonePlan(base);
       next[String(n)] = {
         id: `week-${n}`,
         title: `Semana ${n}`,
         phase: "Personalizado",
-        blocks: [
-          {
-            dayLabel: "Terça",
-            slug: `s${n}-terca`,
-            km: 6,
-            zoneKey: "z2",
-            title: "Ritmo",
-            description: "Aquecimento + bloco principal.",
-            workoutDateISO: d.ter,
-          },
-          {
-            dayLabel: "Quinta",
-            slug: `s${n}-quinta`,
-            km: 8,
-            zoneKey: "z3",
-            title: "Intervalado",
-            description: "Bloco principal conforme orientação.",
-            workoutDateISO: d.qui,
-          },
-          {
-            dayLabel: "Sábado",
-            slug: `s${n}-sabado`,
-            km: 12,
-            zoneKey: "z1",
-            title: "Longo",
-            description: "Ritmo fácil a moderado.",
-            workoutDateISO: d.sab,
-          },
-        ],
+        blocks: blankWeekBlocks(String(n)),
       };
       return next;
     });
+  }
+
+  function insertWeekAfter(afterWeekKey) {
+    setPlan((prev) => {
+      if (!prev) return prev;
+      const keys = Object.keys(prev).sort((a, b) => Number(a) - Number(b));
+      const ordered = [];
+      for (const k of keys) {
+        ordered.push(prev[k]);
+        if (k === String(afterWeekKey)) {
+          ordered.push(null);
+        }
+      }
+      const next = {};
+      ordered.forEach((weekData, idx) => {
+        const wk = String(idx + 1);
+        if (weekData === null) {
+          next[wk] = {
+            id: `week-${wk}`,
+            title: `Semana ${wk}`,
+            phase: "Personalizado",
+            blocks: blankWeekBlocks(wk),
+          };
+        } else {
+          next[wk] = { ...weekData, title: `Semana ${wk}` };
+        }
+      });
+      return next;
+    });
+  }
+
+  function removeWeek(weekKey) {
+    setPlan((prev) => {
+      if (!prev || Object.keys(prev).length <= 1) return prev;
+      const next = clonePlan(prev);
+      delete next[weekKey];
+      return renumberPlanWeeks(next);
+    });
+  }
+
+  async function handleImportCsv(file) {
+    if (!studentId || !file) return;
+    setImportBusy(true);
+    setSaveMsg("Importando…");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/coach/students/${studentId}/plan/import`, {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || "Falha na importação.");
+      setPlan(clonePlan(j.weeks));
+      setSaveMsg("Planilha importada. Revise e salve se necessário.");
+    } catch (e) {
+      setSaveMsg(e?.message || "Erro na importação.");
+    } finally {
+      setImportBusy(false);
+    }
   }
 
   const rec = studentName ? { name: studentName, slug } : null;
@@ -476,6 +584,15 @@ export default function DetalheAlunoPage() {
                     <option value="maintenance" className="bg-papa-card text-white">
                       {TEMPLATE_META.maintenance.label}
                     </option>
+                    {serverTemplates.map((t) => (
+                      <option
+                        key={t.planKey}
+                        value={`server:${t.planKey}`}
+                        className="bg-papa-card text-white"
+                      >
+                        {t.title || t.planKey} (servidor)
+                      </option>
+                    ))}
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">
                     <ChevronDown size={14} />
@@ -483,9 +600,44 @@ export default function DetalheAlunoPage() {
                 </div>
               </div>
               <p className="text-[10px] text-white/30 font-bold uppercase tracking-tight">
-                Editor em grade: ajuste km, zona e observações por semana. &quot;Salvar
-                alterações&quot; grava a planilha deste aluno no servidor (cada aluno vê só a sua).
+                Editor em grade: ajuste km, zona e observações por semana. O calendário do aluno
+                avança automaticamente a partir da data de início.
               </p>
+              <div className="flex flex-wrap gap-3 items-end">
+                <label className="text-[9px] font-black uppercase text-white/30">
+                  Início semana 1 (segunda)
+                  <input
+                    type="date"
+                    value={planStartDate}
+                    onChange={(e) => setPlanStartDate(e.target.value)}
+                    className="mt-1 block rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white"
+                  />
+                </label>
+                {studentId && (
+                  <>
+                    <a
+                      href={`/api/coach/students/${studentId}/plan/export`}
+                      className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-[10px] font-black uppercase text-white/80 hover:bg-white/10"
+                    >
+                      Exportar Excel (CSV)
+                    </a>
+                    <label className="rounded-xl border border-papa-blue/30 bg-papa-blue/10 px-4 py-2 text-[10px] font-black uppercase text-papa-blue cursor-pointer hover:bg-papa-blue/20">
+                      {importBusy ? "Importando…" : "Importar Excel"}
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls,.txt"
+                        className="hidden"
+                        disabled={importBusy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleImportCsv(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
             </div>
 
             {!plan || loading ? (
@@ -502,11 +654,32 @@ export default function DetalheAlunoPage() {
                       key={wk}
                       className="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="text-sm font-black text-white uppercase italic tracking-tight">
-                          {week.title} — {week.phase}
-                        </h3>
-                        <span className="text-[10px] text-white/30 font-mono">#{wk}</span>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-black text-white uppercase italic tracking-tight">
+                            {week.title} — {week.phase}
+                          </h3>
+                          <p className="text-[10px] text-papa-blue/80 font-bold mt-1">
+                            {formatWeekRangeLabel(planStartDate, wk)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => insertWeekAfter(wk)}
+                            className="px-2 py-1 rounded-lg border border-white/10 text-[9px] font-black uppercase text-white/50 hover:text-white"
+                          >
+                            + Semana após
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeWeek(wk)}
+                            disabled={weekNumbers.length <= 1}
+                            className="px-2 py-1 rounded-lg border border-rose-400/30 text-[9px] font-black uppercase text-rose-300 hover:bg-rose-500/10 disabled:opacity-30"
+                          >
+                            Remover semana
+                          </button>
+                        </div>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-[11px]">
