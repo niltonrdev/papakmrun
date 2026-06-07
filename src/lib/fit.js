@@ -1,5 +1,5 @@
 import { FitEncoder, FitConstants, FitMessages, Message } from "fit-encoder";
-import { ZONES } from "@/features/plans/mockWeek";
+import { ZONES as DEFAULT_ZONES } from "@/features/plans/mockWeek";
 
 function parsePaceToSeconds(pace) {
   if (!pace || typeof pace !== "string") return null;
@@ -23,25 +23,120 @@ function clampUInt32(n) {
   return Math.max(0, Math.min(0xffffffff, x));
 }
 
+function zoneRecord(zones, key) {
+  const Z = zones && typeof zones === "object" ? zones : DEFAULT_ZONES;
+  return Z[key] ?? DEFAULT_ZONES[key] ?? null;
+}
+
+function speedRangeForZone(zone) {
+  const vLow = paceToSpeedMps(zone?.paceMax);
+  const vHigh = paceToSpeedMps(zone?.paceMin);
+  if (!Number.isFinite(vLow) || !Number.isFinite(vHigh)) {
+    return { hasSpeed: false };
+  }
+  return {
+    hasSpeed: true,
+    speedLow: clampUInt32(Math.min(vLow, vHigh) * 1000),
+    speedHigh: clampUInt32(Math.max(vLow, vHigh) * 1000),
+  };
+}
+
+function kmToDurationValue(km) {
+  const meters = Math.max(100, Math.round(Number(km) * 1000));
+  return clampUInt32(meters * 100);
+}
+
+const ZONE_ORDER = ["z1", "z2", "z3", "z4", "z5"];
+
+function progressiveZones(baseKey, zones, count) {
+  const idx = Math.max(0, ZONE_ORDER.indexOf(baseKey));
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const key = ZONE_ORDER[Math.min(idx + i, ZONE_ORDER.length - 1)];
+    out.push(zoneRecord(zones, key));
+  }
+  return out;
+}
+
 /**
- * FIT workout (running) simples, focado em compatibilidade com Garmin Connect.
- * - 1 step por treino (distância), com alvo de velocidade (pelo pace da zona)
- * - Escalas do FIT SDK precisam ser aplicadas manualmente:
- *   - speed (m/s) scale 1000
- *   - duration_value distance (m) scale 100
+ * Monta passos estruturados (aquecimento / blocos / desaquecimento) no estilo Garmin Connect.
  */
-export function buildWorkoutFitFromBlock(block) {
-  const km = Number(block?.km ?? 0);
-  const meters = Math.max(200, Math.round((Number.isFinite(km) ? km : 5) * 1000));
-  const durationValue = clampUInt32(meters * 100); // scale 100
+export function buildWorkoutStepsFromBlock(block, zones) {
+  const totalKm = Number(block?.km ?? 0);
+  if (!Number.isFinite(totalKm) || totalKm <= 0) {
+    return [
+      {
+        name: block?.title || "Corrida",
+        km: 5,
+        zone: zoneRecord(zones, block?.zoneKey || "z2"),
+        intensity: FitConstants.intensity.active,
+      },
+    ];
+  }
 
-  const zone = ZONES?.[block?.zoneKey] ?? null;
-  const vLow = paceToSpeedMps(zone?.paceMax); // mais lento
-  const vHigh = paceToSpeedMps(zone?.paceMin); // mais rápido
+  const mainZone = zoneRecord(zones, block?.zoneKey || "z2");
+  const warmupZone = zoneRecord(zones, "z2");
+  const cooldownZone = zoneRecord(zones, "z1");
+  const steps = [];
 
-  const hasSpeed = Number.isFinite(vLow) && Number.isFinite(vHigh);
-  const speedLow = hasSpeed ? clampUInt32(Math.min(vLow, vHigh) * 1000) : undefined;
-  const speedHigh = hasSpeed ? clampUInt32(Math.max(vLow, vHigh) * 1000) : undefined;
+  if (totalKm >= 4) {
+    steps.push({
+      name: "Aquecimento",
+      km: 1,
+      zone: warmupZone,
+      intensity: FitConstants.intensity.warmup,
+    });
+
+    const mainKm = Math.max(0.5, totalKm - 2);
+    if (mainKm >= 6) {
+      const segKm = Math.round((mainKm / 3) * 100) / 100;
+      const segZones = progressiveZones(block?.zoneKey || "z2", zones, 3);
+      let assigned = 0;
+      for (let i = 0; i < 3; i++) {
+        const isLast = i === 2;
+        const km = isLast ? Math.max(0.1, mainKm - assigned) : segKm;
+        assigned += km;
+        steps.push({
+          name: "Corrida",
+          km,
+          zone: segZones[i] || mainZone,
+          intensity: FitConstants.intensity.active,
+        });
+      }
+    } else {
+      steps.push({
+        name: block?.title || "Corrida",
+        km: mainKm,
+        zone: mainZone,
+        intensity: FitConstants.intensity.active,
+      });
+    }
+
+    steps.push({
+      name: "Desaquecimento",
+      km: 1,
+      zone: cooldownZone,
+      intensity: FitConstants.intensity.cooldown,
+    });
+  } else {
+    steps.push({
+      name: block?.title || "Corrida",
+      km: totalKm,
+      zone: mainZone,
+      intensity: FitConstants.intensity.active,
+    });
+  }
+
+  return steps;
+}
+
+/**
+ * FIT workout (running) estruturado para Garmin Connect / relógio.
+ */
+export function buildWorkoutFitFromBlock(block, zones) {
+  const steps = buildWorkoutStepsFromBlock(block, zones);
+  const totalKm = Number(block?.km ?? 0) || steps.reduce((a, s) => a + s.km, 0);
+  const name = `${block?.title || "Treino de corrida"} · ${totalKm}km`.trim();
 
   class WorkoutEncoder extends FitEncoder {
     constructor() {
@@ -61,19 +156,18 @@ export function buildWorkoutFitFromBlock(block) {
         FitConstants.file.workout
       );
 
-      const name = `${block?.title || "Treino"} · ${km || ""}km`.trim();
-
       new Message(
         FitConstants.mesg_num.workout,
         FitMessages.workout,
         "wkt_name",
         "sport",
         "num_valid_steps"
-      ).writeDataMessage(name, FitConstants.sport.running, 1);
+      ).writeDataMessage(name, FitConstants.sport.running, steps.length);
 
       const workoutStepMessage = new Message(
         FitConstants.mesg_num.workout_step,
         FitMessages.workout_step,
+        "wkt_step_name",
         "custom_target_value_low",
         "custom_target_value_high",
         "target_type",
@@ -81,25 +175,26 @@ export function buildWorkoutFitFromBlock(block) {
         "duration_value",
         "target_value",
         "intensity",
-        "message_index",
-        "notes"
+        "message_index"
       );
 
-      workoutStepMessage.writeDataMessage(
-        speedLow,
-        speedHigh,
-        hasSpeed ? FitConstants.wkt_step_target.speed : FitConstants.wkt_step_target.open,
-        FitConstants.wkt_step_duration.distance,
-        durationValue,
-        0,
-        FitConstants.intensity.active,
-        0,
-        String(block?.description || "")
-      );
+      steps.forEach((step, index) => {
+        const { hasSpeed, speedLow, speedHigh } = speedRangeForZone(step.zone);
+        workoutStepMessage.writeDataMessage(
+          step.name,
+          speedLow,
+          speedHigh,
+          hasSpeed ? FitConstants.wkt_step_target.speed : FitConstants.wkt_step_target.open,
+          FitConstants.wkt_step_duration.distance,
+          kmToDurationValue(step.km),
+          0,
+          step.intensity,
+          index
+        );
+      });
     }
   }
 
   const enc = new WorkoutEncoder();
   return enc.getFile();
 }
-

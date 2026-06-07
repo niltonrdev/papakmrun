@@ -8,16 +8,20 @@ const STRAVA_RETURN_MESSAGES = {
   ok: { tone: "ok", text: "Strava conectado com sucesso." },
   denied: { tone: "err", text: "Autorização cancelada no Strava." },
   invalid: { tone: "err", text: "Resposta inválida do Strava (sem código)." },
-  state: { tone: "err", text: "Sessão de segurança expirou ou não bateu. Clique em Conectar Strava de novo." },
-  token: { tone: "err", text: "Não foi possível trocar o código pelo token. Confira se STRAVA_REDIRECT_URI no .env é idêntico ao do app no Strava." },
+  state: { tone: "err", text: "Sessão de segurança expirou. Clique em Conectar Strava e tente novamente." },
+  token: { tone: "err", text: "Não foi possível concluir a conexão com o Strava. Tente novamente em alguns minutos." },
   noathlete: { tone: "err", text: "Strava respondeu sem dados do atleta." },
-  db: { tone: "err", text: "Erro ao salvar a conexão no banco (tabela strava_connections / RLS)." },
+  db: { tone: "err", text: "Erro ao salvar a conexão. Entre em contato com o suporte da PapaKM." },
   rate: { tone: "err", text: "Muitas tentativas em sequência. Aguarde um pouco e tente novamente." },
   config: {
     tone: "err",
-    text: "Strava não configurada no servidor: defina STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET e STRAVA_REDIRECT_URI no arquivo .env.local (o Next não lê .env.example), salve e reinicie npm run dev.",
+    text: "A integração com o Strava ainda não está disponível. Avise seu professor ou o suporte da PapaKM.",
   },
-  nodb: { tone: "err", text: "Supabase não configurado no servidor." },
+  quota: {
+    tone: "err",
+    text: "O limite de atletas conectados ao app Strava da PapaKM foi atingido. Novos alunos não conseguem conectar por enquanto — avise seu professor para solicitar aumento de cota no Strava.",
+  },
+  nodb: { tone: "err", text: "Serviço temporariamente indisponível. Tente novamente mais tarde." },
 };
 
 export default function StravaPanel() {
@@ -142,14 +146,12 @@ export default function StravaPanel() {
       </div>
 
       <p className="text-xs text-white/50 leading-relaxed">
-        O login da PapaKM continua separado: aqui você só autoriza a leitura das suas corridas no Strava.
-        Se a página ficar em branco ao conectar, abra o app no Chrome ou Edge — o preview embutido do editor
-        às vezes bloqueia o fluxo do Strava.
+        O login da PapaKM é separado do Strava. Ao conectar, você autoriza a leitura das suas corridas
+        para exibir volume, evolução e atividades recentes aqui no app.
       </p>
-      <p className="text-[10px] text-papa-blue/80 font-mono leading-relaxed border border-white/10 rounded-xl px-3 py-2 bg-black/20">
-        Dica dev: com o Strava ligado, rode <span className="font-black">npm run dev</span> e veja o terminal do
-        servidor — as rotas <span className="font-black">/api/strava/status</span> e{" "}
-        <span className="font-black">/api/strava/summary</span> registram um resumo JSON do que veio da API.
+      <p className="text-[11px] text-white/40 leading-relaxed">
+        Se a tela do Strava ficar em branco ou der erro, abra este site no Chrome ou Safari (navegador
+        completo) — alguns apps embutidos bloqueiam a autorização.
       </p>
 
       {!status?.linked ? (

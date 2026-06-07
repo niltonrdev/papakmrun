@@ -3,7 +3,8 @@ import JSZip from "jszip";
 import { createClient } from "@/lib/supabase/server";
 import { buildWorkoutFitFromBlock } from "@/lib/fit";
 import { loadWeeksDictionary, weekFromWeeksDict } from "@/lib/plan-catalog";
-import { resolveWeeksForUser } from "@/lib/student-plan";
+import { loadStudentPlanRow, resolveWeeksForUser, studentPlanPayload } from "@/lib/student-plan";
+import { ZONES as DEFAULT_ZONES } from "@/features/plans/mockWeek";
 
 export async function GET(request) {
   const { searchParams } = request.nextUrl;
@@ -46,9 +47,16 @@ export async function GET(request) {
     return NextResponse.json({ error: "Semana sem treinos para exportar." }, { status: 404 });
   }
 
+  let zones = DEFAULT_ZONES;
+  if (supabase && userId) {
+    const { row } = await loadStudentPlanRow(supabase, userId);
+    const custom = studentPlanPayload(row);
+    if (custom?.zones) zones = custom.zones;
+  }
+
   const zip = new JSZip();
   for (const block of blocks) {
-    const fit = buildWorkoutFitFromBlock(block);
+    const fit = buildWorkoutFitFromBlock(block, zones);
     const fname = `papakm-${block.slug || "treino"}.fit`;
     zip.file(fname, fit);
   }

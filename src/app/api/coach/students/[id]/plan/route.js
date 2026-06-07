@@ -58,6 +58,12 @@ export async function GET(_request, context) {
   const { row } = await loadStudentPlanRow(supabase, studentId);
   const custom = studentPlanPayload(row);
 
+  const { data: checkinRows } = await supabase
+    .from("checkins")
+    .select("workout_slug")
+    .eq("user_id", studentId);
+  const checkinSlugs = (checkinRows || []).map((c) => c.workout_slug).filter(Boolean);
+
   if (custom && Object.keys(custom.weeks || {}).length > 0) {
     return NextResponse.json({
       student,
@@ -70,6 +76,7 @@ export async function GET(_request, context) {
       vRef: custom.vRef,
       planStartDate: custom.planStartDate,
       updatedAt: custom.updatedAt,
+      checkinSlugs,
     });
   }
 
@@ -85,6 +92,7 @@ export async function GET(_request, context) {
     vRef: custom?.vRef ?? null,
     planStartDate: custom?.planStartDate ?? null,
     updatedAt: custom?.updatedAt ?? null,
+    checkinSlugs,
   });
 }
 

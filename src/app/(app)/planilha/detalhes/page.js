@@ -10,6 +10,7 @@ import { zoneClasses } from "@/features/plans/zones.ui";
 import { estimateTimeForKm, formatDurationFromSeconds } from "@/features/plans/pace.utils";
 import { readActiveWeekNumber, writeActiveWeekNumber } from "@/features/session/prefs.storage";
 import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
+import { isWorkoutMissed } from "@/features/checkins/missed-workout";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import Link from "next/link";
 import { ChevronLeft, CheckCircle2 } from "lucide-react";
@@ -247,24 +248,27 @@ export default function PlanilhaDetalhesPage() {
                     {mounted &&
                       (() => {
                         const done = isWorkoutCheckedForBlock(b);
+                        const missed = !done && isWorkoutMissed(b);
                         return (
-                          <button
-                            type="button"
-                            onClick={() => !done && setCheckinWorkout(b)}
-                            className={`mt-2 text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border transition-all ${
-                              done
-                                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                                : "border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10"
-                            }`}
-                          >
+                          <div className="mt-2 space-y-1">
                             {done ? (
-                              <span className="inline-flex items-center gap-1">
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
                                 <CheckCircle2 size={12} /> Feito
                               </span>
+                            ) : missed ? (
+                              <span className="inline-flex items-center justify-center text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-red-500/40 text-red-400 bg-red-500/10">
+                                Treino não feito
+                              </span>
                             ) : (
-                              "Check-in"
+                              <button
+                                type="button"
+                                onClick={() => setCheckinWorkout(b)}
+                                className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all"
+                              >
+                                Check-in
+                              </button>
                             )}
-                          </button>
+                          </div>
                         );
                       })()}
                     <a

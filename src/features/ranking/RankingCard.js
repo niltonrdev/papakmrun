@@ -1,10 +1,36 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { buildWeeklyRanking } from "@/features/ranking/ranking.service";
 
 export default function RankingCard() {
-  const data = useMemo(() => buildWeeklyRanking({ limit: 5 }), []);
+  const [data, setData] = useState(() => buildWeeklyRanking({ limit: 10 }));
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/ranking/weekly?limit=10", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const j = await res.json();
+        if (!cancelled && Array.isArray(j.items)) {
+          setData({ range: j.range, items: j.items });
+        }
+      } catch {
+        /* fallback local abaixo */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const ranking = data.items;
 
   return (
@@ -13,7 +39,7 @@ export default function RankingCard() {
         <div>
           <div className="text-sm text-white/60">Ranking semanal</div>
           <div className="text-lg font-semibold">
-            Top {ranking.length || 0} (real)
+            Top {ranking.length || 0}
           </div>
           <div className="mt-1 text-xs text-white/50">
             Semana: {data.range.startISO} → {data.range.endISO}
@@ -25,7 +51,9 @@ export default function RankingCard() {
         </div>
       </div>
 
-      {ranking.length === 0 ? (
+      {loading && ranking.length === 0 ? (
+        <div className="mt-4 text-sm text-white/60">Carregando ranking…</div>
+      ) : ranking.length === 0 ? (
         <div className="mt-4 text-sm text-white/60">
           Sem check-ins na semana ainda.
         </div>
@@ -33,7 +61,7 @@ export default function RankingCard() {
         <div className="mt-4 space-y-2">
           {ranking.map((p, idx) => (
             <div
-              key={p.name}
+              key={`${p.name}-${idx}`}
               className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2"
             >
               <div className="flex items-center gap-3">

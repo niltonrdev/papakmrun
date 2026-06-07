@@ -23,6 +23,7 @@ import {
   renumberPlanWeeks,
   defaultPlanStartMonday,
 } from "@/lib/plan-calendar";
+import { isWorkoutMissed, hasCheckinForSlug } from "@/features/checkins/missed-workout";
 
 const ZONE_KEYS = ["z1", "z2", "z3", "z4", "z5"];
 const WEEKDAY_OPTIONS = [
@@ -77,6 +78,7 @@ export default function DetalheAlunoPage() {
   const [planStartDate, setPlanStartDate] = useState(defaultPlanStartMonday());
   const [importBusy, setImportBusy] = useState(false);
   const [serverTemplates, setServerTemplates] = useState([]);
+  const [checkinSlugs, setCheckinSlugs] = useState([]);
 
   const loadStudentPlan = useCallback(async () => {
     if (!slug) return;
@@ -117,6 +119,7 @@ export default function DetalheAlunoPage() {
       setTempoTeste(planJson.testTime ?? "");
       setZonas(planJson.zones ?? null);
       setCalcOpen(!planJson.zones && Boolean(planJson.testTime));
+      setCheckinSlugs(Array.isArray(planJson.checkinSlugs) ? planJson.checkinSlugs : []);
     } catch (e) {
       setSaveMsg(e?.message || "Erro ao carregar aluno.");
       setPlan(clonePlan(getMergedPlanForSlug(slug)));
@@ -688,12 +691,20 @@ export default function DetalheAlunoPage() {
                               <th className="pb-2 pr-2">Dia</th>
                               <th className="pb-2 pr-2">Km</th>
                               <th className="pb-2 pr-2">Zona</th>
+                              <th className="pb-2 pr-2">Status</th>
                               <th className="pb-2">Observações</th>
                               <th className="pb-2 w-10"></th>
                             </tr>
                           </thead>
                           <tbody className="text-white/80">
-                            {(week.blocks ?? []).map((b, idx) => (
+                            {(week.blocks ?? []).map((b, idx) => {
+                              const workoutDateISO =
+                                b.workoutDateISO ||
+                                computeWorkoutDateISO(planStartDate, wk, b.dayLabel);
+                              const blockWithDate = { ...b, workoutDateISO };
+                              const done = hasCheckinForSlug(b.slug, checkinSlugs);
+                              const missed = isWorkoutMissed(blockWithDate, checkinSlugs);
+                              return (
                               <tr key={b.slug} className="border-b border-white/5 align-top">
                                 <td className="py-2 pr-2 font-bold text-white whitespace-nowrap">
                                   <select
@@ -737,6 +748,21 @@ export default function DetalheAlunoPage() {
                                     ))}
                                   </select>
                                 </td>
+                                <td className="py-2 pr-2 whitespace-nowrap">
+                                  {done ? (
+                                    <span className="text-[9px] font-black uppercase text-emerald-400">
+                                      Feito
+                                    </span>
+                                  ) : missed ? (
+                                    <span className="text-[9px] font-black uppercase text-red-400">
+                                      Treino não feito
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-black uppercase text-white/30">
+                                      Pendente
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="py-2">
                                   <textarea
                                     value={b.description}
@@ -758,7 +784,8 @@ export default function DetalheAlunoPage() {
                                   </button>
                                 </td>
                               </tr>
-                            ))}
+                            );
+                            })}
                           </tbody>
                         </table>
                       </div>

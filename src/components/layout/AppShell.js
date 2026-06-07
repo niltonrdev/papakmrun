@@ -4,7 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { readActiveAnnouncement } from "@/features/announcements/announcements.storage";
+import {
+  readActiveAnnouncement,
+  readDismissedAnnouncementId,
+  writeDismissedAnnouncementId,
+} from "@/features/announcements/announcements.storage";
 import { syncBackendSession } from "@/features/session/backend-sync";
 import { logout, setAuthRoleCookie } from "@/lib/auth/session.client";
 
@@ -19,30 +23,45 @@ const NAV_ITEMS = [
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const [banner, setBanner] = useState("");
+  const [announcementId, setAnnouncementId] = useState(null);
   const [hidden, setHidden] = useState(false);
   const [role, setRole] = useState(null);
   const [isStaff, setIsStaff] = useState(false);
 
   useEffect(() => {
-    setHidden(false);
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/announcements", { credentials: "include" });
         const j = await res.json();
         if (!cancelled && j?.body && String(j.body).trim()) {
-          setBanner(String(j.body).trim());
+          const body = String(j.body).trim();
+          const id = j?.id ?? body;
+          setBanner(body);
+          setAnnouncementId(id);
+          setHidden(readDismissedAnnouncementId() === String(id));
           return;
         }
       } catch {
         /* ignore */
       }
-      if (!cancelled) setBanner(readActiveAnnouncement());
+      if (!cancelled) {
+        const local = readActiveAnnouncement();
+        setBanner(local);
+        setAnnouncementId(local || null);
+        setHidden(local ? readDismissedAnnouncementId() === local : false);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [pathname]);
+
+  function dismissBanner() {
+    const id = announcementId ?? banner;
+    if (id) writeDismissedAnnouncementId(id);
+    setHidden(true);
+  }
 
   useEffect(() => {
     syncBackendSession();
@@ -128,7 +147,7 @@ export default function AppShell({ children }) {
             <p className="flex-1 leading-relaxed">{banner}</p>
             <button
               type="button"
-              onClick={() => setHidden(true)}
+              onClick={dismissBanner}
               className="shrink-0 rounded-lg p-1 text-white/40 hover:text-white"
               aria-label="Fechar aviso"
             >
