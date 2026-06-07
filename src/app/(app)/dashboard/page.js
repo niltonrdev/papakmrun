@@ -141,9 +141,33 @@ export default function DashboardPage() {
   const syncTick = useBackendSyncTick();
   const { isSocial, planPending, hasPlanAccess } = useProfileRole();
   const [todayWorkout, setTodayWorkout] = useState(null);
+  const [stravaLinked, setStravaLinked] = useState(null);
 
   useEffect(() => {
     setTodayWorkout(getTodayWorkout());
+  }, [syncTick]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/strava/status", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          if (!cancelled) setStravaLinked(false);
+          return;
+        }
+        const j = await res.json();
+        if (!cancelled) setStravaLinked(Boolean(j?.linked));
+      } catch {
+        if (!cancelled) setStravaLinked(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [syncTick]);
 
   const showTodayCard = hasPlanAccess && Boolean(todayWorkout);
@@ -165,12 +189,19 @@ export default function DashboardPage() {
           Dashboard do Aluno
         </h2>
         <div className="mt-5 flex flex-wrap items-center gap-2 sm:gap-3">
-          <a
-            href="/api/strava/connect"
-            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-white/80 hover:bg-white/10"
-          >
-            Conectar Strava
-          </a>
+          {stravaLinked === false && (
+            <a
+              href="/api/strava/connect"
+              className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-white/80 hover:bg-white/10"
+            >
+              Conectar Strava
+            </a>
+          )}
+          {stravaLinked === true && (
+            <span className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-emerald-300">
+              Strava conectado
+            </span>
+          )}
           <Link
             href="/perfil"
             className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-white/50 hover:text-white"
@@ -191,16 +222,17 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="order-3 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1">
+        <div className="order-3 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-2 flex flex-col gap-6 sm:gap-8">
           <RankingCard />
-        </div>
-
-        <div className="order-4 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-2">
           <RaceCalendar />
         </div>
 
         {hasPlanAccess && (
-          <div className="order-5 lg:order-none lg:col-span-8 lg:col-start-1 lg:row-start-3">
+          <div
+            className={`order-4 lg:order-none lg:col-span-8 lg:col-start-1 ${
+              showTodayCard ? "lg:row-start-3" : "lg:row-start-2"
+            }`}
+          >
             <TrainingZonesList />
           </div>
         )}
