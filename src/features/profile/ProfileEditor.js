@@ -451,13 +451,6 @@ export default function ProfileEditor() {
         </div>
       )}
 
-      {!profile.birthDate && (
-        <div className="mx-4 mb-6 rounded-2xl border border-papa-blue/30 bg-papa-blue/10 px-4 py-3 text-sm text-sky-100 sm:mx-8 lg:mx-12">
-          Complete sua <strong>data de nascimento</strong> em Dados pessoais — usaremos para mensagens
-          especiais no seu aniversário.
-        </div>
-      )}
-
       {message && (
         <p className="mx-4 mb-4 text-center text-xs text-white/60 sm:mx-8 lg:mx-12">{message}</p>
       )}
