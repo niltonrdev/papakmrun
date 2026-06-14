@@ -63,7 +63,7 @@ function WorkoutPreviewCard({ block }) {
   );
 }
 
-function StatCard({ title, value, icon: Icon, unit, empty = false }) {
+function StatCard({ title, value, icon: Icon, unit, empty = false, valueClassName = "" }) {
   const isEmpty = empty || value === "—";
   return (
     <div className="bg-papa-card p-4 sm:p-5 rounded-3xl border border-white/5 flex flex-col justify-between min-w-0">
@@ -78,7 +78,7 @@ function StatCard({ title, value, icon: Icon, unit, empty = false }) {
       <div className="flex items-baseline gap-1">
         <span
           className={`text-xl sm:text-2xl font-black truncate ${
-            isEmpty ? "text-white/25" : "text-white"
+            isEmpty ? "text-white/25" : valueClassName || "text-white"
           }`}
         >
           {value}
@@ -122,7 +122,7 @@ function PersonalRecord({ label, time, pace, date, empty = false }) {
 
 export default function PerformancePage() {
   const syncTick = useBackendSyncTick();
-  const { hasPlanAccess, loading: roleLoading } = useProfileRole();
+  const { hasPlanAccess, loading: roleLoading, healthLabel } = useProfileRole();
   const [activeWeek, setActiveWeek] = useState("1");
   const [strava, setStrava] = useState(null);
   const [insights, setInsights] = useState(null);
@@ -209,6 +209,13 @@ export default function PerformancePage() {
   const paceVal =
     stravaLinked && insights?.avgPaceRecentRuns ? insights.avgPaceRecentRuns : "—";
 
+  const healthValueClass =
+    healthLabel === "Apto"
+      ? "text-emerald-400"
+      : healthLabel === "Não apto"
+        ? "text-red-400"
+        : "";
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10 pb-20 w-full min-w-0">
       <header>
@@ -232,7 +239,13 @@ export default function PerformancePage() {
           icon={Activity}
           empty={!stravaLinked}
         />
-        <StatCard title="Status Saúde" value="Apto" icon={HeartPulse} />
+        <StatCard
+          title="Status Saúde"
+          value={roleLoading ? "…" : healthLabel}
+          icon={HeartPulse}
+          empty={!roleLoading && healthLabel === "—"}
+          valueClassName={healthValueClass}
+        />
         <StatCard
           title="Pace médio (recentes)"
           value={paceVal}

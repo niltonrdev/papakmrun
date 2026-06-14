@@ -1,8 +1,11 @@
 const FULL_FIELDS =
-  "role, athlete_slug, display_name, active_week, selected_base_plan, plan_status, bio, city, country, avatar_url, banner_url";
+  "role, athlete_slug, display_name, active_week, selected_base_plan, plan_status, bio, city, country, avatar_url, banner_url, birth_date, parq_submitted_at, parq_answers, health_approved_at, health_approved_by";
 
 const CORE_FIELDS =
   "role, athlete_slug, display_name, active_week, selected_base_plan";
+
+const HEALTH_FIELDS =
+  "role, athlete_slug, display_name, active_week, selected_base_plan, plan_status, parq_submitted_at, health_approved_at";
 
 function isMissingRpc(error) {
   const code = error?.code;
@@ -27,19 +30,29 @@ export async function fetchProfileForUser(supabase, userId) {
   const full = await supabase.from("profiles").select(FULL_FIELDS).eq("id", userId).maybeSingle();
   if (!full.error) return { profile: full.data, error: null };
 
+  const health = await supabase.from("profiles").select(HEALTH_FIELDS).eq("id", userId).maybeSingle();
+  if (!health.error) return { profile: health.data, error: null };
+
   const core = await supabase.from("profiles").select(CORE_FIELDS).eq("id", userId).maybeSingle();
   if (!core.error) return { profile: core.data, error: null };
 
   return { profile: null, error: core.error || full.error };
 }
 
+import { healthStatusFromProfile } from "@/lib/health/parq";
+
 export function profileCapabilities(profile) {
   const role = profile?.role ?? null;
   const isStaff = role === "admin" || role === "coach";
+  const health = healthStatusFromProfile(profile);
   return {
     role,
     isStaff,
     hasPlanAccess: role === "plan" || isStaff,
     planPending: profile?.plan_status === "pending",
+    needsParq: health.needsParq,
+    healthPendingReview: health.pendingReview,
+    healthApt: health.apt,
+    healthLabel: health.label,
   };
 }

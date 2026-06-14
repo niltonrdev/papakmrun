@@ -11,6 +11,7 @@ import {
 } from "@/features/announcements/announcements.storage";
 import { syncBackendSession } from "@/features/session/backend-sync";
 import { logout, setAuthRoleCookie } from "@/lib/auth/session.client";
+import ParqGate from "@/features/health/ParqGate";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Início", icon: Home },
@@ -139,6 +140,7 @@ export default function AppShell({ children }) {
 
       {/* Main Content - Remove a margem no mobile (ml-0) e adiciona no desktop (lg:ml-64) */}
       <main className="flex-1 ml-0 lg:ml-64 p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10 overflow-x-hidden overflow-y-auto w-full min-w-0">
+        <ParqGate />
         {banner && !hidden && showBanner && (
           <div className="mb-4 flex items-start gap-3 rounded-2xl border border-papa-blue/30 bg-papa-blue/10 px-4 py-3 text-sm text-white/90">
             <span className="text-papa-blue font-black uppercase text-[10px] tracking-widest shrink-0 mt-0.5">

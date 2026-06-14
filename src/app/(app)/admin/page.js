@@ -17,6 +17,7 @@ import {
   readActiveAnnouncement,
   writeActiveAnnouncement,
 } from "@/features/announcements/announcements.storage";
+import ParqReviewModal from "@/features/health/ParqReviewModal";
 
 export default function AdminPage() {
   const [aviso, setAviso] = useState("");
@@ -42,6 +43,7 @@ export default function AdminPage() {
   const [students, setStudents] = useState([]);
   const [studentQuery, setStudentQuery] = useState("");
   const [approvingId, setApprovingId] = useState(null);
+  const [parqReview, setParqReview] = useState(null);
 
   async function loadAnnouncementPreview() {
     try {
@@ -405,7 +407,7 @@ export default function AdminPage() {
                 <th className="p-6">Nome</th>
                 <th className="p-6">Professor</th>
                 <th className="p-6">Objetivo Principal</th>
-                <th className="p-6">Último Teste</th>
+                <th className="p-6">Status Saúde</th>
                 <th className="p-6">Saúde</th>
                 <th className="p-6">Plano</th>
                 <th className="p-6 text-right">Ações</th>
@@ -442,7 +444,13 @@ export default function AdminPage() {
                     {aluno.selectedBasePlan ? `Plano ${aluno.selectedBasePlan}` : "Sem plano base"}
                   </td>
                   <td className="p-6">
-                    <span className="text-[10px] font-black text-emerald-400">Ativo</span>
+                    {aluno.healthStatus === "—" ? (
+                      <span className="text-[10px] font-bold text-white/30">—</span>
+                    ) : aluno.healthStatus === "Apto" ? (
+                      <span className="text-[10px] font-black uppercase text-emerald-400">Apto</span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase text-red-400">Não apto</span>
+                    )}
                   </td>
                   <td className="p-6">
                     {aluno.planStatus === "pending" ? (
@@ -468,6 +476,21 @@ export default function AdminPage() {
                   </td>
                   <td className="p-6 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-2">
+                      {aluno.parqSubmitted && (aluno.role === "plan" || aluno.planStatus === "pending") && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setParqReview({
+                              id: aluno.id,
+                              name: aluno.name,
+                              canApprove: !aluno.healthApproved,
+                            })
+                          }
+                          className="rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-[10px] font-black uppercase text-sky-200 hover:bg-sky-500/20"
+                        >
+                          Ver PAR-Q
+                        </button>
+                      )}
                       {aluno.planStatus === "pending" && (
                         <button
                           type="button"
@@ -509,6 +532,17 @@ export default function AdminPage() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {aluno.healthStatus !== "—" && (
+                  <span
+                    className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${
+                      aluno.healthStatus === "Apto"
+                        ? "bg-emerald-500/15 text-emerald-300"
+                        : "bg-red-500/15 text-red-300"
+                    }`}
+                  >
+                    Saúde: {aluno.healthStatus}
+                  </span>
+                )}
                 {aluno.planStatus === "pending" ? (
                   <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase text-amber-200">
                     Aguardando
@@ -532,6 +566,21 @@ export default function AdminPage() {
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-1">
+                {aluno.parqSubmitted && (aluno.role === "plan" || aluno.planStatus === "pending") && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setParqReview({
+                        id: aluno.id,
+                        name: aluno.name,
+                        canApprove: !aluno.healthApproved,
+                      })
+                    }
+                    className="rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-[10px] font-black uppercase text-sky-200 hover:bg-sky-500/20"
+                  >
+                    Ver PAR-Q
+                  </button>
+                )}
                 {aluno.planStatus === "pending" && (
                   <button
                     type="button"
@@ -969,6 +1018,17 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+      <ParqReviewModal
+        open={Boolean(parqReview)}
+        studentId={parqReview?.id}
+        studentName={parqReview?.name}
+        canApprove={parqReview?.canApprove}
+        onClose={() => setParqReview(null)}
+        onApproved={async () => {
+          setCoachMsg("Status de saúde aprovado.");
+          await loadStudents();
+        }}
+      />
     </div>
   );
 }
