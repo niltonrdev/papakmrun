@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import StravaPanel from "@/features/strava/StravaPanel";
 import { createClient } from "@/lib/supabase/client";
+import { MIN_PASSWORD_LENGTH, PASSWORD_HINT, validatePassword } from "@/lib/auth/password-policy";
 import { logout } from "@/lib/auth/session.client";
 import ImageCropModal from "./ImageCropModal";
 
@@ -156,10 +157,11 @@ export default function ProfileEditor() {
   async function changePassword(e) {
     e.preventDefault();
     setPasswordMessage(null);
-    if (!newPassword || newPassword.length < 6) {
+    const pwdCheck = validatePassword(newPassword);
+    if (!pwdCheck.ok) {
       setPasswordMessage({
         tone: "err",
-        text: "Use uma senha com pelo menos 6 caracteres.",
+        text: pwdCheck.message,
       });
       return;
     }
@@ -477,12 +479,13 @@ export default function ProfileEditor() {
               </label>
               <input
                 type="password"
-                minLength={6}
+                minLength={MIN_PASSWORD_LENGTH}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
                 placeholder="••••••••"
               />
+              <p className="text-[10px] leading-relaxed text-white/35">{PASSWORD_HINT}</p>
               <button
                 type="submit"
                 disabled={passwordBusy}

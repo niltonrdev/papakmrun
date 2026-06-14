@@ -9,6 +9,7 @@ export function useProfileRole() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState(null);
   const [planStatus, setPlanStatus] = useState(null);
+  const [healthLabel, setHealthLabel] = useState("Não apto");
 
   useEffect(() => {
     let cancelled = false;
@@ -26,12 +27,14 @@ export function useProfileRole() {
         if (!cancelled) {
           setRole(j?.profile?.role ?? null);
           setPlanStatus(j?.profile?.plan_status ?? null);
+          setHealthLabel(j?.healthLabel ?? "Não apto");
           setLoading(false);
         }
       } catch {
         if (!cancelled) {
           setRole(null);
           setPlanStatus(null);
+          setHealthLabel("Não apto");
           setLoading(false);
         }
       }
@@ -53,5 +56,6 @@ export function useProfileRole() {
     isSocial,
     planPending: planStatus === "pending",
     hasPlanAccess,
+    healthLabel,
   };
 }

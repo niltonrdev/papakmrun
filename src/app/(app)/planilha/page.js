@@ -122,7 +122,7 @@ function PersonalRecord({ label, time, pace, date, empty = false }) {
 
 export default function PerformancePage() {
   const syncTick = useBackendSyncTick();
-  const { hasPlanAccess, loading: roleLoading } = useProfileRole();
+  const { hasPlanAccess, loading: roleLoading, healthLabel } = useProfileRole();
   const [activeWeek, setActiveWeek] = useState("1");
   const [strava, setStrava] = useState(null);
   const [insights, setInsights] = useState(null);
@@ -232,7 +232,12 @@ export default function PerformancePage() {
           icon={Activity}
           empty={!stravaLinked}
         />
-        <StatCard title="Status Saúde" value="Apto" icon={HeartPulse} />
+        <StatCard
+          title="Status Saúde"
+          value={healthLabel}
+          icon={HeartPulse}
+          empty={healthLabel === "—"}
+        />
         <StatCard
           title="Pace médio (recentes)"
           value={paceVal}

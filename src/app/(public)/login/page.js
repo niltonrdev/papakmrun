@@ -8,6 +8,7 @@ import { writeActiveWeekNumber } from "@/features/session/prefs.storage";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseBrowserEnabled } from "@/lib/supabase/enabled";
 import { setAuthRoleCookie } from "@/lib/auth/session.client";
+import { MIN_PASSWORD_LENGTH, PASSWORD_HINT, validatePassword } from "@/lib/auth/password-policy";
 
 async function syncLegacyCookieFromApi() {
   try {
@@ -69,6 +70,10 @@ export default function LoginPage() {
         if (!name) {
           throw new Error("Informe seu nome para o cadastro.");
         }
+        const pwdCheck = validatePassword(password);
+        if (!pwdCheck.ok) {
+          throw new Error(pwdCheck.message);
+        }
         const { data, error } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
@@ -87,8 +92,8 @@ export default function LoginPage() {
         }
         setMessage(
           signupIntent === "plan"
-            ? "Conta criada! Se precisar confirmar o e-mail, verifique sua caixa de entrada. Após entrar, você usará o modo social até a aprovação da planilha."
-            : "Conta criada! Se o e-mail pedir confirmação, abra o link enviado e depois entre."
+            ? "Conta criada! Confirme seu e-mail pelo link enviado. Depois de entrar, preencha o questionário PAR-Q enquanto aguarda a aprovação da planilha."
+            : "Conta criada! Confirme seu e-mail pelo link enviado e depois entre na plataforma."
         );
         setMode("signin");
       } else {
@@ -116,38 +121,48 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-slate-950 text-slate-100">
+    <main className="login-page min-h-dvh bg-[#060b14] text-slate-100">
       <div className="relative mx-auto flex min-h-dvh max-w-6xl items-center justify-center px-4 py-10">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/5 blur-3xl" />
+          <div className="absolute left-1/2 top-[18%] h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-papa-orange/10 blur-[100px]" />
+          <div className="absolute right-[8%] bottom-[12%] h-[280px] w-[280px] rounded-full bg-papa-blue/10 blur-[90px]" />
+          <div className="absolute left-[10%] top-[55%] h-[200px] w-[200px] rounded-full bg-white/[0.03] blur-[80px]" />
         </div>
 
-        <section className="relative w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
-          <div className="mb-8 flex flex-col items-center gap-4 text-center">
-            <div className="relative h-20 w-20 overflow-hidden rounded-2xl border border-white/10">
+        <section className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-10">
+          <div className="mb-9 flex flex-col items-center gap-5 text-center">
+            <div className="relative h-28 w-28 overflow-hidden rounded-3xl border border-white/15 shadow-[0_0_40px_rgba(255,107,0,0.15)] ring-1 ring-papa-orange/20">
               <Image src="/brand/papakm-logo.jpg" alt="PapaKM" fill className="object-cover" priority />
             </div>
             <div>
-              <h1 className="text-2xl font-black uppercase italic tracking-tight text-white">PapaKM</h1>
-              <p className="mt-1 text-sm text-white/50">
+              <h1 className="login-title text-4xl font-bold tracking-[0.08em] text-white">PAPAKM</h1>
+              <p className="mt-2 text-sm text-white/55">
                 {mode === "signin" ? "Entre na sua conta" : "Crie sua conta"}
               </p>
             </div>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="flex rounded-2xl border border-white/10 bg-black/20 p-1 text-xs font-semibold">
+            <div className="flex rounded-2xl border border-white/10 bg-black/25 p-1 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => setMode("signin")}
-                className={`flex-1 rounded-xl py-2.5 ${mode === "signin" ? "bg-white/10 text-white" : "text-white/50"}`}
+                className={`flex-1 rounded-xl py-2.5 transition ${
+                  mode === "signin"
+                    ? "bg-white/12 text-white shadow-inner"
+                    : "text-white/45 hover:text-white/70"
+                }`}
               >
                 Entrar
               </button>
               <button
                 type="button"
                 onClick={() => setMode("signup")}
-                className={`flex-1 rounded-xl py-2.5 ${mode === "signup" ? "bg-white/10 text-white" : "text-white/50"}`}
+                className={`flex-1 rounded-xl py-2.5 transition ${
+                  mode === "signup"
+                    ? "bg-white/12 text-white shadow-inner"
+                    : "text-white/45 hover:text-white/70"
+                }`}
               >
                 Cadastrar
               </button>
@@ -162,7 +177,7 @@ export default function LoginPage() {
                     required
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none focus:border-papa-orange/50"
+                    className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20"
                     placeholder="Seu nome"
                   />
                 </div>
@@ -171,7 +186,7 @@ export default function LoginPage() {
                   <select
                     value={signupIntent}
                     onChange={(e) => setSignupIntent(e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none"
+                    className="form-select w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50"
                   >
                     <option value="social">Aluno social (rede e feed)</option>
                     <option value="plan">Aluno planilha (aguarda aprovação)</option>
@@ -179,7 +194,7 @@ export default function LoginPage() {
                   {signupIntent === "plan" && (
                     <p className="text-[11px] leading-relaxed text-amber-200/80">
                       Você entra na plataforma como aluno social e ganha acesso à planilha após um
-                      professor aprovar seu cadastro.
+                      professor aprovar seu cadastro e o questionário PAR-Q.
                     </p>
                   )}
                 </div>
@@ -194,7 +209,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none focus:border-papa-orange/50"
+                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20"
                 placeholder="voce@email.com"
               />
             </div>
@@ -204,17 +219,20 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
-                minLength={6}
+                minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : 1}
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none focus:border-papa-orange/50"
+                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20"
                 placeholder="••••••••"
               />
+              {mode === "signup" && (
+                <p className="text-[11px] leading-relaxed text-white/45">{PASSWORD_HINT}</p>
+              )}
             </div>
 
             {message && (
-              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs leading-relaxed text-white/85">
+              <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-xs leading-relaxed text-white/85">
                 {message}
               </div>
             )}
@@ -222,7 +240,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-papa-orange py-3.5 text-sm font-black uppercase text-white transition hover:brightness-110 disabled:opacity-60"
+              className="w-full rounded-2xl bg-gradient-to-r from-papa-orange to-orange-500 py-3.5 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-orange-900/30 transition hover:brightness-110 disabled:opacity-60"
             >
               {loading ? "Aguarde…" : mode === "signup" ? "Criar conta" : "Entrar"}
             </button>

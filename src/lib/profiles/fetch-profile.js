@@ -1,5 +1,5 @@
 const FULL_FIELDS =
-  "role, athlete_slug, display_name, active_week, selected_base_plan, plan_status, bio, city, country, avatar_url, banner_url";
+  "role, athlete_slug, display_name, active_week, selected_base_plan, plan_status, bio, city, country, avatar_url, banner_url, parq_submitted_at, parq_answers, health_approved_at, health_approved_by";
 
 const CORE_FIELDS =
   "role, athlete_slug, display_name, active_week, selected_base_plan";
@@ -33,13 +33,20 @@ export async function fetchProfileForUser(supabase, userId) {
   return { profile: null, error: core.error || full.error };
 }
 
+import { healthStatusFromProfile } from "@/lib/health/parq";
+
 export function profileCapabilities(profile) {
   const role = profile?.role ?? null;
   const isStaff = role === "admin" || role === "coach";
+  const health = healthStatusFromProfile(profile);
   return {
     role,
     isStaff,
     hasPlanAccess: role === "plan" || isStaff,
     planPending: profile?.plan_status === "pending",
+    needsParq: health.needsParq,
+    healthPendingReview: health.pendingReview,
+    healthApt: health.apt,
+    healthLabel: health.label,
   };
 }

@@ -12,3 +12,19 @@ body {
   color: white;
   margin: 0;
 }
+
+.login-title {
+  font-family: var(--font-bebas), "Arial Narrow", sans-serif;
+  letter-spacing: 0.06em;
+}
+
+.form-select option {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+.form-select option:checked,
+.form-select option:hover {
+  background-color: #1e293b;
+  color: #ffffff;
+}

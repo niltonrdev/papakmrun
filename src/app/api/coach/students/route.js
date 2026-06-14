@@ -36,7 +36,7 @@ export async function GET() {
   let query = supabase
     .from("profiles")
     .select(
-      "id, email, role, display_name, athlete_slug, active_week, selected_base_plan, plan_status, coach_id, created_at"
+      "id, email, role, display_name, athlete_slug, active_week, selected_base_plan, plan_status, coach_id, created_at, parq_submitted_at, health_approved_at"
     )
     .in("role", ["plan", "social"]);
 
@@ -66,22 +66,33 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const items = (data || []).map((r) => ({
-    id: r.id,
-    name:
-      r.display_name?.trim() ||
-      (r.email ? String(r.email).split("@")[0] : null) ||
-      r.athlete_slug ||
-      "Aluno",
-    email: r.email ?? "",
-    role: r.role,
-    planStatus: r.plan_status || null,
-    athleteSlug: r.athlete_slug || "",
-    activeWeek: r.active_week || "1",
-    selectedBasePlan: r.selected_base_plan || null,
-    coachId: r.coach_id || null,
-    coachName: r.coach_id ? coachMap[r.coach_id] || "Professor" : null,
-  }));
+  const items = (data || []).map((r) => {
+    const isPlanilha = r.role === "plan" || r.plan_status === "pending";
+    const healthStatus = isPlanilha
+      ? r.health_approved_at
+        ? "Apto"
+        : "Não apto"
+      : "—";
+    return {
+      id: r.id,
+      name:
+        r.display_name?.trim() ||
+        (r.email ? String(r.email).split("@")[0] : null) ||
+        r.athlete_slug ||
+        "Aluno",
+      email: r.email ?? "",
+      role: r.role,
+      planStatus: r.plan_status || null,
+      athleteSlug: r.athlete_slug || "",
+      activeWeek: r.active_week || "1",
+      selectedBasePlan: r.selected_base_plan || null,
+      coachId: r.coach_id || null,
+      coachName: r.coach_id ? coachMap[r.coach_id] || "Professor" : null,
+      parqSubmitted: Boolean(r.parq_submitted_at),
+      healthApproved: Boolean(r.health_approved_at),
+      healthStatus,
+    };
+  });
 
   return NextResponse.json({ items });
 }
