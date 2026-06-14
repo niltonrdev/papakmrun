@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import {
+  enrichRacesWithRsvps,
+  mapRaceRow,
+  normalizeRaceUrl,
+} from "@/lib/group-races";
 
 function isStaff(role) {
   return role === "admin" || role === "coach";
@@ -20,25 +25,26 @@ export async function GET() {
     return NextResponse.json({ error: "Sessão necessária." }, { status: 401 });
   }
 
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const staff = isStaff(me?.role);
+
   const { data, error } = await supabase
     .from("group_races")
-    .select("id, title, race_date, location, description, created_at")
+    .select("id, title, race_date, location, description, race_url, created_at")
     .order("race_date", { ascending: true, nullsFirst: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
-    items: (data || []).map((r) => ({
-      id: r.id,
-      title: r.title,
-      raceDate: r.race_date,
-      location: r.location,
-      description: r.description,
-      createdAt: r.created_at,
-    })),
-  });
+  const races = (data || []).map(mapRaceRow);
+  const items = await enrichRacesWithRsvps(supabase, user.id, races, staff);
+
+  return NextResponse.json({ items });
 }
 
 export async function POST(request) {
@@ -84,6 +90,7 @@ export async function POST(request) {
     location: typeof body.location === "string" ? body.location.trim() : null,
     description:
       typeof body.description === "string" ? body.description.trim() : null,
+    race_url: normalizeRaceUrl(body.raceUrl ?? body.race_url ?? ""),
     created_by: user.id,
     updated_at: new Date().toISOString(),
   };
@@ -91,20 +98,12 @@ export async function POST(request) {
   const { data, error } = await supabase
     .from("group_races")
     .insert(row)
-    .select("id, title, race_date, location, description")
+    .select("id, title, race_date, location, description, race_url")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
-    item: {
-      id: data.id,
-      title: data.title,
-      raceDate: data.race_date,
-      location: data.location,
-      description: data.description,
-    },
-  });
+  return NextResponse.json({ item: mapRaceRow(data) });
 }

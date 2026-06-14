@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Calendar } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Calendar, ExternalLink } from "lucide-react";
 
 function todayISO() {
   const d = new Date();
@@ -21,37 +21,53 @@ function formatRaceDateBR(iso) {
 export default function RaceCalendar() {
   const [races, setRaces] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+
+  const loadRaces = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/coach/group-races", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        setRaces([]);
+        return;
+      }
+      const j = await res.json();
+      const today = todayISO();
+      const upcoming = (j.items || [])
+        .filter((r) => r.raceDate && String(r.raceDate).slice(0, 10) >= today)
+        .sort((a, b) => String(a.raceDate).localeCompare(String(b.raceDate)));
+      setRaces(upcoming);
+    } catch {
+      setRaces([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/coach/group-races", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!res.ok) {
-          if (!cancelled) setRaces([]);
-          return;
-        }
-        const j = await res.json();
-        if (cancelled) return;
-        const today = todayISO();
-        const upcoming = (j.items || [])
-          .filter((r) => r.raceDate && String(r.raceDate).slice(0, 10) >= today)
-          .sort((a, b) => String(a.raceDate).localeCompare(String(b.raceDate)));
-        setRaces(upcoming);
-      } catch {
-        if (!cancelled) setRaces([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadRaces();
+  }, [loadRaces]);
+
+  async function toggleRsvp(race) {
+    if (!race?.id || busyId) return;
+    setBusyId(race.id);
+    try {
+      const going = Boolean(race.going);
+      const res = await fetch(`/api/group-races/${race.id}/rsvp`, {
+        method: going ? "DELETE" : "POST",
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      setRaces((prev) =>
+        prev.map((r) => (r.id === race.id ? { ...r, going: !going } : r))
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="rounded-3xl bg-papa-card p-6 border border-white/5">
@@ -71,9 +87,9 @@ export default function RaceCalendar() {
           {races.map((race) => (
             <div
               key={race.id}
-              className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5"
+              className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-white/5 border border-white/5"
             >
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="font-bold text-white">{race.title}</div>
                 <div className="text-xs text-white/50">
                   {formatRaceDateBR(race.raceDate)}
@@ -82,7 +98,29 @@ export default function RaceCalendar() {
                 {race.description ? (
                   <div className="text-[11px] text-white/40 mt-1">{race.description}</div>
                 ) : null}
+                {race.raceUrl ? (
+                  <a
+                    href={race.raceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-papa-blue hover:underline"
+                  >
+                    Site oficial <ExternalLink size={12} />
+                  </a>
+                ) : null}
               </div>
+              <button
+                type="button"
+                disabled={busyId === race.id}
+                onClick={() => toggleRsvp(race)}
+                className={`shrink-0 text-xs font-bold py-2 px-4 rounded-xl transition-colors ${
+                  race.going
+                    ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-300"
+                    : "bg-papa-orange hover:bg-orange-600 text-white"
+                }`}
+              >
+                {race.going ? "Confirmado!" : "Eu vou!"}
+              </button>
             </div>
           ))}
         </div>

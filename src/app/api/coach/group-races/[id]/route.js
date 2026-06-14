@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { normalizeRaceUrl } from "@/lib/group-races";
 
 async function assertStaff(supabase, userId) {
   const { data: me } = await supabase
@@ -37,6 +38,9 @@ export async function PATCH(request, context) {
   if (body.raceDate !== undefined) updates.race_date = body.raceDate || null;
   if (typeof body.location === "string") updates.location = body.location.trim();
   if (typeof body.description === "string") updates.description = body.description.trim();
+  if (body.raceUrl !== undefined || body.race_url !== undefined) {
+    updates.race_url = normalizeRaceUrl(body.raceUrl ?? body.race_url ?? "");
+  }
 
   const { error } = await supabase.from("group_races").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
