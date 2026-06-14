@@ -11,6 +11,9 @@ import Link from "next/link";
 import ActivityMural from "@/features/activities/ActivityMural";
 import { useBackendSyncTick } from "@/features/session/backend-sync";
 import { useProfileRole } from "@/features/session/useProfileRole";
+import ParqBanner from "@/features/health/ParqBanner";
+import { useParqStatus } from "@/features/health/useParqStatus";
+import ParqFormModal from "@/features/health/ParqFormModal";
 
 function TodayWorkoutCard({ isSocial = false }) {
   useBackendSyncTick();
@@ -140,6 +143,8 @@ function TrainingZonesList() {
 export default function DashboardPage() {
   const syncTick = useBackendSyncTick();
   const { isSocial, planPending, hasPlanAccess } = useProfileRole();
+  const { needsParq, pendingReview, refresh: refreshParq } = useParqStatus();
+  const [parqOpen, setParqOpen] = useState(false);
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [stravaLinked, setStravaLinked] = useState(null);
 
@@ -177,12 +182,24 @@ export default function DashboardPage() {
   // Desktop (lg+): coluna principal [Mural, Treino, Zonas] + lateral [Ranking, Calendário]
   return (
     <div className="max-w-7xl mx-auto w-full min-w-0">
+      <ParqFormModal
+        open={parqOpen}
+        onSubmitted={() => {
+          setParqOpen(false);
+          refreshParq();
+        }}
+      />
       {planPending && (
         <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           Seu cadastro como <strong>aluno planilha</strong> está em análise. Por enquanto você usa o
           modo <strong>social</strong> (feed e Strava). Um professor liberará a planilha em breve.
         </div>
       )}
+      <ParqBanner
+        needsParq={needsParq}
+        pendingReview={pendingReview}
+        onOpenForm={() => setParqOpen(true)}
+      />
       <header className="mb-8 sm:mb-10">
         <h1 className="text-xs sm:text-sm font-bold text-white/40 uppercase tracking-tighter">Papakm</h1>
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white break-words leading-tight">

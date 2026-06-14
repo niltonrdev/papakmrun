@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { healthStatusFromProfile } from "@/lib/health/parq";
 
 /**
  * Papel vindo de /api/me (Supabase). Em modo legacy/demo sem sessão, role fica null.
@@ -9,13 +10,15 @@ export function useProfileRole() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState(null);
   const [planStatus, setPlanStatus] = useState(null);
-  const [healthLabel, setHealthLabel] = useState("Não apto");
+  const [healthLabel, setHealthLabel] = useState("—");
+  const [needsParq, setNeedsParq] = useState(false);
+  const [healthPendingReview, setHealthPendingReview] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/me", { credentials: "include" });
+        const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
         if (!res.ok) {
           if (!cancelled) {
             setRole(null);
@@ -24,17 +27,23 @@ export function useProfileRole() {
           return;
         }
         const j = await res.json();
+        const profile = j?.profile ?? null;
+        const health = healthStatusFromProfile(profile);
         if (!cancelled) {
-          setRole(j?.profile?.role ?? null);
-          setPlanStatus(j?.profile?.plan_status ?? null);
-          setHealthLabel(j?.healthLabel ?? "Não apto");
+          setRole(profile?.role ?? null);
+          setPlanStatus(profile?.plan_status ?? null);
+          setHealthLabel(j?.healthLabel ?? health.label);
+          setNeedsParq(Boolean(j?.needsParq ?? health.needsParq));
+          setHealthPendingReview(Boolean(j?.healthPendingReview ?? health.pendingReview));
           setLoading(false);
         }
       } catch {
         if (!cancelled) {
           setRole(null);
           setPlanStatus(null);
-          setHealthLabel("Não apto");
+          setHealthLabel("—");
+          setNeedsParq(false);
+          setHealthPendingReview(false);
           setLoading(false);
         }
       }
@@ -57,5 +66,7 @@ export function useProfileRole() {
     planPending: planStatus === "pending",
     hasPlanAccess,
     healthLabel,
+    needsParq,
+    healthPendingReview,
   };
 }

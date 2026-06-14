@@ -11,10 +11,12 @@ import {
   Loader2,
   Clock,
   LogOut,
+  UserRound,
 } from "lucide-react";
 import StravaPanel from "@/features/strava/StravaPanel";
 import { createClient } from "@/lib/supabase/client";
 import { MIN_PASSWORD_LENGTH, PASSWORD_HINT, validatePassword } from "@/lib/auth/password-policy";
+import { birthDateInputBounds, formatBirthDate, validateBirthDate } from "@/lib/auth/birth-date";
 import { logout } from "@/lib/auth/session.client";
 import ImageCropModal from "./ImageCropModal";
 
@@ -65,9 +67,13 @@ export default function ProfileEditor() {
   const [passwordMessage, setPasswordMessage] = useState(null);
   const [profile, setProfile] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [personalEditOpen, setPersonalEditOpen] = useState(false);
   const [form, setForm] = useState({
-    displayName: "",
     bio: "",
+  });
+  const [personalForm, setPersonalForm] = useState({
+    displayName: "",
+    birthDate: "",
     city: "",
     country: "Brasil",
   });
@@ -98,14 +104,18 @@ export default function ProfileEditor() {
         bio: p.bio || "",
         city: p.city || "",
         country: p.country || "Brasil",
+        birthDate: p.birth_date ? String(p.birth_date).slice(0, 10) : "",
         avatarUrl: p.avatar_url || null,
         bannerUrl: p.banner_url || null,
       });
       setForm({
+        bio: p.bio || "",
+      });
+      setPersonalForm({
         displayName:
           p.display_name?.trim() ||
           (j.user?.email ? String(j.user.email).split("@")[0] : ""),
-        bio: p.bio || "",
+        birthDate: p.birth_date ? String(p.birth_date).slice(0, 10) : "",
         city: p.city || "",
         country: p.country || "Brasil",
       });
@@ -136,16 +146,47 @@ export default function ProfileEditor() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          displayName: form.displayName,
           bio: form.bio,
-          city: form.city,
-          country: form.country,
         }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || "Não foi possível salvar.");
-      setMessage("Perfil atualizado.");
+      setMessage("Bio atualizada.");
       setEditOpen(false);
+      await refresh();
+    } catch (e) {
+      setMessage(e?.message || "Erro ao salvar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function savePersonalData(e) {
+    e?.preventDefault?.();
+    setSaving(true);
+    setMessage("");
+    const birthCheck = validateBirthDate(personalForm.birthDate);
+    if (!birthCheck.ok) {
+      setMessage(birthCheck.message);
+      setSaving(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/me", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName: personalForm.displayName,
+          birthDate: personalForm.birthDate,
+          city: personalForm.city,
+          country: personalForm.country,
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || "Não foi possível salvar.");
+      setMessage("Dados pessoais atualizados.");
+      setPersonalEditOpen(false);
       await refresh();
     } catch (e) {
       setMessage(e?.message || "Erro ao salvar.");
@@ -273,6 +314,8 @@ export default function ProfileEditor() {
   const displayName = String(profile.displayName || "Atleta");
   const hasCustomAvatar = Boolean(profile.avatarUrl);
   const hasCustomBanner = Boolean(profile.bannerUrl);
+  const { min: minBirthDate, max: maxBirthDate } = birthDateInputBounds();
+  const birthDateLabel = formatBirthDate(profile.birthDate) || "Não informada";
 
   return (
     <div className="mx-auto w-full max-w-5xl pb-24 lg:pb-10">
@@ -408,6 +451,13 @@ export default function ProfileEditor() {
         </div>
       )}
 
+      {!profile.birthDate && (
+        <div className="mx-4 mb-6 rounded-2xl border border-papa-blue/30 bg-papa-blue/10 px-4 py-3 text-sm text-sky-100 sm:mx-8 lg:mx-12">
+          Complete sua <strong>data de nascimento</strong> em Dados pessoais — usaremos para mensagens
+          especiais no seu aniversário.
+        </div>
+      )}
+
       {message && (
         <p className="mx-4 mb-4 text-center text-xs text-white/60 sm:mx-8 lg:mx-12">{message}</p>
       )}
@@ -421,48 +471,126 @@ export default function ProfileEditor() {
               >
                 <Crown size={10} /> {accountLabel(profile)}
               </span>
-              <button
-                type="button"
-                onClick={() => setEditOpen((v) => !v)}
-                className="text-[10px] font-black uppercase text-papa-blue hover:underline"
-              >
-                {editOpen ? "Fechar" : "Editar perfil"}
-              </button>
             </div>
+
+            <div className="border-t border-white/5 pt-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40">
+                  <UserRound size={12} className="text-papa-blue" /> Dados pessoais
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setPersonalEditOpen((v) => !v)}
+                  className="text-[10px] font-black uppercase text-papa-blue hover:underline"
+                >
+                  {personalEditOpen ? "Fechar" : "Editar dados pessoais"}
+                </button>
+              </div>
+
+              {personalEditOpen ? (
+                <form onSubmit={savePersonalData} className="space-y-3">
+                  <label className="block text-[10px] font-bold uppercase text-white/40">
+                    Nome completo
+                  </label>
+                  <input
+                    required
+                    value={personalForm.displayName}
+                    onChange={(e) =>
+                      setPersonalForm((f) => ({ ...f, displayName: e.target.value }))
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-papa-blue/40"
+                  />
+                  <label className="block text-[10px] font-bold uppercase text-white/40">
+                    Data de nascimento
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    min={minBirthDate}
+                    max={maxBirthDate}
+                    value={personalForm.birthDate}
+                    onChange={(e) =>
+                      setPersonalForm((f) => ({ ...f, birthDate: e.target.value }))
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
+                  />
+                  <label className="block text-[10px] font-bold uppercase text-white/40">Cidade</label>
+                  <input
+                    value={personalForm.city}
+                    onChange={(e) => setPersonalForm((f) => ({ ...f, city: e.target.value }))}
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
+                  />
+                  <label className="block text-[10px] font-bold uppercase text-white/40">País</label>
+                  <input
+                    value={personalForm.country}
+                    onChange={(e) => setPersonalForm((f) => ({ ...f, country: e.target.value }))}
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full rounded-xl bg-papa-orange py-2.5 text-xs font-black uppercase text-white disabled:opacity-60"
+                  >
+                    {saving ? "Salvando…" : "Salvar dados pessoais"}
+                  </button>
+                </form>
+              ) : (
+                <dl className="space-y-2 text-sm text-white/70">
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase text-white/35">Nome</dt>
+                    <dd className="font-semibold text-white">{displayName}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase text-white/35">Nascimento</dt>
+                    <dd className={profile.birthDate ? "text-white" : "text-amber-200/80"}>
+                      {birthDateLabel}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase text-white/35">Local</dt>
+                    <dd>
+                      {[profile.city, profile.country].filter(Boolean).join(", ") ||
+                        "Não informado"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase text-white/35">E-mail</dt>
+                    <dd className="break-all text-[12px] text-white/50">{profile.email}</dd>
+                  </div>
+                </dl>
+              )}
+            </div>
+
+            <div className="border-t border-white/5 pt-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                  Sobre você
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen((v) => !v)}
+                  className="text-[10px] font-black uppercase text-papa-blue hover:underline"
+                >
+                  {editOpen ? "Fechar" : "Editar bio"}
+                </button>
+              </div>
 
             {editOpen ? (
               <form onSubmit={saveProfile} className="space-y-3">
-                <label className="block text-[10px] font-bold uppercase text-white/40">Nome</label>
-                <input
-                  value={form.displayName}
-                  onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-papa-blue/40"
-                />
                 <label className="block text-[10px] font-bold uppercase text-white/40">Bio</label>
                 <textarea
                   value={form.bio}
                   onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
                   rows={3}
                   className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
-                />
-                <label className="block text-[10px] font-bold uppercase text-white/40">Cidade</label>
-                <input
-                  value={form.city}
-                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
-                />
-                <label className="block text-[10px] font-bold uppercase text-white/40">País</label>
-                <input
-                  value={form.country}
-                  onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
+                  placeholder="Conte um pouco sobre você e seus objetivos na corrida."
                 />
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full rounded-xl bg-papa-orange py-2.5 text-xs font-black uppercase text-white disabled:opacity-60"
+                  className="w-full rounded-xl border border-white/10 py-2.5 text-xs font-black uppercase text-white/80 hover:bg-white/5 disabled:opacity-60"
                 >
-                  {saving ? "Salvando…" : "Salvar"}
+                  {saving ? "Salvando…" : "Salvar bio"}
                 </button>
               </form>
             ) : (
@@ -470,8 +598,7 @@ export default function ProfileEditor() {
                 {profile.bio?.trim() || "Conte um pouco sobre você e seus objetivos na corrida."}
               </p>
             )}
-
-            <p className="break-all border-t border-white/5 pt-3 text-[10px] text-white/30">{profile.email}</p>
+            </div>
 
             <form onSubmit={changePassword} className="space-y-2 border-t border-white/5 pt-4">
               <label className="block text-[10px] font-bold uppercase text-white/40">

@@ -91,6 +91,21 @@ export async function PATCH(request) {
   if (body.bannerUrl !== undefined && typeof body.bannerUrl === "string") {
     updates.banner_url = body.bannerUrl.trim() || null;
   }
+  if (body.birthDate !== undefined) {
+    if (body.birthDate == null || String(body.birthDate).trim() === "") {
+      updates.birth_date = null;
+    } else {
+      const raw = String(body.birthDate).trim().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return NextResponse.json({ error: "Data de nascimento inválida." }, { status: 400 });
+      }
+      const birth = new Date(`${raw}T12:00:00`);
+      if (Number.isNaN(birth.getTime()) || birth > new Date()) {
+        return NextResponse.json({ error: "Data de nascimento inválida." }, { status: 400 });
+      }
+      updates.birth_date = raw;
+    }
+  }
 
   if (!Object.keys(updates).length) {
     return NextResponse.json({ error: "Nada para atualizar." }, { status: 400 });
@@ -103,7 +118,7 @@ export async function PATCH(request) {
     .update(updates)
     .eq("id", user.id)
     .select(
-      "role, athlete_slug, display_name, active_week, selected_base_plan, plan_status, bio, city, country, avatar_url, banner_url"
+      "role, athlete_slug, display_name, active_week, selected_base_plan, plan_status, bio, city, country, avatar_url, banner_url, birth_date"
     )
     .maybeSingle();
 

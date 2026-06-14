@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase/client";
 import { isSupabaseBrowserEnabled } from "@/lib/supabase/enabled";
 import { setAuthRoleCookie } from "@/lib/auth/session.client";
 import { MIN_PASSWORD_LENGTH, PASSWORD_HINT, validatePassword } from "@/lib/auth/password-policy";
+import { birthDateInputBounds, validateBirthDate } from "@/lib/auth/birth-date";
+import { getAuthCallbackUrl } from "@/lib/auth/site-url";
 
 async function syncLegacyCookieFromApi() {
   try {
@@ -46,6 +48,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [signupIntent, setSignupIntent] = useState("social");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -53,6 +56,10 @@ export default function LoginPage() {
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     setNextPath(q.get("next") || "/dashboard");
+    const authErr = q.get("error");
+    if (authErr) {
+      setMessage(decodeURIComponent(authErr));
+    }
   }, []);
 
   async function onSubmit(e) {
@@ -74,13 +81,19 @@ export default function LoginPage() {
         if (!pwdCheck.ok) {
           throw new Error(pwdCheck.message);
         }
+        const birthCheck = validateBirthDate(birthDate);
+        if (!birthCheck.ok) {
+          throw new Error(birthCheck.message);
+        }
         const { data, error } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
           options: {
+            emailRedirectTo: getAuthCallbackUrl(),
             data: {
               signup_intent: signupIntent,
               display_name: name,
+              birth_date: birthDate,
             },
           },
         });
@@ -119,6 +132,8 @@ export default function LoginPage() {
       </main>
     );
   }
+
+  const { min: minBirthDate, max: maxBirthDate } = birthDateInputBounds();
 
   return (
     <main className="login-page min-h-dvh bg-[#060b14] text-slate-100">
@@ -179,6 +194,18 @@ export default function LoginPage() {
                     onChange={(e) => setDisplayName(e.target.value)}
                     className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20"
                     placeholder="Seu nome"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-white/70">Data de nascimento</label>
+                  <input
+                    type="date"
+                    required
+                    min={minBirthDate}
+                    max={maxBirthDate}
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20 [color-scheme:dark]"
                   />
                 </div>
                 <div className="space-y-1">
