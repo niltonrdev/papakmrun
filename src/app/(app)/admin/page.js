@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [raceTitle, setRaceTitle] = useState("");
   const [raceDate, setRaceDate] = useState("");
   const [raceLocation, setRaceLocation] = useState("");
+  const [raceUrl, setRaceUrl] = useState("");
   const [coaches, setCoaches] = useState([]);
   const [students, setStudents] = useState([]);
   const [studentQuery, setStudentQuery] = useState("");
@@ -584,6 +585,14 @@ export default function AdminPage() {
               placeholder="Local"
               className="flex-1 min-w-[100px] rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-xs text-white"
             />
+          </div>
+          <input
+            value={raceUrl}
+            onChange={(e) => setRaceUrl(e.target.value)}
+            placeholder="Link do site oficial da corrida (opcional)"
+            className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-xs text-white"
+          />
+          <div className="flex justify-end">
             <button
               type="button"
               onClick={async () => {
@@ -597,20 +606,22 @@ export default function AdminPage() {
                       title: raceTitle,
                       raceDate: raceDate || null,
                       location: raceLocation,
+                      raceUrl: raceUrl.trim() || null,
                     }),
                   });
                   if (!res.ok) throw new Error();
                   setRaceTitle("");
                   setRaceDate("");
                   setRaceLocation("");
+                  setRaceUrl("");
                   await loadGroupRaces();
                 } catch {
                   setCoachMsg("Erro ao criar prova.");
                 }
               }}
-              className="p-2 rounded-lg bg-papa-orange text-papa-dark hover:brightness-110"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-papa-orange text-papa-dark text-xs font-black uppercase hover:brightness-110"
             >
-              <Plus size={16} />
+              <Plus size={16} /> Adicionar prova
             </button>
           </div>
           <div className="space-y-3">
@@ -620,43 +631,65 @@ export default function AdminPage() {
               groupRaces.map((r) => (
                 <div
                   key={r.id}
-                  className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between gap-3"
+                  className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2"
                 >
-                  <div className="min-w-0 flex-1">
-                    <input
-                      defaultValue={r.title}
-                      onBlur={async (e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== r.title) {
-                          await fetch(`/api/coach/group-races/${r.id}`, {
-                            method: "PATCH",
-                            credentials: "include",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ title: v }),
-                          });
-                          loadGroupRaces();
-                        }
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <input
+                        defaultValue={r.title}
+                        onBlur={async (e) => {
+                          const v = e.target.value.trim();
+                          if (v && v !== r.title) {
+                            await fetch(`/api/coach/group-races/${r.id}`, {
+                              method: "PATCH",
+                              credentials: "include",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ title: v }),
+                            });
+                            loadGroupRaces();
+                          }
+                        }}
+                        className="w-full text-xs font-black text-white bg-transparent outline-none border-b border-transparent focus:border-white/20"
+                      />
+                      <p className="text-[10px] text-white/20 font-bold uppercase mt-1">
+                        {r.raceDate || "Data a definir"}
+                        {r.location ? ` • ${r.location}` : ""}
+                      </p>
+                      <span className="inline-block mt-2 rounded-full border border-papa-blue/30 bg-papa-blue/10 px-2.5 py-1 text-[10px] font-black uppercase text-papa-blue">
+                        {r.rsvpCount ?? 0} confirmado{(r.rsvpCount ?? 0) === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await fetch(`/api/coach/group-races/${r.id}`, {
+                          method: "DELETE",
+                          credentials: "include",
+                        });
+                        loadGroupRaces();
                       }}
-                      className="w-full text-xs font-black text-white bg-transparent outline-none border-b border-transparent focus:border-white/20"
-                    />
-                    <p className="text-[10px] text-white/20 font-bold uppercase mt-1">
-                      {r.raceDate || "Data a definir"}
-                      {r.location ? ` • ${r.location}` : ""}
-                    </p>
+                      className="p-2 text-white/30 hover:text-red-400 shrink-0"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await fetch(`/api/coach/group-races/${r.id}`, {
-                        method: "DELETE",
-                        credentials: "include",
-                      });
-                      loadGroupRaces();
+                  <input
+                    defaultValue={r.raceUrl || ""}
+                    placeholder="Link do site oficial"
+                    onBlur={async (e) => {
+                      const v = e.target.value.trim();
+                      if (v !== (r.raceUrl || "")) {
+                        await fetch(`/api/coach/group-races/${r.id}`, {
+                          method: "PATCH",
+                          credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ raceUrl: v || null }),
+                        });
+                        loadGroupRaces();
+                      }
                     }}
-                    className="p-2 text-white/30 hover:text-red-400"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                    className="w-full rounded-xl bg-black/20 border border-white/10 px-3 py-2 text-[11px] text-white/80"
+                  />
                 </div>
               ))
             )}
