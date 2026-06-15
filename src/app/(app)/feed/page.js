@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  Construction,
   Flame,
   MessageSquare,
   Search,
@@ -398,7 +399,43 @@ function PostCard({ it, idx }) {
   );
 }
 
+const FEED_COMING_SOON = true;
+
+function FeedComingSoon() {
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 w-full min-w-0">
+      <header>
+        <h1 className="text-xs sm:text-sm font-bold text-white/20 uppercase tracking-widest mb-1">
+          PapaKM
+        </h1>
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white italic break-words leading-tight">
+          Feed Social e Comunidade
+        </h2>
+      </header>
+
+      <div className="rounded-3xl border border-dashed border-papa-blue/30 bg-papa-card p-10 sm:p-14 text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-papa-blue/10 border border-papa-blue/20">
+          <Construction className="text-papa-blue" size={32} />
+        </div>
+        <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
+          Em breve disponível
+        </h3>
+        <p className="mt-4 max-w-md mx-auto text-sm text-white/50 leading-relaxed">
+          Estamos finalizando o feed da comunidade — atividades, check-ins e interações entre
+          alunos. Por enquanto, use o <strong className="text-white/70">Início</strong> e a{" "}
+          <strong className="text-white/70">Performance</strong> para acompanhar seus treinos.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function FeedPage() {
+  if (FEED_COMING_SOON) return <FeedComingSoon />;
+  return <FeedPageActive />;
+}
+
+function FeedPageActive() {
   const [q, setQ] = useState("");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
