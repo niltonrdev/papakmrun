@@ -12,6 +12,7 @@ import {
   Clock,
   LogOut,
   UserRound,
+  ChevronDown,
 } from "lucide-react";
 import StravaPanel from "@/features/strava/StravaPanel";
 import { createClient } from "@/lib/supabase/client";
@@ -67,6 +68,7 @@ export default function ProfileEditor() {
   const [passwordMessage, setPasswordMessage] = useState(null);
   const [profile, setProfile] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [personalDataOpen, setPersonalDataOpen] = useState(false);
   const [personalEditOpen, setPersonalEditOpen] = useState(false);
   const [form, setForm] = useState({
     bio: "",
@@ -467,10 +469,29 @@ export default function ProfileEditor() {
             </div>
 
             <div className="border-t border-white/5 pt-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40">
-                  <UserRound size={12} className="text-papa-blue" /> Dados pessoais
-                </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setPersonalDataOpen((v) => {
+                    if (v) setPersonalEditOpen(false);
+                    return !v;
+                  });
+                }}
+                aria-expanded={personalDataOpen}
+                className="mb-3 flex w-full items-center justify-between gap-2 text-left"
+              >
+                <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40">
+                  <UserRound size={12} className="text-papa-blue" /> Meus dados
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`shrink-0 text-white/40 transition-transform ${personalDataOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {personalDataOpen && (
+              <>
+              <div className="mb-3 flex justify-end">
                 <button
                   type="button"
                   onClick={() => setPersonalEditOpen((v) => !v)}
@@ -551,6 +572,8 @@ export default function ProfileEditor() {
                     <dd className="break-all text-[12px] text-white/50">{profile.email}</dd>
                   </div>
                 </dl>
+              )}
+              </>
               )}
             </div>
 
