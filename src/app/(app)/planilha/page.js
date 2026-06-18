@@ -12,6 +12,7 @@ import { readActiveWeekNumber, writeActiveWeekNumber } from "@/features/session/
 import { formatWeekRangeLabel } from "@/lib/plan-calendar";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
+import EmptyPlanPlaceholder from "@/features/plans/EmptyPlanPlaceholder";
 import PerformanceEvolutionChart from "@/features/strava/PerformanceEvolutionChart";
 
 const EMPTY_PERSONAL_RECORDS = [
@@ -122,12 +123,14 @@ function PersonalRecord({ label, time, pace, date, empty = false }) {
 
 export default function PerformancePage() {
   const syncTick = useBackendSyncTick();
-  const { hasPlanAccess, loading: roleLoading, healthLabel } = useProfileRole();
+  const { hasPlanAccess, isStaff, loading: roleLoading, healthLabel } = useProfileRole();
   const [activeWeek, setActiveWeek] = useState("1");
   const [strava, setStrava] = useState(null);
   const [insights, setInsights] = useState(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
-  const week = useMemo(() => getWeekPlan(activeWeek), [activeWeek, syncTick]);
+  const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
+  const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
+  const week = useMemo(() => (hasPrescribedPlan ? getWeekPlan(activeWeek) : null), [activeWeek, syncTick, hasPrescribedPlan]);
 
   const weekSummary = useMemo(() => {
     const blocks = week?.blocks ?? [];
@@ -269,8 +272,10 @@ export default function PerformancePage() {
           className="h-72 animate-pulse rounded-3xl border border-white/5 bg-white/5"
           aria-hidden
         />
-      ) : !hasPlanAccess ? (
+      ) : isStaff ? null : !hasPlanAccess ? (
         <SocialPlanilhaUpsell />
+      ) : !hasPrescribedPlan ? (
+        <EmptyPlanPlaceholder />
       ) : (
         <div className="bg-papa-card rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
           <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col md:flex-row md:items-start justify-between gap-6">
