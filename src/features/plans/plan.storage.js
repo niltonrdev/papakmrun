@@ -35,10 +35,10 @@ export function writeAthletePlan(athleteSlug, plan) {
   writePlanStore(store);
 }
 
-/** Mescla plano salvo com defaults (MOCK_PLAN) para chaves faltantes */
+/** Plano salvo localmente; null se nunca sincronizado; {} se sincronizado sem prescrição. */
 export function getMergedPlanForSlug(athleteSlug) {
   const stored = readAthletePlan(athleteSlug);
-  if (stored && Object.keys(stored).length) return stored;
+  if (stored !== null) return stored;
   return { ...MOCK_PLAN };
 }
 

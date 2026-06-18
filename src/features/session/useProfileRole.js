@@ -55,7 +55,7 @@ export function useProfileRole() {
 
   const isStaff = role === "admin" || role === "coach";
   const isSocial = role === "social";
-  const hasPlanAccess = role === "plan" || isStaff;
+  const hasPlanAccess = role === "plan";
 
   return {
     loading,

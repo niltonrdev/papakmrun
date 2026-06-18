@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getTodayWorkout, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import CheckinModal from "@/features/checkins/CheckinModal";
@@ -9,7 +9,7 @@ import RankingCard from "@/features/ranking/RankingCard";
 import RaceCalendar from "@/features/events/RaceCalendar";
 import Link from "next/link";
 import ActivityMural from "@/features/activities/ActivityMural";
-import { useBackendSyncTick } from "@/features/session/backend-sync";
+import { useBackendSyncTick, getPlanMetaFromSync } from "@/features/session/backend-sync";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import ParqBanner from "@/features/health/ParqBanner";
 import { useParqStatus } from "@/features/health/useParqStatus";
@@ -143,6 +143,8 @@ function TrainingZonesList() {
 export default function DashboardPage() {
   const syncTick = useBackendSyncTick();
   const { isSocial, planPending, hasPlanAccess } = useProfileRole();
+  const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
+  const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const { needsParq, pendingReview, refresh: refreshParq } = useParqStatus();
   const [parqOpen, setParqOpen] = useState(false);
   const [todayWorkout, setTodayWorkout] = useState(null);
@@ -175,7 +177,7 @@ export default function DashboardPage() {
     };
   }, [syncTick]);
 
-  const showTodayCard = hasPlanAccess && Boolean(todayWorkout);
+  const showTodayCard = hasPlanAccess && hasPrescribedPlan && Boolean(todayWorkout);
 
   // Layout:
   // Mobile (até lg): Mural → Treino → Ranking → Calendário → Zonas
@@ -244,7 +246,7 @@ export default function DashboardPage() {
           <RaceCalendar />
         </div>
 
-        {hasPlanAccess && (
+        {hasPlanAccess && hasPrescribedPlan && (
           <div
             className={`order-4 lg:order-none lg:col-span-8 lg:col-start-1 ${
               showTodayCard ? "lg:row-start-3" : "lg:row-start-2"

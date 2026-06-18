@@ -48,7 +48,7 @@ export function profileCapabilities(profile) {
   return {
     role,
     isStaff,
-    hasPlanAccess: role === "plan" || isStaff,
+    hasPlanAccess: role === "plan",
     planPending: profile?.plan_status === "pending",
     needsParq: health.needsParq,
     healthPendingReview: health.pendingReview,

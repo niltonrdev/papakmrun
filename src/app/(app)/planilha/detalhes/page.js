@@ -23,10 +23,13 @@ import {
 import { formatWeekRangeLabel } from "@/lib/plan-calendar";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import SocialPlanilhaUpsell from "@/features/social/SocialPlanilhaUpsell";
+import EmptyPlanPlaceholder from "@/features/plans/EmptyPlanPlaceholder";
 
 export default function PlanilhaDetalhesPage() {
-  const { hasPlanAccess, loading: roleLoading } = useProfileRole();
+  const { hasPlanAccess, isStaff, loading: roleLoading } = useProfileRole();
   const syncTick = useBackendSyncTick();
+  const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
+  const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const [activeWeek, setActiveWeek] = useState("1");
   const [mounted, setMounted] = useState(false);
   const [checkinWorkout, setCheckinWorkout] = useState(null);
@@ -141,6 +144,26 @@ export default function PlanilhaDetalhesPage() {
           <ChevronLeft size={16} /> Voltar para Performance
         </Link>
         <SocialPlanilhaUpsell />
+      </div>
+    );
+  }
+
+  if (isStaff || !hasPrescribedPlan) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-8 pb-10">
+        <Link
+          href="/planilha"
+          className="flex items-center gap-2 text-xs font-black uppercase text-white/40 hover:text-white"
+        >
+          <ChevronLeft size={16} /> Voltar para Performance
+        </Link>
+        {isStaff ? (
+          <div className="rounded-3xl border border-white/10 bg-papa-card p-8 text-center text-sm text-white/40">
+            Professores e administradores não possuem planilha de treinos pessoal.
+          </div>
+        ) : (
+          <EmptyPlanPlaceholder />
+        )}
       </div>
     );
   }

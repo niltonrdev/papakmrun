@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MOCK_PLAN } from "@/features/plans/mockWeek";
 import { readAthletePlan, writeAthletePlan } from "@/features/plans/plan.storage";
 import {
   getCurrentAthleteSlug,
@@ -37,10 +36,10 @@ function notifyBackendSync() {
 }
 
 function mergeServerWeekPayload(j) {
-  if (!j?.weekKey || !j?.week) return;
+  if (!j?.weekKey || !j?.week || j?.source !== "student") return;
   const slug = getCurrentAthleteSlug();
   const prev = readAthletePlan(slug) || {};
-  const base = { ...MOCK_PLAN, ...prev };
+  const base = { ...prev };
   base[String(j.weekKey)] = j.week;
   writeAthletePlan(slug, base);
 }
@@ -48,13 +47,20 @@ function mergeServerWeekPayload(j) {
 function mergeFullPlanPayload(j) {
   if (!j?.weeks || typeof j.weeks !== "object") return false;
   const slug = getCurrentAthleteSlug();
-  const merged = { ...MOCK_PLAN, ...j.weeks };
-  writeAthletePlan(slug, merged);
+  const hasPrescribed = j.hasPrescribedPlan === true || j.source === "student";
+
+  if (hasPrescribed) {
+    writeAthletePlan(slug, { ...j.weeks });
+  } else {
+    writeAthletePlan(slug, {});
+  }
 
   planMetaCache = {
     planStartDate: j.planStartDate ?? null,
     weekRanges: j.weekRanges ?? {},
     activeWeek: j.activeWeek ?? null,
+    hasPrescribedPlan: hasPrescribed,
+    source: j.source ?? null,
   };
 
   if (j.activeWeek != null && String(j.activeWeek).trim() !== "") {
@@ -99,6 +105,12 @@ export async function pullWeekPlanFromApi(week = null) {
   if (!res.ok) return null;
   const j = await res.json();
   mergeServerWeekPayload(j);
+  if (planMetaCache === null && j?.source) {
+    planMetaCache = {
+      hasPrescribedPlan: j.source === "student",
+      source: j.source,
+    };
+  }
   return j;
 }
 

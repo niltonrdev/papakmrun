@@ -66,12 +66,16 @@ export async function GET() {
     weekRanges[String(w)] = formatWeekRangeLabel(planStart, w);
   }
 
+  const hasPrescribedPlan =
+    source === "student" && Object.keys(weeks || {}).length > 0;
+
   return NextResponse.json({
     planKey,
     activeWeek: calendarWeek,
     planStartDate: planStart,
     weekRanges,
     source,
+    hasPrescribedPlan,
     weeks: weeks ?? {},
     zones: custom?.zones ?? null,
     testDistance: custom?.testDistance ?? null,
