@@ -1,64 +1,22 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ChevronLeft,
   Calculator,
   Save,
   FileText,
-  Activity,
   ChevronDown,
   ChevronUp,
   Loader2,
-  Plus,
-  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { computeZonesFromTest } from "@/features/plans/zones.calculator";
 import { getMergedPlanForSlug } from "@/features/plans/plan.storage";
 import { buildTemplatePlan, TEMPLATE_META } from "@/features/plans/templates";
-import {
-  addDaysISO,
-  formatWeekRangeLabel,
-  renumberPlanWeeks,
-  defaultPlanStartMonday,
-} from "@/lib/plan-calendar";
-import { isWorkoutMissed, hasCheckinForSlug } from "@/features/checkins/missed-workout";
-
-const ZONE_KEYS = ["z1", "z2", "z3", "z4", "z5"];
-const WEEKDAY_OPTIONS = [
-  { label: "Segunda", offset: 0 },
-  { label: "Terça", offset: 1 },
-  { label: "Quarta", offset: 2 },
-  { label: "Quinta", offset: 3 },
-  { label: "Sexta", offset: 4 },
-  { label: "Sábado", offset: 5 },
-  { label: "Domingo", offset: 6 },
-];
-
-function clonePlan(plan) {
-  return JSON.parse(JSON.stringify(plan));
-}
-
-function normalizeText(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-function dayOffsetFromLabel(dayLabel) {
-  const normalized = normalizeText(dayLabel);
-  const opt = WEEKDAY_OPTIONS.find((x) => normalizeText(x.label) === normalized);
-  return opt ? opt.offset : null;
-}
-
-function computeWorkoutDateISO(planStartMonday, weekKey, dayLabel) {
-  const offset = dayOffsetFromLabel(dayLabel);
-  if (offset == null || !planStartMonday) return null;
-  const weekNumber = Math.max(1, Number(weekKey) || 1);
-  return addDaysISO(planStartMonday, (weekNumber - 1) * 7 + offset);
-}
+import { defaultPlanStartMonday } from "@/lib/plan-calendar";
+import PlanSpreadsheetEditor from "@/features/coach/PlanSpreadsheetEditor";
+import { clonePlan } from "@/features/coach/plan-editor-utils";
 
 export default function DetalheAlunoPage() {
   const params = useParams();
@@ -161,11 +119,6 @@ export default function DetalheAlunoPage() {
     }
   }
 
-  const weekNumbers = useMemo(() => {
-    if (!plan) return [];
-    return Object.keys(plan).sort((a, b) => Number(a) - Number(b));
-  }, [plan]);
-
   function calcularZonas() {
     try {
       const { zonesRecord } = computeZonesFromTest(distanciaTeste, tempoTeste);
@@ -232,155 +185,6 @@ export default function DetalheAlunoPage() {
     setSaveMsg(`Template ${TEMPLATE_META[id]?.label ?? id} aplicado (clique em Salvar).`);
     setTimeout(() => setSaveMsg(""), 4000);
     e.target.value = "";
-  }
-
-  function updateBlock(weekKey, blockIdx, field, value) {
-    setPlan((prev) => {
-      if (!prev) return prev;
-      const next = clonePlan(prev);
-      const w = next[weekKey];
-      if (!w?.blocks?.[blockIdx]) return prev;
-      const block = { ...w.blocks[blockIdx] };
-      if (field === "km") {
-        block.km = Number(value) || 0;
-      } else {
-        block[field] = value;
-      }
-      if (field === "dayLabel") {
-        const iso = computeWorkoutDateISO(planStartDate, weekKey, value);
-        if (iso) block.workoutDateISO = iso;
-      }
-      w.blocks[blockIdx] = block;
-      w.blocks.sort((a, b) => {
-        const ao = dayOffsetFromLabel(a.dayLabel);
-        const bo = dayOffsetFromLabel(b.dayLabel);
-        return (ao == null ? 999 : ao) - (bo == null ? 999 : bo);
-      });
-      return next;
-    });
-  }
-
-  function addBlock(weekKey) {
-    setPlan((prev) => {
-      if (!prev?.[weekKey]) return prev;
-      const next = clonePlan(prev);
-      const w = next[weekKey];
-      const used = new Set((w.blocks || []).map((b) => dayOffsetFromLabel(b.dayLabel)));
-      const picked = WEEKDAY_OPTIONS.find((x) => !used.has(x.offset)) ?? WEEKDAY_OPTIONS[0];
-      const blockIdx = (w.blocks?.length || 0) + 1;
-      const workoutDateISO = computeWorkoutDateISO(planStartDate, weekKey, picked.label);
-      const newBlock = {
-        dayLabel: picked.label,
-        slug: `s${weekKey}-custom-${Date.now()}-${blockIdx}`,
-        km: 6,
-        zoneKey: "z2",
-        title: "Treino",
-        description: "Ajuste o conteúdo conforme o aluno.",
-        workoutDateISO: workoutDateISO ?? null,
-      };
-      w.blocks = [...(w.blocks || []), newBlock].sort((a, b) => {
-        const ao = dayOffsetFromLabel(a.dayLabel);
-        const bo = dayOffsetFromLabel(b.dayLabel);
-        return (ao == null ? 999 : ao) - (bo == null ? 999 : bo);
-      });
-      return next;
-    });
-  }
-
-  function removeBlock(weekKey, blockIdx) {
-    setPlan((prev) => {
-      if (!prev?.[weekKey]) return prev;
-      const next = clonePlan(prev);
-      const w = next[weekKey];
-      w.blocks = (w.blocks || []).filter((_, idx) => idx !== blockIdx);
-      return next;
-    });
-  }
-
-  function blankWeekBlocks(weekKey) {
-    return [
-      {
-        dayLabel: "Terça",
-        slug: `s${weekKey}-terca`,
-        km: 6,
-        zoneKey: "z2",
-        title: "Ritmo",
-        description: "Aquecimento + bloco principal.",
-        workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Terça"),
-      },
-      {
-        dayLabel: "Quinta",
-        slug: `s${weekKey}-quinta`,
-        km: 8,
-        zoneKey: "z3",
-        title: "Intervalado",
-        description: "Bloco principal conforme orientação.",
-        workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Quinta"),
-      },
-      {
-        dayLabel: "Sábado",
-        slug: `s${weekKey}-sabado`,
-        km: 12,
-        zoneKey: "z1",
-        title: "Longo",
-        description: "Ritmo fácil a moderado.",
-        workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Sábado"),
-      },
-    ];
-  }
-
-  function addWeek() {
-    setPlan((prev) => {
-      const base = prev && Object.keys(prev).length ? prev : {};
-      const nums = Object.keys(base).map(Number);
-      const n = (nums.length ? Math.max(...nums) : 0) + 1;
-      const next = clonePlan(base);
-      next[String(n)] = {
-        id: `week-${n}`,
-        title: `Semana ${n}`,
-        phase: "Personalizado",
-        blocks: blankWeekBlocks(String(n)),
-      };
-      return next;
-    });
-  }
-
-  function insertWeekAfter(afterWeekKey) {
-    setPlan((prev) => {
-      if (!prev) return prev;
-      const keys = Object.keys(prev).sort((a, b) => Number(a) - Number(b));
-      const ordered = [];
-      for (const k of keys) {
-        ordered.push(prev[k]);
-        if (k === String(afterWeekKey)) {
-          ordered.push(null);
-        }
-      }
-      const next = {};
-      ordered.forEach((weekData, idx) => {
-        const wk = String(idx + 1);
-        if (weekData === null) {
-          next[wk] = {
-            id: `week-${wk}`,
-            title: `Semana ${wk}`,
-            phase: "Personalizado",
-            blocks: blankWeekBlocks(wk),
-          };
-        } else {
-          next[wk] = { ...weekData, title: `Semana ${wk}` };
-        }
-      });
-      return next;
-    });
-  }
-
-  function removeWeek(weekKey) {
-    setPlan((prev) => {
-      if (!prev || Object.keys(prev).length <= 1) return prev;
-      const next = clonePlan(prev);
-      delete next[weekKey];
-      return renumberPlanWeeks(next);
-    });
   }
 
   async function handleImportCsv(file) {
@@ -602,21 +406,19 @@ export default function DetalheAlunoPage() {
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] text-white/30 font-bold uppercase tracking-tight">
-                Editor em grade: ajuste km, zona e observações por semana. O calendário do aluno
-                avança automaticamente a partir da data de início.
-              </p>
-              <div className="flex flex-wrap gap-3 items-end">
-                <label className="text-[9px] font-black uppercase text-white/30">
-                  Início semana 1 (segunda)
-                  <input
-                    type="date"
-                    value={planStartDate}
-                    onChange={(e) => setPlanStartDate(e.target.value)}
-                    className="mt-1 block rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white"
-                  />
-                </label>
-                {studentId && (
+            </div>
+
+            <PlanSpreadsheetEditor
+              plan={plan}
+              setPlan={setPlan}
+              planStartDate={planStartDate}
+              setPlanStartDate={setPlanStartDate}
+              loading={loading}
+              checkinSlugs={checkinSlugs}
+              showPlanStartDate
+              showStatusColumn
+              toolbarExtra={
+                studentId ? (
                   <>
                     <a
                       href={`/api/coach/students/${studentId}/plan/export`}
@@ -639,180 +441,9 @@ export default function DetalheAlunoPage() {
                       />
                     </label>
                   </>
-                )}
-              </div>
-            </div>
-
-            {!plan || loading ? (
-              <div className="min-h-[200px] flex items-center justify-center text-white/30 text-sm gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Carregando planilha…
-              </div>
-            ) : (
-              <div className="space-y-8 max-h-[75vh] overflow-y-auto pr-2">
-                {weekNumbers.map((wk) => {
-                  const week = plan[wk];
-                  return (
-                    <div
-                      key={wk}
-                      className="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <h3 className="text-sm font-black text-white uppercase italic tracking-tight">
-                            {week.title} — {week.phase}
-                          </h3>
-                          <p className="text-[10px] text-papa-blue/80 font-bold mt-1">
-                            {formatWeekRangeLabel(planStartDate, wk)}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => insertWeekAfter(wk)}
-                            className="px-2 py-1 rounded-lg border border-white/10 text-[9px] font-black uppercase text-white/50 hover:text-white"
-                          >
-                            + Semana após
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeWeek(wk)}
-                            disabled={weekNumbers.length <= 1}
-                            className="px-2 py-1 rounded-lg border border-rose-400/30 text-[9px] font-black uppercase text-rose-300 hover:bg-rose-500/10 disabled:opacity-30"
-                          >
-                            Remover semana
-                          </button>
-                        </div>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-[11px]">
-                          <thead>
-                            <tr className="text-[9px] font-black uppercase text-white/30 border-b border-white/10">
-                              <th className="pb-2 pr-2">Dia</th>
-                              <th className="pb-2 pr-2">Km</th>
-                              <th className="pb-2 pr-2">Zona</th>
-                              <th className="pb-2 pr-2">Status</th>
-                              <th className="pb-2">Observações</th>
-                              <th className="pb-2 w-10"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="text-white/80">
-                            {(week.blocks ?? []).map((b, idx) => {
-                              const workoutDateISO =
-                                b.workoutDateISO ||
-                                computeWorkoutDateISO(planStartDate, wk, b.dayLabel);
-                              const blockWithDate = { ...b, workoutDateISO };
-                              const done = hasCheckinForSlug(b.slug, checkinSlugs);
-                              const missed = isWorkoutMissed(blockWithDate, checkinSlugs);
-                              return (
-                              <tr key={b.slug} className="border-b border-white/5 align-top">
-                                <td className="py-2 pr-2 font-bold text-white whitespace-nowrap">
-                                  <select
-                                    value={b.dayLabel}
-                                    onChange={(e) =>
-                                      updateBlock(wk, idx, "dayLabel", e.target.value)
-                                    }
-                                    className="bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white text-[10px] font-black uppercase"
-                                  >
-                                    {WEEKDAY_OPTIONS.map((opt) => (
-                                      <option key={opt.label} value={opt.label} className="bg-papa-dark">
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </td>
-                                <td className="py-2 pr-2">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step={0.5}
-                                    value={b.km}
-                                    onChange={(e) =>
-                                      updateBlock(wk, idx, "km", e.target.value)
-                                    }
-                                    className="w-16 bg-black/30 border border-white/10 rounded-lg px-2 py-1 font-mono text-white"
-                                  />
-                                </td>
-                                <td className="py-2 pr-2">
-                                  <select
-                                    value={b.zoneKey}
-                                    onChange={(e) =>
-                                      updateBlock(wk, idx, "zoneKey", e.target.value)
-                                    }
-                                    className="bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white text-[10px] font-black uppercase"
-                                  >
-                                    {ZONE_KEYS.map((zk) => (
-                                      <option key={zk} value={zk} className="bg-papa-dark">
-                                        {zk}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </td>
-                                <td className="py-2 pr-2 whitespace-nowrap">
-                                  {done ? (
-                                    <span className="text-[9px] font-black uppercase text-emerald-400">
-                                      Feito
-                                    </span>
-                                  ) : missed ? (
-                                    <span className="text-[9px] font-black uppercase text-red-400">
-                                      Treino não feito
-                                    </span>
-                                  ) : (
-                                    <span className="text-[9px] font-black uppercase text-white/30">
-                                      Pendente
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-2">
-                                  <textarea
-                                    value={b.description}
-                                    onChange={(e) =>
-                                      updateBlock(wk, idx, "description", e.target.value)
-                                    }
-                                    rows={2}
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
-                                  />
-                                </td>
-                                <td className="py-2 pl-2 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => removeBlock(wk, idx)}
-                                    className="inline-flex items-center justify-center p-1.5 rounded-lg border border-rose-400/30 text-rose-300 hover:bg-rose-500/10"
-                                    title="Remover treino"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => addBlock(wk)}
-                          className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 inline-flex items-center gap-2"
-                        >
-                          <Plus size={12} /> Adicionar treino na semana
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={addWeek}
-                className="px-8 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white uppercase hover:bg-white/10 inline-flex items-center gap-2"
-              >
-                <Activity size={14} /> Adicionar semana
-              </button>
-            </div>
+                ) : null
+              }
+            />
           </div>
       </div>
     </div>
