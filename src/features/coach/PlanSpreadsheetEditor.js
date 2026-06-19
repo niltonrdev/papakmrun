@@ -1,0 +1,265 @@
+"use client";
+
+import { useMemo } from "react";
+import { Activity, Loader2, Plus, Trash2 } from "lucide-react";
+import { formatWeekRangeLabel } from "@/lib/plan-calendar";
+import { hasCheckinForSlug, isWorkoutMissed } from "@/features/checkins/missed-workout";
+import {
+  ZONE_KEYS,
+  WEEKDAY_OPTIONS,
+  computeWorkoutDateISO,
+  addBlockToPlan,
+  addWeekToPlan,
+  insertWeekAfterInPlan,
+  removeBlockFromPlan,
+  removeWeekFromPlan,
+  updateBlockInPlan,
+} from "@/features/coach/plan-editor-utils";
+
+export default function PlanSpreadsheetEditor({
+  plan,
+  setPlan,
+  planStartDate,
+  setPlanStartDate,
+  loading = false,
+  checkinSlugs = null,
+  showPlanStartDate = true,
+  showStatusColumn = false,
+  headerExtra = null,
+  toolbarExtra = null,
+}) {
+  const weekNumbers = useMemo(() => {
+    if (!plan) return [];
+    return Object.keys(plan).sort((a, b) => Number(a) - Number(b));
+  }, [plan]);
+
+  function updateBlock(weekKey, blockIdx, field, value) {
+    setPlan((prev) => updateBlockInPlan(prev, weekKey, blockIdx, field, value, planStartDate));
+  }
+
+  function addBlock(weekKey) {
+    setPlan((prev) => addBlockToPlan(prev, weekKey, planStartDate));
+  }
+
+  function removeBlock(weekKey, blockIdx) {
+    setPlan((prev) => removeBlockFromPlan(prev, weekKey, blockIdx));
+  }
+
+  function addWeek() {
+    setPlan((prev) => addWeekToPlan(prev, planStartDate));
+  }
+
+  function insertWeekAfter(afterWeekKey) {
+    setPlan((prev) => insertWeekAfterInPlan(prev, afterWeekKey, planStartDate));
+  }
+
+  function removeWeek(weekKey) {
+    setPlan((prev) => removeWeekFromPlan(prev, weekKey));
+  }
+
+  return (
+    <div className="space-y-6">
+      {headerExtra}
+      <p className="text-[10px] text-white/30 font-bold uppercase tracking-tight">
+        Editor em grade: ajuste km, zona e observações por semana.
+        {showPlanStartDate
+          ? " O calendário do aluno avança automaticamente a partir da data de início."
+          : null}
+      </p>
+      {(showPlanStartDate || toolbarExtra) && (
+        <div className="flex flex-wrap gap-3 items-end">
+          {showPlanStartDate && setPlanStartDate ? (
+            <label className="text-[9px] font-black uppercase text-white/30">
+              Início semana 1 (segunda)
+              <input
+                type="date"
+                value={planStartDate || ""}
+                onChange={(e) => setPlanStartDate(e.target.value)}
+                className="mt-1 block rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white"
+              />
+            </label>
+          ) : null}
+          {toolbarExtra}
+        </div>
+      )}
+
+      {!plan || loading ? (
+        <div className="min-h-[200px] flex items-center justify-center text-white/30 text-sm gap-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Carregando planilha…
+        </div>
+      ) : (
+        <div className="space-y-8 max-h-[75vh] overflow-y-auto pr-2">
+          {weekNumbers.map((wk) => {
+            const week = plan[wk];
+            return (
+              <div
+                key={wk}
+                className="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase italic tracking-tight">
+                      {week.title} — {week.phase}
+                    </h3>
+                    {planStartDate ? (
+                      <p className="text-[10px] text-papa-blue/80 font-bold mt-1">
+                        {formatWeekRangeLabel(planStartDate, wk)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => insertWeekAfter(wk)}
+                      className="px-2 py-1 rounded-lg border border-white/10 text-[9px] font-black uppercase text-white/50 hover:text-white"
+                    >
+                      + Semana após
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeWeek(wk)}
+                      disabled={weekNumbers.length <= 1}
+                      className="px-2 py-1 rounded-lg border border-rose-400/30 text-[9px] font-black uppercase text-rose-300 hover:bg-rose-500/10 disabled:opacity-30"
+                    >
+                      Remover semana
+                    </button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[11px]">
+                    <thead>
+                      <tr className="text-[9px] font-black uppercase text-white/30 border-b border-white/10">
+                        <th className="pb-2 pr-2">Dia</th>
+                        <th className="pb-2 pr-2">Km</th>
+                        <th className="pb-2 pr-2">Zona</th>
+                        {showStatusColumn ? <th className="pb-2 pr-2">Status</th> : null}
+                        <th className="pb-2">Observações</th>
+                        <th className="pb-2 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-white/80">
+                      {(week.blocks ?? []).map((b, idx) => {
+                        const workoutDateISO =
+                          b.workoutDateISO ||
+                          computeWorkoutDateISO(planStartDate, wk, b.dayLabel);
+                        const blockWithDate = { ...b, workoutDateISO };
+                        const done =
+                          showStatusColumn && checkinSlugs
+                            ? hasCheckinForSlug(b.slug, checkinSlugs)
+                            : false;
+                        const missed =
+                          showStatusColumn && checkinSlugs
+                            ? isWorkoutMissed(blockWithDate, checkinSlugs)
+                            : false;
+                        return (
+                          <tr key={b.slug} className="border-b border-white/5 align-top">
+                            <td className="py-2 pr-2 font-bold text-white whitespace-nowrap">
+                              <select
+                                value={b.dayLabel}
+                                onChange={(e) =>
+                                  updateBlock(wk, idx, "dayLabel", e.target.value)
+                                }
+                                className="bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white text-[10px] font-black uppercase"
+                              >
+                                {WEEKDAY_OPTIONS.map((opt) => (
+                                  <option key={opt.label} value={opt.label} className="bg-papa-dark">
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="py-2 pr-2">
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.5}
+                                value={b.km}
+                                onChange={(e) => updateBlock(wk, idx, "km", e.target.value)}
+                                className="w-16 bg-black/30 border border-white/10 rounded-lg px-2 py-1 font-mono text-white"
+                              />
+                            </td>
+                            <td className="py-2 pr-2">
+                              <select
+                                value={b.zoneKey}
+                                onChange={(e) => updateBlock(wk, idx, "zoneKey", e.target.value)}
+                                className="bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white text-[10px] font-black uppercase"
+                              >
+                                {ZONE_KEYS.map((zk) => (
+                                  <option key={zk} value={zk} className="bg-papa-dark">
+                                    {zk}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            {showStatusColumn ? (
+                              <td className="py-2 pr-2 whitespace-nowrap">
+                                {done ? (
+                                  <span className="text-[9px] font-black uppercase text-emerald-400">
+                                    Feito
+                                  </span>
+                                ) : missed ? (
+                                  <span className="text-[9px] font-black uppercase text-red-400">
+                                    Treino não feito
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-black uppercase text-white/30">
+                                    Pendente
+                                  </span>
+                                )}
+                              </td>
+                            ) : null}
+                            <td className="py-2">
+                              <textarea
+                                value={b.description}
+                                onChange={(e) =>
+                                  updateBlock(wk, idx, "description", e.target.value)
+                                }
+                                rows={2}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
+                              />
+                            </td>
+                            <td className="py-2 pl-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => removeBlock(wk, idx)}
+                                className="inline-flex items-center justify-center p-1.5 rounded-lg border border-rose-400/30 text-rose-300 hover:bg-rose-500/10"
+                                title="Remover treino"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => addBlock(wk)}
+                    className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 inline-flex items-center gap-2"
+                  >
+                    <Plus size={12} /> Adicionar treino na semana
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={addWeek}
+          disabled={loading || !plan}
+          className="px-8 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white uppercase hover:bg-white/10 inline-flex items-center gap-2 disabled:opacity-40"
+        >
+          <Activity size={14} /> Adicionar semana
+        </button>
+      </div>
+    </div>
+  );
+}

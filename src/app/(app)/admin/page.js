@@ -29,11 +29,7 @@ export default function AdminPage() {
   const [editingLibId, setEditingLibId] = useState(null);
   const [role, setRole] = useState(null);
   const [coachMsg, setCoachMsg] = useState("");
-  const [templateTitle, setTemplateTitle] = useState("");
-  const [templateKey, setTemplateKey] = useState("");
-  const [templateWeeks, setTemplateWeeks] = useState(null);
   const [savedTemplates, setSavedTemplates] = useState([]);
-  const [templateBusy, setTemplateBusy] = useState(false);
   const [groupRaces, setGroupRaces] = useState([]);
   const [raceTitle, setRaceTitle] = useState("");
   const [raceDate, setRaceDate] = useState("");
@@ -786,134 +782,38 @@ export default function AdminPage() {
             <FileText size={16} className="text-papa-orange" /> Criar planilha modelo (template)
           </h3>
           <p className="text-xs text-white/45">
-            Monte uma planilha do zero e salve como template. Ela aparecerá na lista de templates ao
-            editar a planilha de um aluno.
+            Crie planilhas reutilizáveis e edite templates existentes. Eles aparecem na lista ao
+            clonar a planilha de um aluno.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              value={templateTitle}
-              onChange={(e) => setTemplateTitle(e.target.value)}
-              placeholder="Nome do modelo (ex.: Base 10 semanas)"
-              className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none"
-            />
-            <input
-              value={templateKey}
-              onChange={(e) =>
-                setTemplateKey(
-                  e.target.value
-                    .toLowerCase()
-                    .replace(/[^a-z0-9-]/g, "-")
-                    .replace(/-+/g, "-")
-                )
-              }
-              placeholder="Chave única (ex.: base-10)"
-              className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white font-mono outline-none"
-            />
-          </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={templateBusy}
-              onClick={() => {
-                const key = templateKey.trim() || `tpl-${Date.now()}`;
-                setTemplateWeeks({
-                  "1": {
-                    id: "week-1",
-                    title: "Semana 1",
-                    phase: "Base",
-                    blocks: [
-                      {
-                        dayLabel: "Terça",
-                        slug: "s1-terca",
-                        km: 6,
-                        zoneKey: "z2",
-                        title: "Ritmo",
-                        description: "",
-                      },
-                      {
-                        dayLabel: "Quinta",
-                        slug: "s1-quinta",
-                        km: 8,
-                        zoneKey: "z3",
-                        title: "Intervalado",
-                        description: "",
-                      },
-                      {
-                        dayLabel: "Sábado",
-                        slug: "s1-sabado",
-                        km: 12,
-                        zoneKey: "z1",
-                        title: "Longo",
-                        description: "",
-                      },
-                    ],
-                  },
-                });
-                if (!templateKey.trim()) setTemplateKey(key);
-              }}
-              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-[10px] font-black uppercase text-white/80"
+            <Link
+              href="/admin/template/novo"
+              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-[10px] font-black uppercase text-white/80 hover:bg-white/10 transition-all"
             >
               Nova planilha em branco
-            </button>
-            <button
-              type="button"
-              disabled={templateBusy || !templateWeeks}
-              onClick={async () => {
-                const key = templateKey.trim();
-                const title = templateTitle.trim() || key;
-                if (!key || !templateWeeks) {
-                  setCoachMsg("Defina chave e crie a planilha.");
-                  return;
-                }
-                setTemplateBusy(true);
-                try {
-                  const res = await fetch(
-                    `/api/coach/plan-template/${encodeURIComponent(key)}`,
-                    {
-                      method: "PUT",
-                      credentials: "include",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ weeks: templateWeeks, title }),
-                    }
-                  );
-                  const j = await res.json();
-                  if (!res.ok) throw new Error(j?.error || "Falha ao salvar");
-                  setCoachMsg(`Template "${title}" salvo. Use em Clonar template no aluno.`);
-                  setTemplateWeeks(null);
-                  setTemplateTitle("");
-                  setTemplateKey("");
-                  await loadTemplates();
-                } catch (e) {
-                  setCoachMsg(e?.message || "Erro ao salvar template.");
-                } finally {
-                  setTemplateBusy(false);
-                }
-              }}
-              className="rounded-xl bg-papa-orange px-4 py-2 text-[10px] font-black uppercase text-white disabled:opacity-40"
-            >
-              Salvar como template
-            </button>
+            </Link>
           </div>
-          {templateWeeks && (
-            <p className="text-[11px] text-emerald-400/90">
-              Rascunho com {Object.keys(templateWeeks).length} semana(s). Abra um aluno para editar em
-              detalhe ou salve agora.
-            </p>
-          )}
-          {savedTemplates.length > 0 && (
+          {savedTemplates.length > 0 ? (
             <div className="pt-4 border-t border-white/10">
               <p className="text-[10px] font-black uppercase text-white/30 mb-2">Templates no servidor</p>
               <ul className="flex flex-wrap gap-2">
                 {savedTemplates.map((t) => (
-                  <li
-                    key={t.planKey}
-                    className="text-[10px] font-bold uppercase px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/60"
-                  >
-                    {t.title || t.planKey}
+                  <li key={t.planKey}>
+                    <Link
+                      href={`/admin/template/${encodeURIComponent(t.planKey)}`}
+                      className="inline-flex text-[10px] font-bold uppercase px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-papa-blue/40 hover:bg-papa-blue/10 transition-all"
+                    >
+                      {t.title || t.planKey}
+                    </Link>
                   </li>
                 ))}
               </ul>
             </div>
+          ) : (
+            <p className="text-[11px] text-white/35 italic">
+              Nenhum template salvo ainda. Clique em &quot;Nova planilha em branco&quot; para criar o
+              primeiro.
+            </p>
           )}
         </div>
       )}

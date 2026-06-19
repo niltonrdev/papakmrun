@@ -2,8 +2,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
-import { BarChart3, Activity, HeartPulse, ChevronRight, Trophy, Timer, Medal, CalendarDays } from "lucide-react";
+import {
+  BarChart3,
+  Activity,
+  HeartPulse,
+  ChevronRight,
+  Trophy,
+  Timer,
+  Medal,
+  CalendarDays,
+  CheckCircle2,
+} from "lucide-react";
 import Link from "next/link";
+import CheckinModal from "@/features/checkins/CheckinModal";
+import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
+import { isWorkoutMissed } from "@/features/checkins/missed-workout";
 import {
   getPlanMetaFromSync,
   useBackendSyncTick,
@@ -21,8 +34,11 @@ const EMPTY_PERSONAL_RECORDS = [
   { label: "400 m", time: "—", pace: "—", date: "—" },
 ];
 
-function WorkoutPreviewCard({ block }) {
+function WorkoutPreviewCard({ block, onCheckin, refreshKey }) {
+  void refreshKey;
   const zone = getZoneByKey(block.zoneKey);
+  const done = isWorkoutCheckedForBlock(block);
+  const missed = !done && isWorkoutMissed(block);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
@@ -59,6 +75,23 @@ function WorkoutPreviewCard({ block }) {
             {zone.paceMin} – {zone.paceMax} /km
           </span>
         ) : null}
+        {done ? (
+          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-3 py-1.5 rounded-xl border border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+            <CheckCircle2 size={12} /> Feito
+          </span>
+        ) : missed ? (
+          <span className="inline-flex items-center justify-center text-[10px] font-black uppercase px-3 py-1.5 rounded-xl border border-red-500/40 text-red-400 bg-red-500/10">
+            Treino não feito
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onCheckin?.(block)}
+            className="text-[10px] font-black uppercase px-4 py-2 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all"
+          >
+            Check-in
+          </button>
+        )}
       </div>
     </div>
   );
@@ -128,6 +161,8 @@ export default function PerformancePage() {
   const [strava, setStrava] = useState(null);
   const [insights, setInsights] = useState(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
+  const [checkinWorkout, setCheckinWorkout] = useState(null);
+  const [checkinRefresh, setCheckinRefresh] = useState(0);
   const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
   const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const week = useMemo(() => (hasPrescribedPlan ? getWeekPlan(activeWeek) : null), [activeWeek, syncTick, hasPrescribedPlan]);
@@ -320,7 +355,14 @@ export default function PerformancePage() {
 
           <div className="p-6 sm:p-8 space-y-3">
             {(week.blocks ?? []).length > 0 ? (
-              week.blocks.map((b) => <WorkoutPreviewCard key={b.slug} block={b} />)
+              week.blocks.map((b) => (
+                <WorkoutPreviewCard
+                  key={b.slug}
+                  block={b}
+                  onCheckin={setCheckinWorkout}
+                  refreshKey={checkinRefresh + syncTick}
+                />
+              ))
             ) : (
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/40">
                 Nenhum treino cadastrado para esta semana.
@@ -412,6 +454,13 @@ export default function PerformancePage() {
           </div>
         </div>
       </div>
+
+      <CheckinModal
+        open={!!checkinWorkout}
+        onClose={() => setCheckinWorkout(null)}
+        workout={checkinWorkout}
+        onSaved={() => setCheckinRefresh((x) => x + 1)}
+      />
     </div>
   );
 }
