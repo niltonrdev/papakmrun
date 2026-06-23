@@ -1,4 +1,4 @@
-import { FitEncoder, FitConstants, FitMessages, Message } from "fit-encoder";
+import { Encoder, Profile } from "@garmin/fitsdk";
 import { ZONES as DEFAULT_ZONES } from "@/features/plans/mockWeek";
 
 function parsePaceToSeconds(pace) {
@@ -11,10 +11,10 @@ function parsePaceToSeconds(pace) {
   return mm * 60 + ss;
 }
 
-function paceToSpeedMps(pace) {
+function paceToSpeedMmps(pace) {
   const s = parsePaceToSeconds(pace);
   if (!s) return null;
-  return 1000 / s;
+  return Math.round((1000 / s) * 1000);
 }
 
 function clampUInt32(n) {
@@ -28,38 +28,41 @@ function zoneRecord(zones, key) {
   return Z[key] ?? DEFAULT_ZONES[key] ?? null;
 }
 
+function zonePaceBounds(zone) {
+  if (!zone) return null;
+  if (zone.paceMin && zone.paceMax) {
+    return { paceMin: zone.paceMin, paceMax: zone.paceMax };
+  }
+  if (typeof zone.pace === "string" && zone.pace.includes("-")) {
+    const [a, b] = zone.pace.split("-").map((p) => p.trim());
+    if (a && b) return { paceMin: a, paceMax: b };
+  }
+  return null;
+}
+
 function speedRangeForZone(zone) {
-  const vLow = paceToSpeedMps(zone?.paceMax);
-  const vHigh = paceToSpeedMps(zone?.paceMin);
-  if (!Number.isFinite(vLow) || !Number.isFinite(vHigh)) {
-    return { hasSpeed: false };
+  const bounds = zonePaceBounds(zone);
+  if (!bounds) return { hasSpeed: false, speedLow: 0, speedHigh: 0 };
+  const lowMmps = paceToSpeedMmps(bounds.paceMax);
+  const highMmps = paceToSpeedMmps(bounds.paceMin);
+  if (!Number.isFinite(lowMmps) || !Number.isFinite(highMmps)) {
+    return { hasSpeed: false, speedLow: 0, speedHigh: 0 };
   }
   return {
     hasSpeed: true,
-    speedLow: clampUInt32(Math.min(vLow, vHigh) * 1000),
-    speedHigh: clampUInt32(Math.max(vLow, vHigh) * 1000),
+    speedLow: clampUInt32(Math.min(lowMmps, highMmps)),
+    speedHigh: clampUInt32(Math.max(lowMmps, highMmps)),
   };
 }
 
-function kmToDurationValue(km) {
+/** Distância do passo em centímetros (padrão Garmin FIT). */
+function kmToDurationCm(km) {
   const meters = Math.max(100, Math.round(Number(km) * 1000));
   return clampUInt32(meters * 100);
 }
 
-const ZONE_ORDER = ["z1", "z2", "z3", "z4", "z5"];
-
-function progressiveZones(baseKey, zones, count) {
-  const idx = Math.max(0, ZONE_ORDER.indexOf(baseKey));
-  const out = [];
-  for (let i = 0; i < count; i++) {
-    const key = ZONE_ORDER[Math.min(idx + i, ZONE_ORDER.length - 1)];
-    out.push(zoneRecord(zones, key));
-  }
-  return out;
-}
-
 /**
- * Monta passos estruturados (aquecimento / blocos / desaquecimento) no estilo Garmin Connect.
+ * Monta passos estruturados para exportação Garmin (aquecimento / principal / desaquecimento).
  */
 export function buildWorkoutStepsFromBlock(block, zones) {
   const totalKm = Number(block?.km ?? 0);
@@ -69,7 +72,7 @@ export function buildWorkoutStepsFromBlock(block, zones) {
         name: block?.title || "Corrida",
         km: 5,
         zone: zoneRecord(zones, block?.zoneKey || "z2"),
-        intensity: FitConstants.intensity.active,
+        intensity: "active",
       },
     ];
   }
@@ -77,124 +80,91 @@ export function buildWorkoutStepsFromBlock(block, zones) {
   const mainZone = zoneRecord(zones, block?.zoneKey || "z2");
   const warmupZone = zoneRecord(zones, "z2");
   const cooldownZone = zoneRecord(zones, "z1");
-  const steps = [];
 
-  if (totalKm >= 4) {
-    steps.push({
+  if (totalKm < 4) {
+    return [
+      {
+        name: block?.title || "Corrida",
+        km: totalKm,
+        zone: mainZone,
+        intensity: "active",
+      },
+    ];
+  }
+
+  const mainKm = Math.max(0.5, totalKm - 2);
+  return [
+    {
       name: "Aquecimento",
       km: 1,
       zone: warmupZone,
-      intensity: FitConstants.intensity.warmup,
-    });
-
-    const mainKm = Math.max(0.5, totalKm - 2);
-    if (mainKm >= 6) {
-      const segKm = Math.round((mainKm / 3) * 100) / 100;
-      const segZones = progressiveZones(block?.zoneKey || "z2", zones, 3);
-      let assigned = 0;
-      for (let i = 0; i < 3; i++) {
-        const isLast = i === 2;
-        const km = isLast ? Math.max(0.1, mainKm - assigned) : segKm;
-        assigned += km;
-        steps.push({
-          name: "Corrida",
-          km,
-          zone: segZones[i] || mainZone,
-          intensity: FitConstants.intensity.active,
-        });
-      }
-    } else {
-      steps.push({
-        name: block?.title || "Corrida",
-        km: mainKm,
-        zone: mainZone,
-        intensity: FitConstants.intensity.active,
-      });
-    }
-
-    steps.push({
+      intensity: "warmup",
+    },
+    {
+      name: block?.title || "Corrida",
+      km: mainKm,
+      zone: mainZone,
+      intensity: "active",
+    },
+    {
       name: "Desaquecimento",
       km: 1,
       zone: cooldownZone,
-      intensity: FitConstants.intensity.cooldown,
-    });
-  } else {
-    steps.push({
-      name: block?.title || "Corrida",
-      km: totalKm,
-      zone: mainZone,
-      intensity: FitConstants.intensity.active,
-    });
-  }
-
-  return steps;
+      intensity: "cooldown",
+    },
+  ];
 }
 
 /**
- * FIT workout (running) estruturado para Garmin Connect / relógio.
+ * FIT workout (running) compatível com Garmin Connect / relógio.
+ * Usa @garmin/fitsdk (strings e enums corretos; fit-encoder quebrava nomes dos passos).
  */
 export function buildWorkoutFitFromBlock(block, zones) {
   const steps = buildWorkoutStepsFromBlock(block, zones);
   const totalKm = Number(block?.km ?? 0) || steps.reduce((a, s) => a + s.km, 0);
+  const description =
+    typeof block?.description === "string" ? block.description.trim().slice(0, 80) : "";
   const name = `${block?.title || "Treino de corrida"} · ${totalKm}km`.trim();
+  const wktName = description ? `${name} — ${description}`.slice(0, 47) : name.slice(0, 47);
 
-  class WorkoutEncoder extends FitEncoder {
-    constructor() {
-      super();
+  const encoder = new Encoder();
 
-      new Message(
-        FitConstants.mesg_num.file_id,
-        FitMessages.file_id,
-        "time_created",
-        "manufacturer",
-        "product",
-        "type"
-      ).writeDataMessage(
-        FitEncoder.toFitTimestamp(new Date()),
-        FitConstants.manufacturer.garmin,
-        0,
-        FitConstants.file.workout
-      );
+  encoder.writeMesg({
+    mesgNum: Profile.MesgNum.FILE_ID,
+    type: "workout",
+    manufacturer: "development",
+    product: 0,
+    timeCreated: new Date(),
+  });
 
-      new Message(
-        FitConstants.mesg_num.workout,
-        FitMessages.workout,
-        "wkt_name",
-        "sport",
-        "num_valid_steps"
-      ).writeDataMessage(name, FitConstants.sport.running, steps.length);
+  encoder.writeMesg({
+    mesgNum: Profile.MesgNum.FILE_CREATOR,
+    softwareVersion: 100,
+  });
 
-      const workoutStepMessage = new Message(
-        FitConstants.mesg_num.workout_step,
-        FitMessages.workout_step,
-        "wkt_step_name",
-        "custom_target_value_low",
-        "custom_target_value_high",
-        "target_type",
-        "duration_type",
-        "duration_value",
-        "target_value",
-        "intensity",
-        "message_index"
-      );
+  encoder.writeMesg({
+    mesgNum: Profile.MesgNum.WORKOUT,
+    wktName,
+    sport: "running",
+    numValidSteps: steps.length,
+  });
 
-      steps.forEach((step, index) => {
-        const { hasSpeed, speedLow, speedHigh } = speedRangeForZone(step.zone);
-        workoutStepMessage.writeDataMessage(
-          step.name,
-          speedLow,
-          speedHigh,
-          hasSpeed ? FitConstants.wkt_step_target.speed : FitConstants.wkt_step_target.open,
-          FitConstants.wkt_step_duration.distance,
-          kmToDurationValue(step.km),
-          0,
-          step.intensity,
-          index
-        );
-      });
-    }
-  }
+  steps.forEach((step, index) => {
+    const { hasSpeed, speedLow, speedHigh } = speedRangeForZone(step.zone);
+    const mesg = {
+      mesgNum: Profile.MesgNum.WORKOUT_STEP,
+      messageIndex: index,
+      wktStepName: String(step.name).slice(0, 47),
+      durationType: "distance",
+      durationValue: kmToDurationCm(step.km),
+      intensity: step.intensity,
+      targetValue: 0,
+      customTargetValueLow: hasSpeed ? speedLow : 0,
+      customTargetValueHigh: hasSpeed ? speedHigh : 0,
+      targetType: hasSpeed ? "speed" : "open",
+    };
+    encoder.writeMesg(mesg);
+  });
 
-  const enc = new WorkoutEncoder();
-  return enc.getFile();
+  return encoder.close();
 }

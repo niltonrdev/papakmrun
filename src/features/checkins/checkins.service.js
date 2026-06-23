@@ -27,8 +27,18 @@ export async function saveTodayCheckin({ workoutSlug, effort, note }) {
   return saveWorkoutCheckin({ workoutSlug, effort, note });
 }
 
-export async function saveWorkoutCheckin({ workoutSlug, effort, note, workoutTitle, planKm }) {
-  const date = formatISODate(new Date());
+export async function saveWorkoutCheckin({
+  workoutSlug,
+  effort,
+  note,
+  workoutTitle,
+  planKm,
+  checkinDate,
+}) {
+  const date =
+    typeof checkinDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(checkinDate)
+      ? checkinDate
+      : formatISODate(new Date());
   const local = upsertCheckin({
     date,
     workoutSlug,
