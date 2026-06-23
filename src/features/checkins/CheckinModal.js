@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
-import { saveWorkoutCheckin } from "./checkins.service";
+import { saveWorkoutCheckin, formatISODate } from "./checkins.service";
 import { getAthleteRecord, getCurrentAthleteSlug } from "@/features/athletes/athletes.storage";
 import { addPainFeedback } from "@/features/pain/pain.storage";
+import { isWorkoutCheckedForBlock } from "./checkins.service";
 
 export default function CheckinModal({ open, onClose, workout, onSaved }) {
   const [effort, setEffort] = useState(3);
@@ -14,6 +15,10 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
 
   if (!workout) return null;
 
+  const scheduledDate = workout.workoutDateISO?.slice?.(0, 10) || null;
+  const isLateCheckin =
+    scheduledDate && scheduledDate < formatISODate(new Date()) && !isWorkoutCheckedForBlock(workout);
+
   async function submit(e) {
     e.preventDefault();
     await saveWorkoutCheckin({
@@ -22,6 +27,7 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
       note: note?.trim() ?? "",
       workoutTitle: workout.title,
       planKm: workout.km,
+      checkinDate: scheduledDate || formatISODate(new Date()),
     });
     if (hadPain && painNote.trim()) {
       const slug = getCurrentAthleteSlug();
@@ -63,6 +69,12 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
             {workout.dayLabel} • {workout.title} • {workout.km} km
           </div>
           <p className="mt-2 text-sm text-white/70">{workout.description}</p>
+          {isLateCheckin ? (
+            <p className="mt-3 text-xs text-amber-200/90 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+              Check-in em atraso: o treino será registrado na data programada (
+              {scheduledDate.split("-").reverse().join("/")}).
+            </p>
+          ) : null}
         </div>
 
         <form onSubmit={submit} className="space-y-4">

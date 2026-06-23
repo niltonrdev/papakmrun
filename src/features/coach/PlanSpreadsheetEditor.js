@@ -23,6 +23,7 @@ export default function PlanSpreadsheetEditor({
   setPlanStartDate,
   loading = false,
   checkinSlugs = null,
+  onCheckin = null,
   showPlanStartDate = true,
   showStatusColumn = false,
   headerExtra = null,
@@ -199,9 +200,27 @@ export default function PlanSpreadsheetEditor({
                                     Feito
                                   </span>
                                 ) : missed ? (
-                                  <span className="text-[9px] font-black uppercase text-red-400">
-                                    Treino não feito
-                                  </span>
+                                  onCheckin ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onCheckin(blockWithDate)}
+                                      className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-all"
+                                    >
+                                      Check-in em atraso
+                                    </button>
+                                  ) : (
+                                    <span className="text-[9px] font-black uppercase text-red-400">
+                                      Treino não feito
+                                    </span>
+                                  )
+                                ) : onCheckin ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onCheckin(blockWithDate)}
+                                    className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all"
+                                  >
+                                    Check-in
+                                  </button>
                                 ) : (
                                   <span className="text-[9px] font-black uppercase text-white/30">
                                     Pendente

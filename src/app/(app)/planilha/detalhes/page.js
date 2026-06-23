@@ -279,9 +279,13 @@ export default function PlanilhaDetalhesPage() {
                                 <CheckCircle2 size={12} /> Feito
                               </span>
                             ) : missed ? (
-                              <span className="inline-flex items-center justify-center text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-red-500/40 text-red-400 bg-red-500/10">
-                                Treino não feito
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setCheckinWorkout(b)}
+                                className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-all"
+                              >
+                                Check-in em atraso
+                              </button>
                             ) : (
                               <button
                                 type="button"
