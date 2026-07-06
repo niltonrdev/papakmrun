@@ -1,6 +1,8 @@
 import { getMergedPlanForSlug } from "@/features/plans/plan.storage";
 import { getCurrentAthleteSlug, getZonesForAthlete } from "@/features/athletes/athletes.storage";
 import { readActiveWeekNumber } from "@/features/session/prefs.storage";
+import { getSuggestedWorkout as resolveSuggestedWorkout } from "@/features/plans/workout-suggestion";
+import { sortBlocksByWorkoutOrder } from "@/features/plans/workout-blocks";
 
 export { getMergedPlanForSlug as getMergedPlanForAthleteSlug };
 
@@ -57,6 +59,11 @@ export function getZoneByKeyForAthlete(slug, key) {
 }
 
 export function getTodayWorkout() {
+  return resolveSuggestedWorkout();
+}
+
+/** @deprecated use getTodayWorkout — mantido por compatibilidade */
+export function getTodayWorkoutByCalendarDay() {
   const wn = readActiveWeekNumber();
   const week = getWeekPlan(wn);
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -75,6 +82,11 @@ export function getTodayWorkout() {
   const label = dayMap[day];
   if (!label) return null;
   return week?.blocks?.find((b) => b.dayLabel === label) ?? null;
+}
+
+export function getWeekBlocksOrdered(weekNumber) {
+  const week = getWeekPlan(weekNumber);
+  return sortBlocksByWorkoutOrder(week?.blocks ?? []);
 }
 
 export function findWorkoutInPlanBySlug(workoutSlug, athleteSlug) {

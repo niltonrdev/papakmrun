@@ -6,8 +6,7 @@ import { formatWeekRangeLabel } from "@/lib/plan-calendar";
 import { hasCheckinForSlug, isWorkoutMissed } from "@/features/checkins/missed-workout";
 import {
   ZONE_KEYS,
-  WEEKDAY_OPTIONS,
-  computeWorkoutDateISO,
+  computeWorkoutDateByIndex,
   addBlockToPlan,
   addWeekToPlan,
   insertWeekAfterInPlan,
@@ -15,6 +14,7 @@ import {
   removeWeekFromPlan,
   updateBlockInPlan,
 } from "@/features/coach/plan-editor-utils";
+import { getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
 
 export default function PlanSpreadsheetEditor({
   plan,
@@ -62,7 +62,7 @@ export default function PlanSpreadsheetEditor({
     <div className="space-y-6">
       {headerExtra}
       <p className="text-[10px] text-white/30 font-bold uppercase tracking-tight">
-        Editor em grade: ajuste km, zona e observações por semana.
+        Editor em grade: monte cada treino com aquecimento, parte principal e desaquecimento.
         {showPlanStartDate
           ? " O calendário do aluno avança automaticamente a partir da data de início."
           : null}
@@ -131,11 +131,14 @@ export default function PlanSpreadsheetEditor({
                   <table className="w-full text-left text-[11px]">
                     <thead>
                       <tr className="text-[9px] font-black uppercase text-white/30 border-b border-white/10">
-                        <th className="pb-2 pr-2">Dia</th>
+                        <th className="pb-2 pr-2">Treino</th>
+                        <th className="pb-2 pr-2">Título</th>
                         <th className="pb-2 pr-2">Km</th>
                         <th className="pb-2 pr-2">Zona</th>
                         {showStatusColumn ? <th className="pb-2 pr-2">Status</th> : null}
-                        <th className="pb-2">Observações</th>
+                        <th className="pb-2 pr-2">Aquecimento</th>
+                        <th className="pb-2 pr-2">Parte principal</th>
+                        <th className="pb-2 pr-2">Desaquecimento</th>
                         <th className="pb-2 w-10"></th>
                       </tr>
                     </thead>
@@ -143,7 +146,7 @@ export default function PlanSpreadsheetEditor({
                       {(week.blocks ?? []).map((b, idx) => {
                         const workoutDateISO =
                           b.workoutDateISO ||
-                          computeWorkoutDateISO(planStartDate, wk, b.dayLabel);
+                          computeWorkoutDateByIndex(planStartDate, wk, idx);
                         const blockWithDate = { ...b, workoutDateISO };
                         const done =
                           showStatusColumn && checkinSlugs
@@ -156,19 +159,14 @@ export default function PlanSpreadsheetEditor({
                         return (
                           <tr key={b.slug} className="border-b border-white/5 align-top">
                             <td className="py-2 pr-2 font-bold text-white whitespace-nowrap">
-                              <select
-                                value={b.dayLabel}
-                                onChange={(e) =>
-                                  updateBlock(wk, idx, "dayLabel", e.target.value)
-                                }
-                                className="bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white text-[10px] font-black uppercase"
-                              >
-                                {WEEKDAY_OPTIONS.map((opt) => (
-                                  <option key={opt.label} value={opt.label} className="bg-papa-dark">
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
+                              {getWorkoutDisplayLabel(b, idx)}
+                            </td>
+                            <td className="py-2 pr-2">
+                              <input
+                                value={b.title || ""}
+                                onChange={(e) => updateBlock(wk, idx, "title", e.target.value)}
+                                className="w-28 bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white text-[10px] font-black uppercase"
+                              />
                             </td>
                             <td className="py-2 pr-2">
                               <input
@@ -228,14 +226,31 @@ export default function PlanSpreadsheetEditor({
                                 )}
                               </td>
                             ) : null}
-                            <td className="py-2">
+                            <td className="py-2 pr-2">
                               <textarea
-                                value={b.description}
-                                onChange={(e) =>
-                                  updateBlock(wk, idx, "description", e.target.value)
-                                }
+                                value={b.warmup || ""}
+                                onChange={(e) => updateBlock(wk, idx, "warmup", e.target.value)}
                                 rows={2}
-                                className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
+                                placeholder="Ex: 2 km (Z2)"
+                                className="w-full min-w-[120px] bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
+                              />
+                            </td>
+                            <td className="py-2 pr-2">
+                              <textarea
+                                value={b.mainPart || ""}
+                                onChange={(e) => updateBlock(wk, idx, "mainPart", e.target.value)}
+                                rows={2}
+                                placeholder="Ex: 8x400m (Z4) + recuperação"
+                                className="w-full min-w-[140px] bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
+                              />
+                            </td>
+                            <td className="py-2 pr-2">
+                              <textarea
+                                value={b.cooldown || ""}
+                                onChange={(e) => updateBlock(wk, idx, "cooldown", e.target.value)}
+                                rows={2}
+                                placeholder="Ex: 2 km (Z1)"
+                                className="w-full min-w-[120px] bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
                               />
                             </td>
                             <td className="py-2 pl-2 text-right">

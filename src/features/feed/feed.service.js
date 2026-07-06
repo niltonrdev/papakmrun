@@ -2,6 +2,7 @@
 
 import { readAllCheckins, clearAllCheckins } from "@/features/checkins/checkins.storage";
 import { findWorkoutInPlanBySlug, getZoneByKey } from "@/features/plans/plans.service";
+import { getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
 import { FEED_AUTHORS, FEED_PHRASES, pickRandom } from "./feed.mock";
 
 function formatBR(isoDate) {
@@ -16,13 +17,18 @@ export function getFeedItems() {
   return sorted.map((c, idx) => {
     const found = findWorkoutInPlanBySlug(c.workoutSlug);
     const workout = found?.block;
+    const weekBlocks = found?.week?.blocks ?? [];
+    const blockIndex = weekBlocks.findIndex((block) => block.slug === c.workoutSlug);
     const author = FEED_AUTHORS[idx % FEED_AUTHORS.length];
     const zone = workout?.zoneKey ? getZoneByKey(workout.zoneKey) : null;
+    const workoutLabel = workout
+      ? getWorkoutDisplayLabel(workout, Math.max(blockIndex, 0))
+      : "";
 
     return {
       id: `${c.date}-${c.workoutSlug}`,
       dateISO: c.date,
-      dateLabel: `${formatBR(c.date)} • ${workout?.dayLabel ?? ""}`.trim(),
+      dateLabel: `${formatBR(c.date)}${workoutLabel ? ` • ${workoutLabel}` : ""}`.trim(),
       workoutTitle: workout?.title ?? c.workoutSlug,
       km: workout?.km ?? null,
       zoneKey: workout?.zoneKey ?? null,

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { getWeekPlan, getZoneByKey } from "@/features/plans/plans.service";
+import { getWeekPlan, getWeekBlocksOrdered, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import {
   BarChart3,
@@ -17,6 +17,7 @@ import Link from "next/link";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
 import { isWorkoutMissed } from "@/features/checkins/missed-workout";
+import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
 import {
   getPlanMetaFromSync,
   useBackendSyncTick,
@@ -34,11 +35,13 @@ const EMPTY_PERSONAL_RECORDS = [
   { label: "400 m", time: "—", pace: "—", date: "—" },
 ];
 
-function WorkoutPreviewCard({ block, onCheckin, refreshKey }) {
+function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
   void refreshKey;
   const zone = getZoneByKey(block.zoneKey);
   const done = isWorkoutCheckedForBlock(block);
   const missed = !done && isWorkoutMissed(block);
+  const segments = getBlockSegments(block);
+  const label = getWorkoutDisplayLabel(block, blockIndex);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
@@ -46,18 +49,18 @@ function WorkoutPreviewCard({ block, onCheckin, refreshKey }) {
         <div className="inline-flex items-center gap-2 rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-3 py-2">
           <CalendarDays size={14} className="text-papa-blue shrink-0" />
           <span className="text-xs font-black uppercase text-papa-blue tracking-wide">
-            {block.dayLabel}
+            {label}
           </span>
         </div>
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="text-base sm:text-lg font-black text-white">{block.title}</div>
-        {block.description ? (
-          <p className="text-sm text-white/55 mt-1 leading-relaxed line-clamp-2">
-            {block.description}
-          </p>
-        ) : null}
+        <div className="text-sm text-white/55 mt-1 leading-relaxed space-y-1">
+          {segments.warmup ? <p>Aquecimento: {segments.warmup}</p> : null}
+          {segments.mainPart ? <p>Principal: {segments.mainPart}</p> : null}
+          {segments.cooldown ? <p>Desaquecimento: {segments.cooldown}</p> : null}
+        </div>
       </div>
 
       <div className="shrink-0 flex sm:flex-col items-start sm:items-end gap-2 sm:gap-1.5">
@@ -170,6 +173,10 @@ export default function PerformancePage() {
   const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
   const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const week = useMemo(() => (hasPrescribedPlan ? getWeekPlan(activeWeek) : null), [activeWeek, syncTick, hasPrescribedPlan]);
+  const blocks = useMemo(
+    () => (hasPrescribedPlan ? getWeekBlocksOrdered(activeWeek) : []),
+    [activeWeek, syncTick, hasPrescribedPlan]
+  );
 
   const weekSummary = useMemo(() => {
     const blocks = week?.blocks ?? [];
@@ -358,11 +365,12 @@ export default function PerformancePage() {
           </div>
 
           <div className="p-6 sm:p-8 space-y-3">
-            {(week.blocks ?? []).length > 0 ? (
-              week.blocks.map((b) => (
+            {blocks.length > 0 ? (
+              blocks.map((b, idx) => (
                 <WorkoutPreviewCard
                   key={b.slug}
                   block={b}
+                  blockIndex={idx}
                   onCheckin={setCheckinWorkout}
                   refreshKey={checkinRefresh + syncTick}
                 />

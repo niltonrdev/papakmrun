@@ -1,5 +1,6 @@
 import { readAllCheckins } from "@/features/checkins/checkins.storage";
 import { findWorkoutInPlanBySlug, getZoneByKey } from "@/features/plans/plans.service";
+import { getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
 
 export function getActivityFeed() {
   const checkins = readAllCheckins();
@@ -8,6 +9,8 @@ export function getActivityFeed() {
     .map((c) => {
       const found = findWorkoutInPlanBySlug(c.workoutSlug);
       const w = found?.block;
+      const weekBlocks = found?.week?.blocks ?? [];
+      const blockIndex = weekBlocks.findIndex((block) => block.slug === c.workoutSlug);
       const zone = w?.zoneKey ? getZoneByKey(w.zoneKey) : null;
 
       return {
@@ -17,7 +20,7 @@ export function getActivityFeed() {
         workoutSlug: c.workoutSlug,
         effort: c.effort ?? null,
         note: c.note ?? "",
-        dayLabel: w?.dayLabel ?? "Treino",
+        dayLabel: w ? getWorkoutDisplayLabel(w, Math.max(blockIndex, 0)) : "Treino",
         title: w?.title ?? c.workoutSlug,
         km: w?.km ?? null,
         zoneKey: w?.zoneKey ?? null,

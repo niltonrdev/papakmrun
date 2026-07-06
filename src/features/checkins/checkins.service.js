@@ -1,5 +1,5 @@
 import { hasCheckin, upsertCheckin, getCheckin, readAllCheckins } from "./checkins.storage";
-import { getTodayWorkout } from "@/features/plans/plans.service";
+import { getSuggestedWorkout, getSuggestedWorkoutCheckin } from "@/features/plans/workout-suggestion";
 
 export function formatISODate(d = new Date()) {
   const year = d.getFullYear();
@@ -13,7 +13,7 @@ function hasCheckinForSlug(workoutSlug) {
 }
 
 export function isWorkoutCheckedToday(workoutSlug) {
-  const w = getTodayWorkout();
+  const w = getSuggestedWorkout();
   if (!w || w.slug !== workoutSlug) return false;
   return hasCheckinForSlug(workoutSlug);
 }
@@ -76,10 +76,10 @@ export function isWorkoutChecked(date, workoutSlug) {
 }
 
 export function getTodayCheckin() {
-  const w = getTodayWorkout();
-  if (!w) return null;
-  const hit = readAllCheckins().find((c) => c.workoutSlug === w.slug);
+  const hit = getSuggestedWorkoutCheckin();
   if (hit) return hit;
+  const w = getSuggestedWorkout();
+  if (!w) return null;
   const date = formatISODate(new Date());
   return getCheckin(date, w.slug);
 }

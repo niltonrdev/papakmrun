@@ -5,7 +5,9 @@ import {
   getAllWeekNumbers,
   getZones,
   getZoneByKey,
+  getWeekBlocksOrdered,
 } from "@/features/plans/plans.service";
+import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import { estimateTimeForKm, formatDurationFromSeconds } from "@/features/plans/pace.utils";
 import { readActiveWeekNumber, writeActiveWeekNumber } from "@/features/session/prefs.storage";
@@ -85,10 +87,10 @@ export default function PlanilhaDetalhesPage() {
     return getAllWeekNumbers();
   }, [refresh, syncTick]);
 
-  const week = useMemo(() => {
+  const blocks = useMemo(() => {
     void refresh;
     void syncTick;
-    return getWeekPlan(activeWeek);
+    return getWeekBlocksOrdered(activeWeek);
   }, [activeWeek, refresh, syncTick]);
 
   const zones = useMemo(() => {
@@ -102,8 +104,13 @@ export default function PlanilhaDetalhesPage() {
     writeActiveWeekNumber(num);
   }
 
+  const week = useMemo(() => {
+    void refresh;
+    void syncTick;
+    return getWeekPlan(activeWeek);
+  }, [activeWeek, refresh, syncTick]);
+
   const totals = useMemo(() => {
-    const blocks = week?.blocks ?? [];
     let km = 0;
     const timeSecs = [];
     for (const b of blocks) {
@@ -124,7 +131,7 @@ export default function PlanilhaDetalhesPage() {
       km,
       timeLabel: totalSec ? formatDurationFromSeconds(totalSec) : "—",
     };
-  }, [week]);
+  }, [blocks]);
 
   if (roleLoading) {
     return (
@@ -264,10 +271,13 @@ export default function PlanilhaDetalhesPage() {
           <table className="w-full border-collapse table-fixed min-w-[1000px]">
             <thead>
               <tr className="bg-white/5 text-[10px] font-black text-white/40 uppercase">
-                <th className="p-4 border-r border-white/5 w-32">Dados</th>
-                {week.blocks.map((b) => (
+                <th className="p-4 border-r border-white/5 w-36">Blocos</th>
+                {blocks.map((b, blockIdx) => (
                   <th key={b.slug} className="p-4 border-r border-white/5 text-white">
-                    <div>{b.dayLabel}</div>
+                    <div>{getWorkoutDisplayLabel(b, blockIdx)}</div>
+                    <div className="text-[10px] text-white/40 font-bold normal-case mt-1">
+                      {b.title}
+                    </div>
                     {mounted &&
                       (() => {
                         const done = isWorkoutCheckedForBlock(b);
@@ -312,27 +322,57 @@ export default function PlanilhaDetalhesPage() {
             <tbody className="text-white/80">
               <tr className="border-b border-white/5 align-top">
                 <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
-                  Descrição
+                  Aquecimento
                 </td>
-                {week.blocks.map((b) => (
-                  <td key={b.slug} className="p-4 border-r border-white/5">
-                    <div className="text-[11px] leading-relaxed space-y-1 text-white/70">
-                      {b.description.split(". ").map((line, i) => (
-                        <p key={i} className="flex gap-2 italic">
-                          <span className="text-papa-blue text-[8px] mt-1">•</span>{" "}
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                  </td>
-                ))}
+                {blocks.map((b) => {
+                  const seg = getBlockSegments(b);
+                  return (
+                    <td key={`${b.slug}-warmup`} className="p-4 border-r border-white/5">
+                      <p className="text-[11px] leading-relaxed text-white/70 italic">
+                        {seg.warmup || "—"}
+                      </p>
+                    </td>
+                  );
+                })}
+                <td className="p-4" />
+              </tr>
+              <tr className="border-b border-white/5 align-top">
+                <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
+                  Parte principal
+                </td>
+                {blocks.map((b) => {
+                  const seg = getBlockSegments(b);
+                  return (
+                    <td key={`${b.slug}-main`} className="p-4 border-r border-white/5">
+                      <p className="text-[11px] leading-relaxed text-white/80 font-medium">
+                        {seg.mainPart || "—"}
+                      </p>
+                    </td>
+                  );
+                })}
+                <td className="p-4" />
+              </tr>
+              <tr className="border-b border-white/5 align-top">
+                <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
+                  Desaquecimento
+                </td>
+                {blocks.map((b) => {
+                  const seg = getBlockSegments(b);
+                  return (
+                    <td key={`${b.slug}-cool`} className="p-4 border-r border-white/5">
+                      <p className="text-[11px] leading-relaxed text-white/70 italic">
+                        {seg.cooldown || "—"}
+                      </p>
+                    </td>
+                  );
+                })}
                 <td className="p-4" />
               </tr>
               <tr className="border-b border-white/5">
                 <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
                   Distância
                 </td>
-                {week.blocks.map((b) => (
+                {blocks.map((b) => (
                   <td
                     key={b.slug}
                     className="p-4 border-r border-white/5 text-center text-xl font-black text-white"
@@ -348,7 +388,7 @@ export default function PlanilhaDetalhesPage() {
                 <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
                   Zona
                 </td>
-                {week.blocks.map((b) => (
+                {blocks.map((b) => (
                   <td
                     key={b.slug}
                     className={`p-4 border-r border-white/5 text-center ${zoneClasses(b.zoneKey)}`}
@@ -362,7 +402,7 @@ export default function PlanilhaDetalhesPage() {
                 <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
                   Pace
                 </td>
-                {week.blocks.map((b) => {
+                {blocks.map((b) => {
                   const z = getZoneByKey(b.zoneKey);
                   return (
                     <td
@@ -379,7 +419,7 @@ export default function PlanilhaDetalhesPage() {
                 <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
                   Tempo
                 </td>
-                {week.blocks.map((b) => {
+                {blocks.map((b) => {
                   const z = getZoneByKey(b.zoneKey);
                   const t = z
                     ? estimateTimeForKm(b.km, z.paceMin, z.paceMax)

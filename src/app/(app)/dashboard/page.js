@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { getTodayWorkout, getZoneByKey } from "@/features/plans/plans.service";
+import { getTodayWorkout, getZoneByKey, getWeekBlocksOrdered } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import { isWorkoutCheckedToday, getTodayCheckin } from "@/features/checkins/checkins.service";
@@ -15,36 +15,61 @@ import ParqBanner from "@/features/health/ParqBanner";
 import { useParqStatus } from "@/features/health/useParqStatus";
 import ParqFormModal from "@/features/health/ParqFormModal";
 
-function TodayWorkoutCard({ isSocial = false }) {
-  useBackendSyncTick();
-  const w = getTodayWorkout();
+import { getBlockSegments } from "@/features/plans/workout-blocks";
+
+function SuggestedWorkoutCard({ isSocial = false, workout, onDone }) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Sem treino agendado para o perfil/dia: não renderiza o card.
-  if (!w) return null;
+  if (!workout) return null;
 
-  const checked = done || isWorkoutCheckedToday(w.slug);
-  const todayCheckin = checked ? getTodayCheckin() : null;
+  const checked = done || isWorkoutCheckedToday(workout.slug);
+  const checkin = checked ? getTodayCheckin() : null;
+  const segments = workout.segments || getBlockSegments(workout);
+  const label = workout.workoutLabel || workout.dayLabel || "Treino";
 
   return (
     <div className="rounded-3xl bg-papa-card p-6 sm:p-8 border border-white/5 relative overflow-hidden">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-center">
         <div className="min-w-0">
-          <span className="text-papa-orange font-bold text-[11px] sm:text-xs uppercase tracking-widest">Treino de Hoje</span>
+          <span className="text-papa-orange font-bold text-[11px] sm:text-xs uppercase tracking-widest">
+            Sugestão do dia
+          </span>
           <h2 className="text-2xl sm:text-3xl font-black text-white mt-2 leading-tight break-words">
-            {w.title} · {w.km}km
+            {label} · {workout.title} · {workout.km}km
           </h2>
           {!isSocial && (
-            <div className="text-white/60 text-lg font-medium mt-1">({w.zoneKey.toUpperCase()})</div>
+            <div className="text-white/60 text-lg font-medium mt-1">
+              ({workout.zoneKey?.toUpperCase()})
+            </div>
           )}
 
-          <p className="text-white/40 mt-4 flex items-center gap-2 text-sm italic">
-            <span className="text-papa-blue font-bold">⚡</span>{" "}
-            {isSocial
-              ? "Aluno em modo rede: curta o Feed e, quando fizer o PapaKM Club, suas zonas entram no jogo."
-              : "Obs: 10' acima do pace alvo"}
-          </p>
+          <div className="mt-4 space-y-2 text-sm text-white/55">
+            {segments.warmup ? (
+              <p>
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+                  Aquecimento
+                </span>
+                {segments.warmup}
+              </p>
+            ) : null}
+            {segments.mainPart ? (
+              <p>
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+                  Parte principal
+                </span>
+                {segments.mainPart}
+              </p>
+            ) : null}
+            {segments.cooldown ? (
+              <p>
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+                  Desaquecimento
+                </span>
+                {segments.cooldown}
+              </p>
+            ) : null}
+          </div>
           
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <button 
@@ -57,7 +82,7 @@ function TodayWorkoutCard({ isSocial = false }) {
             <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
                <span className="text-white/30 text-[10px] uppercase block font-bold">Esforço</span>
                <span className="text-papa-blue font-bold tracking-tighter">
-                 {todayCheckin?.effort != null ? `${todayCheckin.effort}/5` : "—"}
+                 {checkin?.effort != null ? `${checkin.effort}/5` : "—"}
                </span>
             </div>
           </div>
@@ -86,7 +111,15 @@ function TodayWorkoutCard({ isSocial = false }) {
         <div className="h-full bg-gradient-to-r from-papa-orange to-orange-400 w-1/3 shadow-[0_0_10px_rgba(255,107,0,0.5)]"></div>
       </div>
 
-      <CheckinModal open={open} onClose={() => setOpen(false)} workout={w} onSaved={() => setDone(true)} />
+      <CheckinModal
+        open={open}
+        onClose={() => setOpen(false)}
+        workout={workout}
+        onSaved={() => {
+          setDone(true);
+          onDone?.();
+        }}
+      />
     </div>
   );
 }
@@ -147,11 +180,11 @@ export default function DashboardPage() {
   const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const { needsParq, pendingReview, refresh: refreshParq } = useParqStatus();
   const [parqOpen, setParqOpen] = useState(false);
-  const [todayWorkout, setTodayWorkout] = useState(null);
+  const [suggestedWorkout, setSuggestedWorkout] = useState(null);
   const [stravaLinked, setStravaLinked] = useState(null);
 
   useEffect(() => {
-    setTodayWorkout(getTodayWorkout());
+    setSuggestedWorkout(getTodayWorkout());
   }, [syncTick]);
 
   useEffect(() => {
@@ -177,7 +210,7 @@ export default function DashboardPage() {
     };
   }, [syncTick]);
 
-  const showTodayCard = hasPlanAccess && hasPrescribedPlan && Boolean(todayWorkout);
+  const showTodayCard = hasPlanAccess && hasPrescribedPlan && Boolean(suggestedWorkout);
 
   // Layout:
   // Mobile (até lg): Mural → Treino → Ranking → Calendário → Zonas
@@ -237,7 +270,11 @@ export default function DashboardPage() {
 
         {showTodayCard && (
           <div className="order-2 lg:order-none lg:col-span-8 lg:col-start-1 lg:row-start-2">
-            <TodayWorkoutCard isSocial={isSocial} />
+            <SuggestedWorkoutCard
+              isSocial={isSocial}
+              workout={suggestedWorkout}
+              onDone={() => setSuggestedWorkout(getTodayWorkout())}
+            />
           </div>
         )}
 
