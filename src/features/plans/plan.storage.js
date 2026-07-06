@@ -1,4 +1,5 @@
 import { MOCK_PLAN } from "./mockWeek";
+import { normalizeFullPlan } from "./workout-blocks";
 
 const KEY = "papakm_plan_by_athlete_v1";
 
@@ -38,8 +39,8 @@ export function writeAthletePlan(athleteSlug, plan) {
 /** Plano salvo localmente; null se nunca sincronizado; {} se sincronizado sem prescrição. */
 export function getMergedPlanForSlug(athleteSlug) {
   const stored = readAthletePlan(athleteSlug);
-  if (stored !== null) return stored;
-  return { ...MOCK_PLAN };
+  if (stored !== null) return normalizeFullPlan(stored);
+  return normalizeFullPlan({ ...MOCK_PLAN });
 }
 
 export function replaceAthletePlan(athleteSlug, fullPlan) {

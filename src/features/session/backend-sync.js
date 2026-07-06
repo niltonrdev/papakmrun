@@ -9,6 +9,7 @@ import {
 } from "@/features/athletes/athletes.storage";
 import { writeActiveWeekNumber } from "@/features/session/prefs.storage";
 import { upsertCheckin } from "@/features/checkins/checkins.storage";
+import { normalizeFullPlan, normalizePlanWeek } from "@/features/plans/workout-blocks";
 
 const listeners = new Set();
 
@@ -40,7 +41,7 @@ function mergeServerWeekPayload(j) {
   const slug = getCurrentAthleteSlug();
   const prev = readAthletePlan(slug) || {};
   const base = { ...prev };
-  base[String(j.weekKey)] = j.week;
+  base[String(j.weekKey)] = normalizePlanWeek(j.week);
   writeAthletePlan(slug, base);
 }
 
@@ -50,7 +51,7 @@ function mergeFullPlanPayload(j) {
   const hasPrescribed = j.hasPrescribedPlan === true || j.source === "student";
 
   if (hasPrescribed) {
-    writeAthletePlan(slug, { ...j.weeks });
+    writeAthletePlan(slug, normalizeFullPlan({ ...j.weeks }));
   } else {
     writeAthletePlan(slug, {});
   }

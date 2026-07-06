@@ -1,7 +1,14 @@
 import { addDaysISO, renumberPlanWeeks } from "@/lib/plan-calendar";
+import {
+  WORKOUT_SLOT_OFFSETS,
+  reindexWeekBlocks,
+  segmentsToDescription,
+  sortBlocksByWorkoutOrder,
+} from "@/features/plans/workout-blocks";
 
 export const ZONE_KEYS = ["z1", "z2", "z3", "z4", "z5"];
 
+/** Mantido para importação de planilhas legadas por dia da semana. */
 export const WEEKDAY_OPTIONS = [
   { label: "Segunda", offset: 0 },
   { label: "Terça", offset: 1 },
@@ -29,42 +36,71 @@ export function dayOffsetFromLabel(dayLabel) {
   return opt ? opt.offset : null;
 }
 
-export function computeWorkoutDateISO(planStartMonday, weekKey, dayLabel) {
-  const offset = dayOffsetFromLabel(dayLabel);
-  if (offset == null || !planStartMonday) return null;
+export function computeWorkoutDateByIndex(planStartMonday, weekKey, workoutIndex) {
+  if (!planStartMonday) return null;
   const weekNumber = Math.max(1, Number(weekKey) || 1);
+  const offset = WORKOUT_SLOT_OFFSETS[workoutIndex] ?? workoutIndex * 2 + 1;
   return addDaysISO(planStartMonday, (weekNumber - 1) * 7 + offset);
+}
+
+export function computeWorkoutDateISO(planStartMonday, weekKey, dayLabel, workoutIndex = 0) {
+  const byDay = dayOffsetFromLabel(dayLabel);
+  if (byDay != null && planStartMonday) {
+    const weekNumber = Math.max(1, Number(weekKey) || 1);
+    return addDaysISO(planStartMonday, (weekNumber - 1) * 7 + byDay);
+  }
+  return computeWorkoutDateByIndex(planStartMonday, weekKey, workoutIndex);
+}
+
+function makeBlock(weekKey, workoutNumber, planStartDate, preset = {}) {
+  const idx = workoutNumber - 1;
+  return {
+    dayLabel: `Treino ${workoutNumber}`,
+    workoutNumber,
+    slug: preset.slug || `s${weekKey}-treino-${workoutNumber}`,
+    km: preset.km ?? 6,
+    zoneKey: preset.zoneKey ?? "z2",
+    title: preset.title ?? "Treino",
+    warmup: preset.warmup ?? "",
+    mainPart: preset.mainPart ?? "",
+    cooldown: preset.cooldown ?? "",
+    description:
+      preset.description ??
+      segmentsToDescription({
+        warmup: preset.warmup ?? "",
+        mainPart: preset.mainPart ?? "Bloco principal conforme orientação.",
+        cooldown: preset.cooldown ?? "",
+      }),
+    workoutDateISO: computeWorkoutDateByIndex(planStartDate, weekKey, idx),
+  };
 }
 
 export function blankWeekBlocks(weekKey, planStartDate) {
   return [
-    {
-      dayLabel: "Terça",
-      slug: `s${weekKey}-terca`,
+    makeBlock(weekKey, 1, planStartDate, {
+      title: "Rodagem",
       km: 6,
       zoneKey: "z2",
-      title: "Ritmo",
-      description: "Aquecimento + bloco principal.",
-      workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Terça"),
-    },
-    {
-      dayLabel: "Quinta",
-      slug: `s${weekKey}-quinta`,
+      warmup: "2 km (Z2)",
+      mainPart: "Bloco principal em ritmo de referência.",
+      cooldown: "1 km (Z1)",
+    }),
+    makeBlock(weekKey, 2, planStartDate, {
+      title: "Intervalado",
       km: 8,
       zoneKey: "z3",
-      title: "Intervalado",
-      description: "Bloco principal conforme orientação.",
-      workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Quinta"),
-    },
-    {
-      dayLabel: "Sábado",
-      slug: `s${weekKey}-sabado`,
+      warmup: "2 km (Z2)",
+      mainPart: "Série principal conforme orientação do professor.",
+      cooldown: "1 km (Z1)",
+    }),
+    makeBlock(weekKey, 3, planStartDate, {
+      title: "Longo",
       km: 12,
       zoneKey: "z1",
-      title: "Longo",
-      description: "Ritmo fácil a moderado.",
-      workoutDateISO: computeWorkoutDateISO(planStartDate, weekKey, "Sábado"),
-    },
+      warmup: "2 km (Z2)",
+      mainPart: "Ritmo fácil a moderado.",
+      cooldown: "1 km (Z1)",
+    }),
   ];
 }
 
@@ -80,11 +116,21 @@ export function createBlankPlan(planStartDate = null) {
 }
 
 export function sortBlocksByDay(blocks) {
-  return [...(blocks || [])].sort((a, b) => {
-    const ao = dayOffsetFromLabel(a.dayLabel);
-    const bo = dayOffsetFromLabel(b.dayLabel);
-    return (ao == null ? 999 : ao) - (bo == null ? 999 : bo);
-  });
+  return sortBlocksByWorkoutOrder(blocks);
+}
+
+export function syncBlockDerivedFields(block, planStartDate, weekKey, workoutIndex) {
+  const next = { ...block };
+  const segments = {
+    warmup: next.warmup ?? "",
+    mainPart: next.mainPart ?? "",
+    cooldown: next.cooldown ?? "",
+  };
+  next.description = segmentsToDescription(segments);
+  next.workoutDateISO =
+    next.workoutDateISO ||
+    computeWorkoutDateByIndex(planStartDate, weekKey, workoutIndex);
+  return next;
 }
 
 export function updateBlockInPlan(prev, weekKey, blockIdx, field, value, planStartDate) {
@@ -98,12 +144,8 @@ export function updateBlockInPlan(prev, weekKey, blockIdx, field, value, planSta
   } else {
     block[field] = value;
   }
-  if (field === "dayLabel") {
-    const iso = computeWorkoutDateISO(planStartDate, weekKey, value);
-    if (iso) block.workoutDateISO = iso;
-  }
-  w.blocks[blockIdx] = block;
-  w.blocks = sortBlocksByDay(w.blocks);
+  w.blocks[blockIdx] = syncBlockDerivedFields(block, planStartDate, weekKey, blockIdx);
+  w.blocks = reindexWeekBlocks(w.blocks);
   return next;
 }
 
@@ -111,20 +153,13 @@ export function addBlockToPlan(prev, weekKey, planStartDate) {
   if (!prev?.[weekKey]) return prev;
   const next = clonePlan(prev);
   const w = next[weekKey];
-  const used = new Set((w.blocks || []).map((b) => dayOffsetFromLabel(b.dayLabel)));
-  const picked = WEEKDAY_OPTIONS.find((x) => !used.has(x.offset)) ?? WEEKDAY_OPTIONS[0];
-  const blockIdx = (w.blocks?.length || 0) + 1;
-  const workoutDateISO = computeWorkoutDateISO(planStartDate, weekKey, picked.label);
-  const newBlock = {
-    dayLabel: picked.label,
-    slug: `s${weekKey}-custom-${Date.now()}-${blockIdx}`,
-    km: 6,
-    zoneKey: "z2",
+  const n = (w.blocks?.length || 0) + 1;
+  const newBlock = makeBlock(weekKey, n, planStartDate, {
+    slug: `s${weekKey}-treino-${Date.now()}-${n}`,
     title: "Treino",
-    description: "Ajuste o conteúdo conforme o aluno.",
-    workoutDateISO: workoutDateISO ?? null,
-  };
-  w.blocks = sortBlocksByDay([...(w.blocks || []), newBlock]);
+    mainPart: "Ajuste o conteúdo conforme o aluno.",
+  });
+  w.blocks = reindexWeekBlocks([...(w.blocks || []), newBlock]);
   return next;
 }
 
@@ -132,7 +167,7 @@ export function removeBlockFromPlan(prev, weekKey, blockIdx) {
   if (!prev?.[weekKey]) return prev;
   const next = clonePlan(prev);
   const w = next[weekKey];
-  w.blocks = (w.blocks || []).filter((_, idx) => idx !== blockIdx);
+  w.blocks = reindexWeekBlocks((w.blocks || []).filter((_, idx) => idx !== blockIdx));
   return next;
 }
 
@@ -171,7 +206,11 @@ export function insertWeekAfterInPlan(prev, afterWeekKey, planStartDate) {
         blocks: blankWeekBlocks(wk, planStartDate),
       };
     } else {
-      next[wk] = { ...weekData, title: `Semana ${wk}` };
+      next[wk] = {
+        ...weekData,
+        title: `Semana ${wk}`,
+        blocks: reindexWeekBlocks(weekData.blocks || []),
+      };
     }
   });
   return next;

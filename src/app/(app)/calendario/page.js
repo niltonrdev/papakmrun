@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getAllPlanWorkouts, getZoneByKey } from "@/features/plans/plans.service";
+import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import { readAllCheckins } from "@/features/checkins/checkins.storage";
 
@@ -316,6 +317,8 @@ export default function CalendarPage() {
           ) : (
             selectedDayWorkouts.map((w) => {
               const done = isWorkoutDone(w.slug);
+              const label = getWorkoutDisplayLabel(w, Math.max((Number(w.workoutNumber) || 1) - 1, 0));
+              const segments = getBlockSegments(w);
               return (
                 <div
                   key={`${w.workoutDateISO}-${w.slug}`}
@@ -323,7 +326,7 @@ export default function CalendarPage() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm text-white/60">{w.dayLabel}</div>
+                      <div className="text-sm text-white/60">{label}</div>
                       <div className="text-lg font-semibold">
                         {w.title} <span className="text-white/60 font-normal">{w.km} km</span>
                       </div>
@@ -344,7 +347,11 @@ export default function CalendarPage() {
                     </div>
                   </div>
 
-                  <div className="mt-2 text-sm text-white/70">{w.description}</div>
+                  <div className="mt-2 space-y-1 text-sm text-white/70">
+                    {segments.warmup ? <p>Aquecimento: {segments.warmup}</p> : null}
+                    {segments.mainPart ? <p>Principal: {segments.mainPart}</p> : null}
+                    {segments.cooldown ? <p>Desaquecimento: {segments.cooldown}</p> : null}
+                  </div>
                 </div>
               );
             })

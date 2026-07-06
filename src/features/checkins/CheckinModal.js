@@ -6,6 +6,7 @@ import { saveWorkoutCheckin, formatISODate } from "./checkins.service";
 import { getAthleteRecord, getCurrentAthleteSlug } from "@/features/athletes/athletes.storage";
 import { addPainFeedback } from "@/features/pain/pain.storage";
 import { isWorkoutCheckedForBlock } from "./checkins.service";
+import { getBlockSegments } from "@/features/plans/workout-blocks";
 
 export default function CheckinModal({ open, onClose, workout, onSaved }) {
   const [effort, setEffort] = useState(3);
@@ -60,15 +61,34 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
     setNote("");
   }
 
+  const segments = getBlockSegments(workout);
+  const workoutLabel = workout.workoutLabel || workout.dayLabel || "Treino";
+
   return (
     <Modal open={open} title="Check-in do treino" onClose={onClose}>
       <div className="space-y-4">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="text-sm text-white/60">Treino</div>
           <div className="text-lg font-semibold">
-            {workout.dayLabel} • {workout.title} • {workout.km} km
+            {workoutLabel} • {workout.title} • {workout.km} km
           </div>
-          <p className="mt-2 text-sm text-white/70">{workout.description}</p>
+          <div className="mt-3 space-y-1 text-sm text-white/70">
+            {segments.warmup ? (
+              <p>
+                <span className="font-bold text-white/50">Aquecimento:</span> {segments.warmup}
+              </p>
+            ) : null}
+            {segments.mainPart ? (
+              <p>
+                <span className="font-bold text-white/50">Parte principal:</span> {segments.mainPart}
+              </p>
+            ) : null}
+            {segments.cooldown ? (
+              <p>
+                <span className="font-bold text-white/50">Desaquecimento:</span> {segments.cooldown}
+              </p>
+            ) : null}
+          </div>
           {isLateCheckin ? (
             <p className="mt-3 text-xs text-amber-200/90 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
               Check-in em atraso: o treino será registrado na data programada (
