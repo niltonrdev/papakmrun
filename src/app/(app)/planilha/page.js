@@ -44,64 +44,27 @@ function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
   const label = getWorkoutDisplayLabel(block, blockIndex);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-      <div className="shrink-0 sm:w-24">
-        <div className="inline-flex items-center gap-2 rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-3 py-2">
-          <CalendarDays size={14} className="text-papa-blue shrink-0" />
-          <span className="text-xs font-black uppercase text-papa-blue tracking-wide">
-            {label}
-          </span>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-6 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 min-w-0">
+          <div className="inline-flex items-center gap-2 rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-3 py-2 shrink-0">
+            <CalendarDays size={14} className="text-papa-blue shrink-0" />
+            <span className="text-xs font-black uppercase text-papa-blue tracking-wide">
+              {label}
+            </span>
+          </div>
+          <h4 className="text-lg sm:text-xl font-black text-white">{block.title}</h4>
         </div>
-      </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="text-base sm:text-lg font-black text-white">{block.title}</div>
-        <div className="text-sm sm:text-base text-white/70 mt-2 leading-relaxed space-y-2">
-          {segments.warmup ? (
-            <p className="rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2">
-              <span className="text-papa-blue font-black uppercase text-[10px] mr-2">Aquecimento</span>
-              {segments.warmup}
-            </p>
-          ) : null}
-          {segments.mainPart ? (
-            <p className="rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-3 py-2 text-white font-medium">
-              <span className="text-papa-blue font-black uppercase text-[10px] mr-2">Principal</span>
-              {segments.mainPart}
-            </p>
-          ) : null}
-          {segments.cooldown ? (
-            <p className="rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2">
-              <span className="text-papa-blue font-black uppercase text-[10px] mr-2">Desaquecimento</span>
-              {segments.cooldown}
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="shrink-0 flex sm:flex-col items-start sm:items-end gap-2 sm:gap-1.5">
-        <div className="text-2xl font-black text-white leading-none">
-          {block.km}
-          <span className="text-sm text-white/40 ml-1 font-bold">km</span>
-        </div>
-        <span
-          className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${zoneClasses(block.zoneKey)}`}
-        >
-          {zone?.label ?? block.zoneKey.toUpperCase()}
-        </span>
-        {zone ? (
-          <span className="text-[10px] font-mono text-white/45">
-            {zone.paceMin} – {zone.paceMax} /km
-          </span>
-        ) : null}
         {done ? (
-          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-3 py-1.5 rounded-xl border border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
-            <CheckCircle2 size={12} /> Feito
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase px-4 py-2 rounded-xl border border-emerald-500/40 text-emerald-400 bg-emerald-500/10 shrink-0">
+            <CheckCircle2 size={14} /> Feito
           </span>
         ) : missed ? (
           <button
             type="button"
             onClick={() => onCheckin?.(block)}
-            className="text-[10px] font-black uppercase px-4 py-2 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-all"
+            className="text-[11px] font-black uppercase px-4 py-2.5 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-all shrink-0"
           >
             Check-in em atraso
           </button>
@@ -109,11 +72,71 @@ function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
           <button
             type="button"
             onClick={() => onCheckin?.(block)}
-            className="text-[10px] font-black uppercase px-4 py-2 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all"
+            className="text-[11px] font-black uppercase px-4 py-2.5 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all shrink-0"
           >
             Check-in
           </button>
         )}
+      </div>
+
+      <div className="text-sm sm:text-base text-white/70 leading-relaxed space-y-2">
+        {segments.warmup ? (
+          <p className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3">
+            <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
+              Aquecimento
+            </span>
+            {segments.warmup}
+          </p>
+        ) : null}
+        {segments.mainPart ? (
+          <p className="rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-4 py-3 text-white font-medium">
+            <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
+              Principal
+            </span>
+            {segments.mainPart}
+          </p>
+        ) : null}
+        {segments.cooldown ? (
+          <p className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3">
+            <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
+              Desaquecimento
+            </span>
+            {segments.cooldown}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-white/5">
+        <div className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-center sm:text-left">
+          <div className="text-[10px] font-black uppercase text-white/35 tracking-widest">
+            Distância
+          </div>
+          <div className="text-2xl font-black text-white tabular-nums mt-0.5">
+            {block.km}
+            <span className="text-sm text-white/40 ml-1 font-bold">km</span>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-center sm:text-left">
+          <div className="text-[10px] font-black uppercase text-white/35 tracking-widest">
+            Zona
+          </div>
+          <div className="mt-1.5">
+            <span
+              className={`inline-flex text-[11px] font-black uppercase px-3 py-1.5 rounded-lg ${zoneClasses(block.zoneKey)}`}
+            >
+              {block.zoneKey?.toUpperCase()} · {zone?.label ?? "—"}
+            </span>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-center sm:text-left">
+          <div className="text-[10px] font-black uppercase text-white/35 tracking-widest">
+            Pace
+          </div>
+          <div className="text-base sm:text-lg font-mono font-bold text-white/80 mt-1 tabular-nums">
+            {zone ? `${zone.paceMin} – ${zone.paceMax}` : "—"}
+            <span className="text-xs text-white/35 font-sans font-bold ml-1">/km</span>
+          </div>
+        </div>
       </div>
     </div>
   );
