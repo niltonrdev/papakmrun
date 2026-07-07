@@ -56,10 +56,25 @@ function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
 
       <div className="flex-1 min-w-0">
         <div className="text-base sm:text-lg font-black text-white">{block.title}</div>
-        <div className="text-sm text-white/55 mt-1 leading-relaxed space-y-1">
-          {segments.warmup ? <p>Aquecimento: {segments.warmup}</p> : null}
-          {segments.mainPart ? <p>Principal: {segments.mainPart}</p> : null}
-          {segments.cooldown ? <p>Desaquecimento: {segments.cooldown}</p> : null}
+        <div className="text-sm sm:text-base text-white/70 mt-2 leading-relaxed space-y-2">
+          {segments.warmup ? (
+            <p className="rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2">
+              <span className="text-papa-blue font-black uppercase text-[10px] mr-2">Aquecimento</span>
+              {segments.warmup}
+            </p>
+          ) : null}
+          {segments.mainPart ? (
+            <p className="rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-3 py-2 text-white font-medium">
+              <span className="text-papa-blue font-black uppercase text-[10px] mr-2">Principal</span>
+              {segments.mainPart}
+            </p>
+          ) : null}
+          {segments.cooldown ? (
+            <p className="rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2">
+              <span className="text-papa-blue font-black uppercase text-[10px] mr-2">Desaquecimento</span>
+              {segments.cooldown}
+            </p>
+          ) : null}
         </div>
       </div>
 

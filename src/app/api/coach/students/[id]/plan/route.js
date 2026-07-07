@@ -8,6 +8,7 @@ import {
   studentPlanPayload,
 } from "@/lib/student-plan";
 import { computeCalendarWeek, defaultPlanStartMonday } from "@/lib/plan-calendar";
+import { syncPlanBlockSlugs } from "@/features/plans/workout-blocks";
 
 async function assertStaff(supabase, userId) {
   const { profile, error } = await fetchProfileForUser(supabase, userId);
@@ -126,16 +127,16 @@ export async function PUT(request, context) {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const weeks = body?.weeks;
-  if (!weeks || typeof weeks !== "object" || Array.isArray(weeks)) {
-    return NextResponse.json({ error: "weeks deve ser um objeto JSON." }, { status: 400 });
-  }
-
   const { row: existing } = await loadStudentPlanRow(supabase, studentId);
   const planStart =
     typeof body?.planStartDate === "string" && body.planStartDate.trim()
       ? body.planStartDate.trim().slice(0, 10)
       : existing?.plan_start_date || defaultPlanStartMonday();
+
+  const weeks = syncPlanBlockSlugs(body?.weeks, planStart);
+  if (!weeks || typeof weeks !== "object" || Array.isArray(weeks)) {
+    return NextResponse.json({ error: "weeks deve ser um objeto JSON." }, { status: 400 });
+  }
 
   const row = {
     user_id: studentId,

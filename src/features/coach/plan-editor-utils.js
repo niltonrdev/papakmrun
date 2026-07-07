@@ -1,9 +1,11 @@
 import { addDaysISO, renumberPlanWeeks } from "@/lib/plan-calendar";
 import {
   WORKOUT_SLOT_OFFSETS,
+  assignBlockSlugsForWeek,
   reindexWeekBlocks,
   segmentsToDescription,
   sortBlocksByWorkoutOrder,
+  syncPlanBlockSlugs,
 } from "@/features/plans/workout-blocks";
 
 export const ZONE_KEYS = ["z1", "z2", "z3", "z4", "z5"];
@@ -145,7 +147,7 @@ export function updateBlockInPlan(prev, weekKey, blockIdx, field, value, planSta
     block[field] = value;
   }
   w.blocks[blockIdx] = syncBlockDerivedFields(block, planStartDate, weekKey, blockIdx);
-  w.blocks = reindexWeekBlocks(w.blocks);
+  w.blocks = assignBlockSlugsForWeek(weekKey, w.blocks, planStartDate);
   return next;
 }
 
@@ -155,11 +157,10 @@ export function addBlockToPlan(prev, weekKey, planStartDate) {
   const w = next[weekKey];
   const n = (w.blocks?.length || 0) + 1;
   const newBlock = makeBlock(weekKey, n, planStartDate, {
-    slug: `s${weekKey}-treino-${Date.now()}-${n}`,
     title: "Treino",
     mainPart: "Ajuste o conteúdo conforme o aluno.",
   });
-  w.blocks = reindexWeekBlocks([...(w.blocks || []), newBlock]);
+  w.blocks = assignBlockSlugsForWeek(weekKey, [...(w.blocks || []), newBlock], planStartDate);
   return next;
 }
 
@@ -167,7 +168,7 @@ export function removeBlockFromPlan(prev, weekKey, blockIdx) {
   if (!prev?.[weekKey]) return prev;
   const next = clonePlan(prev);
   const w = next[weekKey];
-  w.blocks = reindexWeekBlocks((w.blocks || []).filter((_, idx) => idx !== blockIdx));
+  w.blocks = assignBlockSlugsForWeek(weekKey, (w.blocks || []).filter((_, idx) => idx !== blockIdx), planStartDate);
   return next;
 }
 
@@ -182,7 +183,7 @@ export function addWeekToPlan(prev, planStartDate) {
     phase: "Personalizado",
     blocks: blankWeekBlocks(String(n), planStartDate),
   };
-  return next;
+  return syncPlanBlockSlugs(next, planStartDate);
 }
 
 export function insertWeekAfterInPlan(prev, afterWeekKey, planStartDate) {
@@ -209,18 +210,17 @@ export function insertWeekAfterInPlan(prev, afterWeekKey, planStartDate) {
       next[wk] = {
         ...weekData,
         title: `Semana ${wk}`,
-        blocks: reindexWeekBlocks(weekData.blocks || []),
       };
     }
   });
-  return next;
+  return syncPlanBlockSlugs(next, planStartDate);
 }
 
-export function removeWeekFromPlan(prev, weekKey) {
+export function removeWeekFromPlan(prev, weekKey, planStartDate = null) {
   if (!prev || Object.keys(prev).length <= 1) return prev;
   const next = clonePlan(prev);
   delete next[weekKey];
-  return renumberPlanWeeks(next);
+  return syncPlanBlockSlugs(renumberPlanWeeks(next), planStartDate);
 }
 
 export function slugifyTemplateKey(value) {

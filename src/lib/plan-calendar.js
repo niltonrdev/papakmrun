@@ -64,10 +64,7 @@ export function renumberPlanWeeks(plan) {
     const w = { ...plan[oldKey] };
     w.title = w.title?.replace(/Semana\s+\d+/i, `Semana ${n}`) || `Semana ${n}`;
     if (Array.isArray(w.blocks)) {
-      w.blocks = w.blocks.map((b) => ({
-        ...b,
-        slug: b.slug?.replace(/^s\d+/, `s${n}`) ?? b.slug,
-      }));
+      w.blocks = w.blocks.map((b) => ({ ...b }));
     }
     next[n] = w;
   });

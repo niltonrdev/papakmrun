@@ -321,48 +321,54 @@ export default function PlanilhaDetalhesPage() {
             </thead>
             <tbody className="text-white/80">
               <tr className="border-b border-white/5 align-top">
-                <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
+                <td className="p-4 bg-white/5 border-r border-white/5 text-[10px] font-black uppercase text-white/30">
                   Aquecimento
                 </td>
                 {blocks.map((b) => {
                   const seg = getBlockSegments(b);
                   return (
-                    <td key={`${b.slug}-warmup`} className="p-4 border-r border-white/5">
-                      <p className="text-[11px] leading-relaxed text-white/70 italic">
-                        {seg.warmup || "—"}
-                      </p>
+                    <td key={`${b.slug}-warmup`} className="p-4 border-r border-white/5 align-top min-h-[72px]">
+                      <div className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 min-h-[56px]">
+                        <p className="text-sm md:text-base leading-relaxed text-white/85 font-medium">
+                          {seg.warmup || "—"}
+                        </p>
+                      </div>
                     </td>
                   );
                 })}
                 <td className="p-4" />
               </tr>
               <tr className="border-b border-white/5 align-top">
-                <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
+                <td className="p-4 bg-white/5 border-r border-white/5 text-[10px] font-black uppercase text-white/30">
                   Parte principal
                 </td>
                 {blocks.map((b) => {
                   const seg = getBlockSegments(b);
                   return (
-                    <td key={`${b.slug}-main`} className="p-4 border-r border-white/5">
-                      <p className="text-[11px] leading-relaxed text-white/80 font-medium">
-                        {seg.mainPart || "—"}
-                      </p>
+                    <td key={`${b.slug}-main`} className="p-4 border-r border-white/5 align-top min-h-[88px]">
+                      <div className="rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-4 py-3 min-h-[72px]">
+                        <p className="text-sm md:text-base leading-relaxed text-white font-semibold">
+                          {seg.mainPart || "—"}
+                        </p>
+                      </div>
                     </td>
                   );
                 })}
                 <td className="p-4" />
               </tr>
               <tr className="border-b border-white/5 align-top">
-                <td className="p-4 bg-white/5 border-r border-white/5 text-[9px] font-black uppercase text-white/20">
+                <td className="p-4 bg-white/5 border-r border-white/5 text-[10px] font-black uppercase text-white/30">
                   Desaquecimento
                 </td>
                 {blocks.map((b) => {
                   const seg = getBlockSegments(b);
                   return (
-                    <td key={`${b.slug}-cool`} className="p-4 border-r border-white/5">
-                      <p className="text-[11px] leading-relaxed text-white/70 italic">
-                        {seg.cooldown || "—"}
-                      </p>
+                    <td key={`${b.slug}-cool`} className="p-4 border-r border-white/5 align-top min-h-[72px]">
+                      <div className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 min-h-[56px]">
+                        <p className="text-sm md:text-base leading-relaxed text-white/85 font-medium">
+                          {seg.cooldown || "—"}
+                        </p>
+                      </div>
                     </td>
                   );
                 })}

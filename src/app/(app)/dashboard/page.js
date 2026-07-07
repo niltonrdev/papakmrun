@@ -44,26 +44,26 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone }) {
             </div>
           )}
 
-          <div className="mt-4 space-y-2 text-sm text-white/55">
+          <div className="mt-4 space-y-3 text-sm sm:text-base text-white/70">
             {segments.warmup ? (
-              <p>
-                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+              <p className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3">
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
                   Aquecimento
                 </span>
                 {segments.warmup}
               </p>
             ) : null}
             {segments.mainPart ? (
-              <p>
-                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+              <p className="rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-4 py-3 text-white font-medium">
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
                   Parte principal
                 </span>
                 {segments.mainPart}
               </p>
             ) : null}
             {segments.cooldown ? (
-              <p>
-                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+              <p className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3">
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
                   Desaquecimento
                 </span>
                 {segments.cooldown}
