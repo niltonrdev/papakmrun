@@ -41,7 +41,11 @@ function mergeServerWeekPayload(j) {
   const slug = getCurrentAthleteSlug();
   const prev = readAthletePlan(slug) || {};
   const base = { ...prev };
-  base[String(j.weekKey)] = normalizePlanWeek(j.week);
+  base[String(j.weekKey)] = normalizePlanWeek(
+    j.week,
+    String(j.weekKey),
+    planMetaCache?.planStartDate ?? null
+  );
   writeAthletePlan(slug, base);
 }
 
@@ -51,7 +55,7 @@ function mergeFullPlanPayload(j) {
   const hasPrescribed = j.hasPrescribedPlan === true || j.source === "student";
 
   if (hasPrescribed) {
-    writeAthletePlan(slug, normalizeFullPlan({ ...j.weeks }));
+    writeAthletePlan(slug, normalizeFullPlan({ ...j.weeks }, j.planStartDate ?? null));
   } else {
     writeAthletePlan(slug, {});
   }

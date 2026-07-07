@@ -17,6 +17,7 @@ import { buildTemplatePlan, TEMPLATE_META } from "@/features/plans/templates";
 import { defaultPlanStartMonday } from "@/lib/plan-calendar";
 import PlanSpreadsheetEditor from "@/features/coach/PlanSpreadsheetEditor";
 import { clonePlan } from "@/features/coach/plan-editor-utils";
+import { syncPlanBlockSlugs } from "@/features/plans/workout-blocks";
 
 export default function DetalheAlunoPage() {
   const params = useParams();
@@ -69,10 +70,11 @@ export default function DetalheAlunoPage() {
           ? planJson.weeks
           : clonePlan(getMergedPlanForSlug(slug));
 
-      setPlan(clonePlan(weeks));
-      setPlanStartDate(
-        planJson.planStartDate?.slice?.(0, 10) || defaultPlanStartMonday()
-      );
+      const planStart =
+        planJson.planStartDate?.slice?.(0, 10) || defaultPlanStartMonday();
+
+      setPlan(syncPlanBlockSlugs(clonePlan(weeks), planStart));
+      setPlanStartDate(planStart);
       setDistanciaTeste(planJson.testDistance ?? 3);
       setTempoTeste(planJson.testTime ?? "");
       setZonas(planJson.zones ?? null);

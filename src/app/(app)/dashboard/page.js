@@ -1,9 +1,13 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { getTodayWorkout, getZoneByKey, getWeekBlocksOrdered } from "@/features/plans/plans.service";
-import { zoneClasses } from "@/features/plans/zones.ui";
+import { getTodayWorkout, getWeekPlan, getWeekBlocksOrdered } from "@/features/plans/plans.service";
 import CheckinModal from "@/features/checkins/CheckinModal";
-import { isWorkoutCheckedToday, getTodayCheckin } from "@/features/checkins/checkins.service";
+import {
+  isWorkoutCheckedToday,
+  isWorkoutCheckedForBlock,
+  getTodayCheckin,
+} from "@/features/checkins/checkins.service";
+import { readAllCheckins } from "@/features/checkins/checkins.storage";
 import { getZones } from "@/features/plans/plans.service";
 import RankingCard from "@/features/ranking/RankingCard";
 import RaceCalendar from "@/features/events/RaceCalendar";
@@ -14,12 +18,178 @@ import { useProfileRole } from "@/features/session/useProfileRole";
 import ParqBanner from "@/features/health/ParqBanner";
 import { useParqStatus } from "@/features/health/useParqStatus";
 import ParqFormModal from "@/features/health/ParqFormModal";
+import { readActiveWeekNumber } from "@/features/session/prefs.storage";
+import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
+import { CheckCircle2, Circle } from "lucide-react";
 
-import { getBlockSegments } from "@/features/plans/workout-blocks";
+function useWeekProgress(syncTick, currentSlug) {
+  return useMemo(() => {
+    void syncTick;
+    const weekKey = readActiveWeekNumber();
+    const week = getWeekPlan(weekKey);
+    const blocks = getWeekBlocksOrdered(weekKey);
+    const checkinBySlug = new Map(
+      readAllCheckins().map((c) => [c.workoutSlug, c])
+    );
 
-function SuggestedWorkoutCard({ isSocial = false, workout, onDone }) {
+    let completedKm = 0;
+    let doneCount = 0;
+
+    const items = blocks.map((block, idx) => {
+      const done = isWorkoutCheckedForBlock(block);
+      const checkin = checkinBySlug.get(block.slug);
+      const plannedKm = Number(block.km) || 0;
+      if (done) {
+        const km =
+          checkin?.planKm != null && Number.isFinite(Number(checkin.planKm))
+            ? Number(checkin.planKm)
+            : plannedKm;
+        completedKm += km;
+        doneCount += 1;
+      }
+      return {
+        slug: block.slug,
+        label: getWorkoutDisplayLabel(block, idx),
+        title: block.title,
+        plannedKm,
+        done,
+        isCurrent: block.slug === currentSlug,
+      };
+    });
+
+    const totalKm = blocks.reduce((sum, b) => sum + (Number(b.km) || 0), 0);
+    const progressPct = totalKm > 0 ? Math.min(100, (completedKm / totalKm) * 100) : 0;
+
+    return {
+      weekKey,
+      weekTitle: week?.title ?? `Semana ${weekKey}`,
+      weekPhase: week?.phase,
+      items,
+      completedKm,
+      totalKm,
+      doneCount,
+      totalSessions: blocks.length,
+      progressPct,
+    };
+  }, [syncTick, currentSlug]);
+}
+
+function WeekProgressPreview({ syncTick, currentSlug }) {
+  const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
+  const progress = useWeekProgress(syncTick, currentSlug);
+  const rangeLabel = planMeta?.weekRanges?.[progress.weekKey] ?? null;
+
+  const kmDoneLabel =
+    progress.completedKm % 1 === 0
+      ? String(progress.completedKm)
+      : progress.completedKm.toFixed(1);
+  const kmTotalLabel =
+    progress.totalKm % 1 === 0
+      ? String(progress.totalKm)
+      : progress.totalKm.toFixed(1);
+
+  return (
+    <div className="bg-black/20 p-5 sm:p-6 rounded-2xl border border-white/5 flex flex-col h-full min-h-[280px]">
+      <div className="flex items-start justify-between gap-2 mb-4">
+        <div className="min-w-0">
+          <div className="text-[10px] font-black uppercase tracking-widest text-white/35">
+            Semana atual
+          </div>
+          <div className="text-sm font-black text-white truncate">
+            {progress.weekTitle}
+            {progress.weekPhase ? (
+              <span className="text-white/45 font-bold"> · {progress.weekPhase}</span>
+            ) : null}
+          </div>
+          {rangeLabel ? (
+            <div className="text-[10px] text-papa-blue/70 font-bold mt-0.5">{rangeLabel}</div>
+          ) : null}
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-[9px] font-black uppercase text-white/30">Treinos</div>
+          <div className="text-sm font-black text-white">
+            {progress.doneCount}
+            <span className="text-white/35">/{progress.totalSessions}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white/[0.04] border border-white/10 px-4 py-4 mb-4">
+        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-400/80 mb-1">
+          Km percorridos na semana
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-4xl font-black text-emerald-400 tabular-nums leading-none">
+            {kmDoneLabel}
+          </span>
+          <span className="text-lg font-bold text-white/35">
+            / {kmTotalLabel} km
+          </span>
+        </div>
+        <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-papa-blue transition-all duration-500"
+            style={{ width: `${progress.progressPct}%` }}
+          />
+        </div>
+        <div className="mt-1.5 text-[10px] font-bold text-white/30 text-right tabular-nums">
+          {Math.round(progress.progressPct)}% do volume
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-y-auto pr-0.5">
+        {progress.items.map((item) => (
+          <div
+            key={item.slug}
+            className={[
+              "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+              item.isCurrent
+                ? "border-papa-orange/40 bg-papa-orange/10"
+                : item.done
+                  ? "border-emerald-500/25 bg-emerald-500/5"
+                  : "border-white/8 bg-white/[0.02]",
+            ].join(" ")}
+          >
+            {item.done ? (
+              <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+            ) : (
+              <Circle
+                size={16}
+                className={`shrink-0 ${item.isCurrent ? "text-papa-orange" : "text-white/20"}`}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-black uppercase text-white/90 truncate">
+                {item.label}
+              </div>
+              <div className="text-[10px] text-white/45 truncate">{item.title}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div
+                className={`text-sm font-black tabular-nums ${
+                  item.done ? "text-emerald-400" : "text-white/50"
+                }`}
+              >
+                {item.plannedKm}km
+              </div>
+              {item.done ? (
+                <div className="text-[9px] font-black uppercase text-emerald-400/70">Feito</div>
+              ) : item.isCurrent ? (
+                <div className="text-[9px] font-black uppercase text-papa-orange">Hoje</div>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 }) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
+  const [localTick, setLocalTick] = useState(0);
+  const weekProgress = useWeekProgress(syncTick + localTick, workout?.slug);
 
   if (!workout) return null;
 
@@ -44,26 +214,26 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone }) {
             </div>
           )}
 
-          <div className="mt-4 space-y-2 text-sm text-white/55">
+          <div className="mt-4 space-y-3 text-sm sm:text-base text-white/70">
             {segments.warmup ? (
-              <p>
-                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+              <p className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3">
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
                   Aquecimento
                 </span>
                 {segments.warmup}
               </p>
             ) : null}
             {segments.mainPart ? (
-              <p>
-                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+              <p className="rounded-xl bg-papa-blue/10 border border-papa-blue/20 px-4 py-3 text-white font-medium">
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
                   Parte principal
                 </span>
                 {segments.mainPart}
               </p>
             ) : null}
             {segments.cooldown ? (
-              <p>
-                <span className="text-papa-blue font-black uppercase text-[10px] mr-2">
+              <p className="rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3">
+                <span className="text-papa-blue font-black uppercase text-[10px] mr-2 block mb-1">
                   Desaquecimento
                 </span>
                 {segments.cooldown}
@@ -88,27 +258,14 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone }) {
           </div>
         </div>
 
-        {/* Gráfico de Ritmo (Visualizador de barras) */}
-        <div className="hidden md:block bg-black/20 p-6 rounded-2xl border border-white/5">
-           <div className="flex justify-between items-end gap-1 h-24">
-              {[35, 55, 45, 90, 65, 80, 50].map((h, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                   <div 
-                    style={{ height: `${h}%` }} 
-                    className={`w-full rounded-t-lg transition-all duration-500 ${
-                      i === 3 ? 'bg-papa-orange shadow-[0_0_15px_rgba(255,107,0,0.6)]' : 'bg-papa-blue/30'
-                    }`}
-                   />
-                </div>
-              ))}
-           </div>
-           <div className="mt-3 text-center text-[10px] font-black text-white/20 uppercase tracking-widest">Ritmo Semanal</div>
-        </div>
+        <WeekProgressPreview syncTick={syncTick + localTick} currentSlug={workout.slug} />
       </div>
       
-      {/* Barra de progresso estética na base do card */}
       <div className="absolute bottom-0 left-0 h-1 w-full bg-white/5">
-        <div className="h-full bg-gradient-to-r from-papa-orange to-orange-400 w-1/3 shadow-[0_0_10px_rgba(255,107,0,0.5)]"></div>
+        <div
+          className="h-full bg-gradient-to-r from-papa-orange to-orange-400 shadow-[0_0_10px_rgba(255,107,0,0.5)] transition-all duration-500"
+          style={{ width: `${weekProgress.progressPct}%` }}
+        />
       </div>
 
       <CheckinModal
@@ -117,6 +274,7 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone }) {
         workout={workout}
         onSaved={() => {
           setDone(true);
+          setLocalTick((t) => t + 1);
           onDone?.();
         }}
       />
@@ -273,6 +431,7 @@ export default function DashboardPage() {
             <SuggestedWorkoutCard
               isSocial={isSocial}
               workout={suggestedWorkout}
+              syncTick={syncTick}
               onDone={() => setSuggestedWorkout(getTodayWorkout())}
             />
           </div>

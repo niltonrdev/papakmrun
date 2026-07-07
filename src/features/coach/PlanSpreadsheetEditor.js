@@ -55,7 +55,7 @@ export default function PlanSpreadsheetEditor({
   }
 
   function removeWeek(weekKey) {
-    setPlan((prev) => removeWeekFromPlan(prev, weekKey));
+    setPlan((prev) => removeWeekFromPlan(prev, weekKey, planStartDate));
   }
 
   return (
@@ -226,31 +226,31 @@ export default function PlanSpreadsheetEditor({
                                 )}
                               </td>
                             ) : null}
-                            <td className="py-2 pr-2">
+                            <td className="py-2 pr-2 min-w-[160px]">
                               <textarea
                                 value={b.warmup || ""}
                                 onChange={(e) => updateBlock(wk, idx, "warmup", e.target.value)}
-                                rows={2}
+                                rows={3}
                                 placeholder="Ex: 2 km (Z2)"
-                                className="w-full min-w-[120px] bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
+                                className="w-full min-w-[160px] bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/95 resize-y min-h-[72px] leading-relaxed"
                               />
                             </td>
-                            <td className="py-2 pr-2">
+                            <td className="py-2 pr-2 min-w-[180px]">
                               <textarea
                                 value={b.mainPart || ""}
                                 onChange={(e) => updateBlock(wk, idx, "mainPart", e.target.value)}
-                                rows={2}
+                                rows={3}
                                 placeholder="Ex: 8x400m (Z4) + recuperação"
-                                className="w-full min-w-[140px] bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
+                                className="w-full min-w-[180px] bg-black/30 border border-papa-blue/20 rounded-lg px-3 py-2 text-sm text-white font-medium resize-y min-h-[88px] leading-relaxed"
                               />
                             </td>
-                            <td className="py-2 pr-2">
+                            <td className="py-2 pr-2 min-w-[160px]">
                               <textarea
                                 value={b.cooldown || ""}
                                 onChange={(e) => updateBlock(wk, idx, "cooldown", e.target.value)}
-                                rows={2}
+                                rows={3}
                                 placeholder="Ex: 2 km (Z1)"
-                                className="w-full min-w-[120px] bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-white/90 resize-y min-h-[48px]"
+                                className="w-full min-w-[160px] bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/95 resize-y min-h-[72px] leading-relaxed"
                               />
                             </td>
                             <td className="py-2 pl-2 text-right">
