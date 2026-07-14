@@ -49,7 +49,7 @@ function buildDescription(item, idx) {
       item.movingTimeSec != null
         ? new Date(item.movingTimeSec * 1000).toISOString().substr(11, 8).replace(/^00:/, "")
         : null;
-    const elev = item.elevationM != null ? `${item.elevationM} m D+` : null;
+    const elev = item.elevationM != null ? `${item.elevationM} m` : null;
     return [km, moving, elev].filter(Boolean).join(" · ");
   }
   if (item.note?.trim()) return item.note;
