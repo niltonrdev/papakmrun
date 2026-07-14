@@ -45,34 +45,20 @@ export async function GET(request) {
   );
   const cutoff = cutoffDateIso(days);
 
-  const [checkinsRes, activitiesRes] = await Promise.all([
-    supabase
-      .from("checkins")
-      .select(
-        "id, workout_slug, checkin_date, effort, notes, workout_title, plan_km, created_at, user_id, author_name"
-      )
-      .gte("checkin_date", cutoff)
-      .order("checkin_date", { ascending: false })
-      .limit(limit),
-    supabase
-      .from("community_activities")
-      .select(
-        "id, user_id, source, source_id, name, date_iso, start_at, distance_km, moving_time_sec, pace_per_km, elevation_m, summary_polyline, author_name, created_at"
-      )
-      .gte("date_iso", cutoff)
-      .order("date_iso", { ascending: false })
-      .limit(limit),
-  ]);
+  const activitiesRes = await supabase
+    .from("community_activities")
+    .select(
+      "id, user_id, source, source_id, name, date_iso, start_at, distance_km, moving_time_sec, pace_per_km, elevation_m, summary_polyline, author_name, created_at"
+    )
+    .gte("date_iso", cutoff)
+    .order("date_iso", { ascending: false })
+    .limit(limit);
 
-  if (checkinsRes.error) {
-    return NextResponse.json({ error: checkinsRes.error.message }, { status: 500 });
-  }
   if (activitiesRes.error) {
     return NextResponse.json({ error: activitiesRes.error.message }, { status: 500 });
   }
 
   const userIds = new Set();
-  for (const r of checkinsRes.data || []) if (r.user_id) userIds.add(r.user_id);
   for (const r of activitiesRes.data || []) if (r.user_id) userIds.add(r.user_id);
 
   let profilesById = new Map();
@@ -106,50 +92,31 @@ export async function GET(request) {
     };
   }
 
-  const checkins = (checkinsRes.data || []).map((r) => {
-    const author = authorFor(r.user_id, r.author_name);
-    return {
-      kind: "checkin",
-      id: `checkin-${r.id}`,
-      activityKind: "checkin",
-      activityId: r.id,
-      dateISO: r.checkin_date,
-      createdAt: r.created_at,
-      title: r.workout_title?.trim() || "Treino",
-      distanceKm: r.plan_km != null ? Number(r.plan_km) : null,
-      effort: r.effort ?? null,
-      note: r.notes ?? "",
-      author,
-      mapPoints: null,
-      pacePerKm: null,
-    };
-  });
-
-  const activities = (activitiesRes.data || []).map((r) => {
-    const author = authorFor(r.user_id, r.author_name);
-    return {
-      kind: "strava",
-      id: `strava-${r.id}`,
-      activityKind: "strava",
-      activityId: r.id,
-      dateISO: r.date_iso,
-      createdAt: r.created_at,
-      title: r.name || "Corrida",
-      distanceKm: r.distance_km != null ? Number(r.distance_km) : null,
-      movingTimeSec: r.moving_time_sec ?? null,
-      pacePerKm: r.pace_per_km || null,
-      elevationM: r.elevation_m ?? null,
-      note: "",
-      author,
-      mapPoints: pointsFromPolyline(r.summary_polyline),
-    };
-  });
-
-  const items = [...activities, ...checkins].sort((a, b) => {
-    const ka = `${a.dateISO || ""}T${(a.createdAt || "").slice(11, 19) || "00:00:00"}`;
-    const kb = `${b.dateISO || ""}T${(b.createdAt || "").slice(11, 19) || "00:00:00"}`;
-    return kb.localeCompare(ka);
-  });
+  const items = (activitiesRes.data || [])
+    .map((r) => {
+      const author = authorFor(r.user_id, r.author_name);
+      return {
+        kind: "strava",
+        id: `strava-${r.id}`,
+        activityKind: "strava",
+        activityId: r.id,
+        dateISO: r.date_iso,
+        createdAt: r.created_at,
+        title: r.name || "Corrida",
+        distanceKm: r.distance_km != null ? Number(r.distance_km) : null,
+        movingTimeSec: r.moving_time_sec ?? null,
+        pacePerKm: r.pace_per_km || null,
+        elevationM: r.elevation_m ?? null,
+        note: "",
+        author,
+        mapPoints: pointsFromPolyline(r.summary_polyline),
+      };
+    })
+    .sort((a, b) => {
+      const ka = `${a.dateISO || ""}T${(a.createdAt || "").slice(11, 19) || "00:00:00"}`;
+      const kb = `${b.dateISO || ""}T${(b.createdAt || "").slice(11, 19) || "00:00:00"}`;
+      return kb.localeCompare(ka);
+    });
 
   // Engajamento: contagem de curtidas, comentários e curtida do próprio usuário.
   const activityUuids = items.map((it) => it.activityId).filter(Boolean);

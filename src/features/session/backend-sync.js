@@ -8,7 +8,7 @@ import {
   setCurrentAthleteSlug,
 } from "@/features/athletes/athletes.storage";
 import { writeActiveWeekNumber } from "@/features/session/prefs.storage";
-import { upsertCheckin } from "@/features/checkins/checkins.storage";
+import { writeAllCheckins } from "@/features/checkins/checkins.storage";
 import { normalizeFullPlan, normalizePlanWeek } from "@/features/plans/workout-blocks";
 
 const listeners = new Set();
@@ -66,6 +66,7 @@ function mergeFullPlanPayload(j) {
     activeWeek: j.activeWeek ?? null,
     hasPrescribedPlan: hasPrescribed,
     source: j.source ?? null,
+    updatedAt: j.updatedAt ?? null,
   };
 
   if (j.activeWeek != null && String(j.activeWeek).trim() !== "") {
@@ -119,11 +120,15 @@ export async function pullWeekPlanFromApi(week = null) {
   return j;
 }
 
-function mergeCheckinsFromApiItems(items) {
-  if (!Array.isArray(items)) return;
+function replaceCheckinsFromApiItems(items) {
+  if (!Array.isArray(items)) {
+    writeAllCheckins([]);
+    return;
+  }
+  const next = [];
   for (const row of items) {
     if (!row?.workoutSlug || !row?.date) continue;
-    upsertCheckin({
+    next.push({
       date: row.date,
       workoutSlug: row.workoutSlug,
       effort: row.effort != null ? Number(row.effort) : null,
@@ -133,6 +138,7 @@ function mergeCheckinsFromApiItems(items) {
       planKm: row.planKm != null ? Number(row.planKm) : null,
     });
   }
+  writeAllCheckins(next);
 }
 
 /**
@@ -178,7 +184,7 @@ export async function syncBackendSession() {
       const chRes = await fetch("/api/checkins", { credentials: "include" });
       if (chRes.ok) {
         const ch = await chRes.json();
-        mergeCheckinsFromApiItems(ch?.items);
+        replaceCheckinsFromApiItems(ch?.items);
       }
     } catch {
       /* ignore */

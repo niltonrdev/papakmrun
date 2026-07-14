@@ -81,5 +81,6 @@ export async function GET() {
     testDistance: custom?.testDistance ?? null,
     testTime: custom?.testTime ?? null,
     vRef: custom?.vRef ?? null,
+    updatedAt: custom?.updatedAt ?? null,
   });
 }

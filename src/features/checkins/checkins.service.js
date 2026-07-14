@@ -1,5 +1,6 @@
 import { hasCheckin, upsertCheckin, getCheckin, readAllCheckins } from "./checkins.storage";
 import { getSuggestedWorkout, getSuggestedWorkoutCheckin } from "@/features/plans/workout-suggestion";
+import { getPlanMetaFromSync } from "@/features/session/backend-sync";
 
 export function formatISODate(d = new Date()) {
   const year = d.getFullYear();
@@ -8,8 +9,20 @@ export function formatISODate(d = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function isCheckinFromCurrentPlan(checkin) {
+  const planUpdatedAt = getPlanMetaFromSync()?.updatedAt;
+  if (!planUpdatedAt || !checkin?.createdAt) return true;
+  const planTs = Date.parse(planUpdatedAt);
+  const checkinTs = Date.parse(checkin.createdAt);
+  if (!Number.isFinite(planTs) || !Number.isFinite(checkinTs)) return true;
+  // Margem de 2s para upserts quase simultâneos ao salvar a planilha.
+  return checkinTs + 2000 >= planTs;
+}
+
 function hasCheckinForSlug(workoutSlug) {
-  return readAllCheckins().some((c) => c.workoutSlug === workoutSlug);
+  return readAllCheckins().some(
+    (c) => c.workoutSlug === workoutSlug && isCheckinFromCurrentPlan(c)
+  );
 }
 
 export function isWorkoutCheckedToday(workoutSlug) {

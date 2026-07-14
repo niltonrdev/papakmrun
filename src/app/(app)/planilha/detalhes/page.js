@@ -222,7 +222,7 @@ export default function PlanilhaDetalhesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 bg-papa-card p-8 rounded-3xl border border-white/5 flex flex-col justify-center text-center">
           <h3 className="text-lg font-black text-white uppercase tracking-tighter mb-4">
-            PLANILHA {String(athleteName).toUpperCase()} - OBJETIVO SUB20 5KM
+            PLANILHA {String(athleteName).toUpperCase()}
           </h3>
           <div className="space-y-1 text-sm text-white/60 font-medium italic">
             <p>Ritmos são referências.</p>
@@ -308,12 +308,6 @@ export default function PlanilhaDetalhesPage() {
                           </div>
                         );
                       })()}
-                    <a
-                      href={`/api/workouts/fit?slug=${encodeURIComponent(b.slug)}`}
-                      className="mt-2 inline-flex items-center justify-center rounded-xl border border-papa-blue/40 bg-papa-blue/10 px-3 py-1.5 text-[9px] font-black uppercase text-papa-blue hover:bg-papa-blue/20"
-                    >
-                      Exportar
-                    </a>
                   </th>
                 ))}
                 <th className="p-4 text-papa-blue">Total</th>

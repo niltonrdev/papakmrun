@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, FileText, Loader2, Save } from "lucide-react";
+import { ChevronLeft, FileText, Loader2, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import PlanSpreadsheetEditor from "@/features/coach/PlanSpreadsheetEditor";
@@ -25,6 +25,7 @@ export default function TemplateEditorPage() {
   const [planStartDate] = useState(defaultPlanStartMonday());
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
   const loadTemplate = useCallback(async () => {
@@ -101,6 +102,39 @@ export default function TemplateEditorPage() {
     }
   }
 
+  async function handleDelete() {
+    if (isNew) return;
+    const key = rawKey;
+    const label = templateTitle.trim() || key;
+    if (!window.confirm(`Excluir o template "${label}"? Essa ação não pode ser desfeita.`)) {
+      return;
+    }
+    setDeleting(true);
+    setSaveMsg("Excluindo…");
+    try {
+      const res = await fetch(`/api/coach/plan-template/${encodeURIComponent(key)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 409 || j?.inUse) {
+        const names = Array.isArray(j?.studentsUsing) ? j.studentsUsing.filter(Boolean) : [];
+        const who = names.length ? ` Alunos: ${names.join(", ")}.` : "";
+        setSaveMsg(
+          `Não é possível excluir: o template está em uso por um ou mais alunos.${who}`
+        );
+        return;
+      }
+      if (!res.ok) throw new Error(j?.error || "Não foi possível excluir o template.");
+      router.replace("/admin");
+    } catch (e) {
+      setSaveMsg(e?.message || "Erro ao excluir template.");
+    } finally {
+      setDeleting(false);
+      setTimeout(() => setSaveMsg(""), 8000);
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -111,15 +145,28 @@ export default function TemplateEditorPage() {
           <ChevronLeft size={16} /> Voltar para Gestão
         </Link>
         <div className="flex flex-col items-end gap-2">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || loading}
-            className="bg-papa-orange text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {saving ? "Salvando…" : "Salvar template"}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {!isNew ? (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting || saving || loading}
+                className="border border-rose-400/40 text-rose-300 px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 hover:bg-rose-500/10 disabled:opacity-50"
+              >
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {deleting ? "Excluindo…" : "Excluir template"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || deleting || loading}
+              className="bg-papa-orange text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {saving ? "Salvando…" : "Salvar template"}
+            </button>
+          </div>
           {saveMsg ? (
             <span className="text-[10px] text-emerald-400 font-bold max-w-xs text-right">
               {saveMsg}

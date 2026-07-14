@@ -20,7 +20,7 @@ import { useParqStatus } from "@/features/health/useParqStatus";
 import ParqFormModal from "@/features/health/ParqFormModal";
 import { readActiveWeekNumber } from "@/features/session/prefs.storage";
 import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle, PartyPopper } from "lucide-react";
 
 function useWeekProgress(syncTick, currentSlug) {
   return useMemo(() => {
@@ -369,6 +369,8 @@ export default function DashboardPage() {
   }, [syncTick]);
 
   const showTodayCard = hasPlanAccess && hasPrescribedPlan && Boolean(suggestedWorkout);
+  const showCycleComplete =
+    hasPlanAccess && hasPrescribedPlan && !suggestedWorkout;
 
   // Layout:
   // Mobile (até lg): Mural → Treino → Ranking → Calendário → Zonas
@@ -437,6 +439,36 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {showCycleComplete && (
+          <div className="order-2 lg:order-none lg:col-span-8 lg:col-start-1 lg:row-start-2">
+            <div className="rounded-3xl bg-papa-card p-6 sm:p-8 border border-emerald-500/25 relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-5">
+                <div className="shrink-0 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30">
+                  <PartyPopper className="text-emerald-400" size={28} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-emerald-400 font-bold text-[11px] sm:text-xs uppercase tracking-widest">
+                    Ciclo concluído
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white mt-2 leading-tight">
+                    Parabéns — você finalizou o ciclo da planilha!
+                  </h2>
+                  <p className="mt-3 text-sm sm:text-base text-white/65 leading-relaxed max-w-xl">
+                    Não há treinos pendentes nesta planilha. Entre em contato com o seu professor
+                    para a confecção de uma nova planilha e continuar a evolução.
+                  </p>
+                  <Link
+                    href="/perfil"
+                    className="mt-6 inline-flex rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-[11px] font-black uppercase text-white/80 hover:bg-white/10"
+                  >
+                    Ir ao perfil
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="order-3 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-2 flex flex-col gap-6 sm:gap-8">
           <RankingCard />
           <RaceCalendar />
@@ -445,7 +477,7 @@ export default function DashboardPage() {
         {hasPlanAccess && hasPrescribedPlan && (
           <div
             className={`order-4 lg:order-none lg:col-span-8 lg:col-start-1 ${
-              showTodayCard ? "lg:row-start-3" : "lg:row-start-2"
+              showTodayCard || showCycleComplete ? "lg:row-start-3" : "lg:row-start-2"
             }`}
           >
             <TrainingZonesList />

@@ -399,7 +399,7 @@ function PostCard({ it, idx }) {
   );
 }
 
-const FEED_COMING_SOON = true;
+const FEED_COMING_SOON = false;
 
 function FeedComingSoon() {
   return (
@@ -421,7 +421,7 @@ function FeedComingSoon() {
           Em breve disponível
         </h3>
         <p className="mt-4 max-w-md mx-auto text-sm text-white/50 leading-relaxed">
-          Estamos finalizando o feed da comunidade — atividades, check-ins e interações entre
+          Estamos finalizando o feed da comunidade — corridas do Strava e interações entre
           alunos. Por enquanto, use o <strong className="text-white/70">Início</strong> e a{" "}
           <strong className="text-white/70">Performance</strong> para acompanhar seus treinos.
         </p>
@@ -509,7 +509,7 @@ function FeedPageActive() {
             Feed Social e Comunidade
           </h2>
           <p className="text-[10px] text-white/30 font-bold uppercase mt-2">
-            Atividades, check-ins e curtidas da comunidade — últimos 7 dias
+            Corridas do Strava da comunidade — últimos 7 dias
           </p>
         </div>
 
@@ -551,7 +551,7 @@ function FeedPageActive() {
           ) : filtered.length === 0 ? (
             <div className="p-10 rounded-3xl border border-dashed border-white/10 text-center text-white/30 font-bold uppercase text-xs">
               {empty
-                ? "Nenhuma atividade ainda. Faça um check-in ou conecte o Strava."
+                ? "Nenhuma corrida nos últimos 7 dias. Conecte o Strava no perfil para publicar."
                 : "Nenhuma atividade encontrada"}
             </div>
           ) : (
