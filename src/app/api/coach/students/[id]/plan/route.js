@@ -70,6 +70,7 @@ export async function GET(_request, context) {
       student,
       source: "student",
       planKey,
+      sourcePlanKey: custom.sourcePlanKey ?? null,
       weeks: custom.weeks,
       zones: custom.zones,
       testDistance: custom.testDistance,
@@ -86,6 +87,7 @@ export async function GET(_request, context) {
     student,
     source: "template",
     planKey,
+    sourcePlanKey: custom?.sourcePlanKey ?? null,
     weeks: templateWeeks ?? {},
     zones: custom?.zones ?? null,
     testDistance: custom?.testDistance ?? null,
@@ -147,7 +149,9 @@ export async function PUT(request, context) {
     test_time: typeof body?.testTime === "string" ? body.testTime.trim() || null : null,
     v_ref: body?.vRef != null && body.vRef !== "" ? Number(body.vRef) : null,
     source_plan_key:
-      typeof body?.sourcePlanKey === "string" ? body.sourcePlanKey.trim() || null : null,
+      typeof body?.sourcePlanKey === "string"
+        ? body.sourcePlanKey.trim() || null
+        : existing?.source_plan_key ?? null,
     plan_start_date: planStart,
     updated_by: user.id,
     updated_at: new Date().toISOString(),
@@ -175,8 +179,21 @@ export async function PUT(request, context) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Nova planilha / atualização do ciclo: zera check-ins antigos para não
+  // reaproveitar slugs (ex.: s1-treino-1) e marcar treinos como "Feito".
+  const resetCheckins = body?.resetCheckins !== false;
+  let checkinsCleared = 0;
+  if (resetCheckins) {
+    const { error: delErr, count } = await supabase
+      .from("checkins")
+      .delete({ count: "exact" })
+      .eq("user_id", studentId);
+    if (!delErr) checkinsCleared = count ?? 0;
+  }
+
   return NextResponse.json({
     ok: true,
     plan: studentPlanPayload(data),
+    checkinsCleared,
   });
 }

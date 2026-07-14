@@ -43,7 +43,7 @@ export default function PlanSpreadsheetEditor({
   }
 
   function removeBlock(weekKey, blockIdx) {
-    setPlan((prev) => removeBlockFromPlan(prev, weekKey, blockIdx));
+    setPlan((prev) => removeBlockFromPlan(prev, weekKey, blockIdx, planStartDate));
   }
 
   function addWeek() {

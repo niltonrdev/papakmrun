@@ -38,6 +38,7 @@ export default function DetalheAlunoPage() {
   const [importBusy, setImportBusy] = useState(false);
   const [serverTemplates, setServerTemplates] = useState([]);
   const [checkinSlugs, setCheckinSlugs] = useState([]);
+  const [sourcePlanKey, setSourcePlanKey] = useState(null);
 
   const loadStudentPlan = useCallback(async () => {
     if (!slug) return;
@@ -80,6 +81,7 @@ export default function DetalheAlunoPage() {
       setZonas(planJson.zones ?? null);
       setCalcOpen(!planJson.zones && Boolean(planJson.testTime));
       setCheckinSlugs(Array.isArray(planJson.checkinSlugs) ? planJson.checkinSlugs : []);
+      setSourcePlanKey(planJson.sourcePlanKey || null);
     } catch (e) {
       setSaveMsg(e?.message || "Erro ao carregar aluno.");
       setPlan(clonePlan(getMergedPlanForSlug(slug)));
@@ -114,6 +116,7 @@ export default function DetalheAlunoPage() {
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || "Falha");
       setPlan(clonePlan(j.weeks || {}));
+      setSourcePlanKey(planKey);
       setSaveMsg(`Template "${j.title || planKey}" aplicado.`);
       setTimeout(() => setSaveMsg(""), 4000);
     } catch (e) {
@@ -159,11 +162,14 @@ export default function DetalheAlunoPage() {
           testTime: tempoTeste,
           vRef,
           planStartDate,
+          sourcePlanKey: sourcePlanKey || null,
+          resetCheckins: true,
         }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || "Não foi possível salvar.");
-      setSaveMsg("Alterações salvas no servidor.");
+      setCheckinSlugs([]);
+      setSaveMsg("Alterações salvas. Check-ins do ciclo foram zerados para o novo período.");
     } catch (e) {
       setSaveMsg(e?.message || "Erro ao salvar.");
     } finally {
@@ -184,6 +190,7 @@ export default function DetalheAlunoPage() {
     if (!built) return;
     const next = clonePlan(built);
     setPlan(next);
+    setSourcePlanKey(id);
     setSaveMsg(`Template ${TEMPLATE_META[id]?.label ?? id} aplicado (clique em Salvar).`);
     setTimeout(() => setSaveMsg(""), 4000);
     e.target.value = "";

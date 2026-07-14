@@ -96,6 +96,35 @@ export default function AdminPage() {
     }
   }
 
+  async function deleteTemplate(planKey, title) {
+    const label = title || planKey;
+    if (!planKey) return;
+    if (!window.confirm(`Excluir o template "${label}"? Essa ação não pode ser desfeita.`)) {
+      return;
+    }
+    setCoachMsg("Excluindo template…");
+    try {
+      const res = await fetch(`/api/coach/plan-template/${encodeURIComponent(planKey)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 409 || j?.inUse) {
+        const names = Array.isArray(j?.studentsUsing) ? j.studentsUsing.filter(Boolean) : [];
+        const who = names.length ? ` Alunos: ${names.join(", ")}.` : "";
+        setCoachMsg(
+          `Não é possível excluir "${label}": o template está em uso por um ou mais alunos.${who}`
+        );
+        return;
+      }
+      if (!res.ok) throw new Error(j?.error || "Não foi possível excluir o template.");
+      setCoachMsg(`Template "${label}" excluído.`);
+      await loadTemplates();
+    } catch (e) {
+      setCoachMsg(e?.message || "Erro ao excluir template.");
+    }
+  }
+
   async function loadCoaches() {
     try {
       const res = await fetch("/api/coach/coaches", { credentials: "include" });
@@ -785,6 +814,11 @@ export default function AdminPage() {
             Crie planilhas reutilizáveis e edite templates existentes. Eles aparecem na lista ao
             clonar a planilha de um aluno.
           </p>
+          {coachMsg ? (
+            <p className="text-[11px] text-white/70 border border-white/10 rounded-2xl px-3 py-2 bg-white/[0.03]">
+              {coachMsg}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Link
               href="/admin/template/novo"
@@ -796,15 +830,27 @@ export default function AdminPage() {
           {savedTemplates.length > 0 ? (
             <div className="pt-4 border-t border-white/10">
               <p className="text-[10px] font-black uppercase text-white/30 mb-2">Templates no servidor</p>
-              <ul className="flex flex-wrap gap-2">
+              <ul className="flex flex-col gap-2">
                 {savedTemplates.map((t) => (
-                  <li key={t.planKey}>
+                  <li
+                    key={t.planKey}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2"
+                  >
                     <Link
                       href={`/admin/template/${encodeURIComponent(t.planKey)}`}
-                      className="inline-flex text-[10px] font-bold uppercase px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-papa-blue/40 hover:bg-papa-blue/10 transition-all"
+                      className="inline-flex text-[10px] font-bold uppercase text-white/70 hover:text-white transition-colors"
                     >
                       {t.title || t.planKey}
+                      <span className="ml-2 font-mono text-white/30 normal-case">{t.planKey}</span>
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => deleteTemplate(t.planKey, t.title)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-rose-400/30 px-3 py-1.5 text-[9px] font-black uppercase text-rose-300 hover:bg-rose-500/10 transition-all"
+                      title="Excluir template"
+                    >
+                      <Trash2 size={12} /> Excluir
+                    </button>
                   </li>
                 ))}
               </ul>

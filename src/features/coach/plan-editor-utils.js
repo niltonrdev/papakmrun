@@ -164,11 +164,15 @@ export function addBlockToPlan(prev, weekKey, planStartDate) {
   return next;
 }
 
-export function removeBlockFromPlan(prev, weekKey, blockIdx) {
+export function removeBlockFromPlan(prev, weekKey, blockIdx, planStartDate = null) {
   if (!prev?.[weekKey]) return prev;
   const next = clonePlan(prev);
   const w = next[weekKey];
-  w.blocks = assignBlockSlugsForWeek(weekKey, (w.blocks || []).filter((_, idx) => idx !== blockIdx), planStartDate);
+  w.blocks = assignBlockSlugsForWeek(
+    weekKey,
+    (w.blocks || []).filter((_, idx) => idx !== blockIdx),
+    planStartDate
+  );
   return next;
 }
 

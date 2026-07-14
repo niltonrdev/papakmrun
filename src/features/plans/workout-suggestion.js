@@ -6,9 +6,21 @@ import {
   getWorkoutDisplayLabel,
   sortBlocksByWorkoutOrder,
 } from "@/features/plans/workout-blocks";
+import { getPlanMetaFromSync } from "@/features/session/backend-sync";
+
+function isCheckinFromCurrentPlan(checkin) {
+  const planUpdatedAt = getPlanMetaFromSync()?.updatedAt;
+  if (!planUpdatedAt || !checkin?.createdAt) return true;
+  const planTs = Date.parse(planUpdatedAt);
+  const checkinTs = Date.parse(checkin.createdAt);
+  if (!Number.isFinite(planTs) || !Number.isFinite(checkinTs)) return true;
+  return checkinTs + 2000 >= planTs;
+}
 
 function isChecked(slug) {
-  return readAllCheckins().some((c) => c.workoutSlug === slug);
+  return readAllCheckins().some(
+    (c) => c.workoutSlug === slug && isCheckinFromCurrentPlan(c)
+  );
 }
 
 /** Próximo treino sem check-in, começando pela semana ativa. */
@@ -44,5 +56,9 @@ export function getSuggestedWorkout() {
 export function getSuggestedWorkoutCheckin() {
   const w = getSuggestedWorkout();
   if (!w) return null;
-  return readAllCheckins().find((c) => c.workoutSlug === w.slug) ?? null;
+  return (
+    readAllCheckins().find(
+      (c) => c.workoutSlug === w.slug && isCheckinFromCurrentPlan(c)
+    ) ?? null
+  );
 }

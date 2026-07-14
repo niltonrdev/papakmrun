@@ -44,7 +44,13 @@ export async function GET() {
         (user.email ? String(user.email).split("@")[0] : "Atleta");
     }
 
-    const raw = await getRecentActivities(session.accessToken, { perPage: 35, page: 1 });
+    // Últimos ~14 dias para alimentar o feed (UI usa janela de 7).
+    const after = Math.floor(Date.now() / 1000) - 14 * 24 * 60 * 60;
+    const raw = await getRecentActivities(session.accessToken, {
+      perPage: 50,
+      page: 1,
+      after,
+    });
     const list = Array.isArray(raw) ? raw : [];
 
     const activities = [];
@@ -96,6 +102,8 @@ export async function GET() {
       linked: true,
       authorName: author,
       activities,
+      rawCount: list.length,
+      cachedCount: cacheResult?.count ?? 0,
       cache: cacheResult,
     });
   } catch (e) {

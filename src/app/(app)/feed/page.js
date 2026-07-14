@@ -49,7 +49,7 @@ function buildDescription(item, idx) {
       item.movingTimeSec != null
         ? new Date(item.movingTimeSec * 1000).toISOString().substr(11, 8).replace(/^00:/, "")
         : null;
-    const elev = item.elevationM != null ? `${item.elevationM} m D+` : null;
+    const elev = item.elevationM != null ? `${item.elevationM} m` : null;
     return [km, moving, elev].filter(Boolean).join(" · ");
   }
   if (item.note?.trim()) return item.note;
@@ -399,7 +399,7 @@ function PostCard({ it, idx }) {
   );
 }
 
-const FEED_COMING_SOON = true;
+const FEED_COMING_SOON = false;
 
 function FeedComingSoon() {
   return (
@@ -421,7 +421,7 @@ function FeedComingSoon() {
           Em breve disponível
         </h3>
         <p className="mt-4 max-w-md mx-auto text-sm text-white/50 leading-relaxed">
-          Estamos finalizando o feed da comunidade — atividades, check-ins e interações entre
+          Estamos finalizando o feed da comunidade — corridas do Strava e interações entre
           alunos. Por enquanto, use o <strong className="text-white/70">Início</strong> e a{" "}
           <strong className="text-white/70">Performance</strong> para acompanhar seus treinos.
         </p>
@@ -445,39 +445,60 @@ function FeedPageActive() {
     setLoading(true);
     setEmpty(false);
     try {
-      // 1) Atualiza o cache Strava do usuário atual (não bloqueia a renderização do feed).
-      const stravaCachePromise = fetch("/api/strava/feed", {
+      // 1) Sincroniza Strava do usuário atual para community_activities (necessário antes do feed).
+      const stravaRes = await fetch("/api/strava/feed", {
         credentials: "include",
         cache: "no-store",
       }).catch(() => null);
 
-      // 2) Lê o feed da comunidade (dados de todos os atletas).
-      const firstRes = await fetch("/api/feed/community", {
+      let stravaPayload = null;
+      if (stravaRes?.ok) {
+        stravaPayload = await stravaRes.json().catch(() => null);
+      }
+
+      // 2) Lê o feed da comunidade após o cache.
+      const communityRes = await fetch("/api/feed/community", {
         credentials: "include",
         cache: "no-store",
       }).catch(() => null);
 
-      if (firstRes?.ok) {
-        const j = await firstRes.json();
-        const list = Array.isArray(j.items) ? j.items : [];
-        setItems(list);
-        setEmpty(list.length === 0);
+      let list = [];
+      if (communityRes?.ok) {
+        const j = await communityRes.json();
+        list = Array.isArray(j.items) ? j.items : [];
       }
 
-      // 3) Após o cache Strava sincronizar, recarrega o feed para incluir as novas atividades.
-      const cacheRes = await stravaCachePromise;
-      if (cacheRes?.ok) {
-        const secondRes = await fetch("/api/feed/community", {
-          credentials: "include",
-          cache: "no-store",
-        }).catch(() => null);
-        if (secondRes?.ok) {
-          const j2 = await secondRes.json();
-          const list2 = Array.isArray(j2.items) ? j2.items : [];
-          setItems(list2);
-          setEmpty(list2.length === 0);
-        }
+      // 3) Fallback: se o cache ainda não persistiu, mostra as corridas do próprio Strava.
+      if (
+        list.length === 0 &&
+        stravaPayload?.linked &&
+        Array.isArray(stravaPayload.activities) &&
+        stravaPayload.activities.length > 0
+      ) {
+        const authorName = stravaPayload.authorName || "Você";
+        list = stravaPayload.activities.map((a) => ({
+          kind: "strava",
+          id: a.id || `strava-local-${a.stravaId}`,
+          activityKind: "strava",
+          activityId: null,
+          dateISO: a.dateISO,
+          createdAt: a.startAt || null,
+          title: a.name || "Corrida",
+          distanceKm: a.distanceKm ?? null,
+          movingTimeSec: a.movingTimeSec ?? null,
+          pacePerKm: a.pacePerKm || null,
+          elevationM: a.elevationM ?? null,
+          note: "",
+          author: { id: null, name: authorName, avatarUrl: null, slug: null },
+          mapPoints: Array.isArray(a.mapPoints) && a.mapPoints.length >= 2 ? a.mapPoints : null,
+          likeCount: 0,
+          commentCount: 0,
+          likedByMe: false,
+        }));
       }
+
+      setItems(list);
+      setEmpty(list.length === 0);
     } catch {
       setItems([]);
       setEmpty(true);
@@ -509,7 +530,7 @@ function FeedPageActive() {
             Feed Social e Comunidade
           </h2>
           <p className="text-[10px] text-white/30 font-bold uppercase mt-2">
-            Atividades, check-ins e curtidas da comunidade — últimos 7 dias
+            Corridas do Strava da comunidade — últimos 7 dias
           </p>
         </div>
 
@@ -551,7 +572,7 @@ function FeedPageActive() {
           ) : filtered.length === 0 ? (
             <div className="p-10 rounded-3xl border border-dashed border-white/10 text-center text-white/30 font-bold uppercase text-xs">
               {empty
-                ? "Nenhuma atividade ainda. Faça um check-in ou conecte o Strava."
+                ? "Nenhuma corrida nos últimos 7 dias. Confira se o Strava está conectado no Perfil e toque em atualizar."
                 : "Nenhuma atividade encontrada"}
             </div>
           ) : (

@@ -1,14 +1,24 @@
 import { decodePolyline, downsamplePoints } from "@/lib/strava/polyline";
 
+function normalizeSportKey(a) {
+  // Strava prioriza sport_type (ex.: TrailRun); type ainda existe em alguns payloads.
+  const raw = a?.sport_type || a?.type || "";
+  return String(raw)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s_-]+/g, "")
+    .toLowerCase();
+}
+
 export function isRunActivity(a) {
-  const t = a?.type;
-  return t === "Run" || t === "Trail Run" || t === "VirtualRun";
+  const t = normalizeSportKey(a);
+  return t === "run" || t === "trailrun" || t === "virtualrun";
 }
 
 /** Volume semanal no mapa (inclui trilha / hike). */
 export function isDistanceSport(a) {
-  const t = a?.type;
-  return isRunActivity(a) || t === "Hike" || t === "Walk";
+  const t = normalizeSportKey(a);
+  return isRunActivity(a) || t === "hike" || t === "walk";
 }
 
 export function activityMapPoints(activity) {

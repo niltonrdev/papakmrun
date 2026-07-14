@@ -21,11 +21,18 @@ export async function getAthleteStats(accessToken, athleteId) {
   return stravaFetch(`/athletes/${athleteId}/stats`, accessToken);
 }
 
-export async function getRecentActivities(accessToken, { perPage = 15, page = 1 } = {}) {
-  return stravaFetch(
-    `/athlete/activities?per_page=${perPage}&page=${page}`,
-    accessToken
-  );
+export async function getRecentActivities(
+  accessToken,
+  { perPage = 15, page = 1, after = null } = {}
+) {
+  const params = new URLSearchParams({
+    per_page: String(perPage),
+    page: String(page),
+  });
+  if (after != null && Number.isFinite(Number(after))) {
+    params.set("after", String(Math.floor(Number(after))));
+  }
+  return stravaFetch(`/athlete/activities?${params.toString()}`, accessToken);
 }
 
 /** Full activity (incl. map) — use só quando o resumo da lista não trouxe polyline. */
