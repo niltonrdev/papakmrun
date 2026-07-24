@@ -113,6 +113,10 @@ function cleanSegmentText(value) {
     .replace(/^[.\-–—]+\s*/, "");
 }
 
+function segmentField(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 export function parseDescriptionToSegments(description) {
   const d = String(description || "").trim();
   if (!d) return { warmup: "", mainPart: "", cooldown: "" };
@@ -158,13 +162,15 @@ export function normalizeFullPlan(plan, planStartDate = null) {
 }
 
 export function getBlockSegments(block) {
-  const hasStructured =
-    block?.warmup?.trim() || block?.mainPart?.trim() || block?.cooldown?.trim();
+  const warmup = segmentField(block?.warmup);
+  const mainPart = segmentField(block?.mainPart);
+  const cooldown = segmentField(block?.cooldown);
+  const hasStructured = Boolean(warmup || mainPart || cooldown);
   if (hasStructured) {
     return {
-      warmup: block.warmup?.trim() || "",
-      mainPart: block.mainPart?.trim() || block.description?.trim() || "",
-      cooldown: block.cooldown?.trim() || "",
+      warmup,
+      mainPart: mainPart || segmentField(block?.description),
+      cooldown,
     };
   }
   return parseDescriptionToSegments(block?.description || "");

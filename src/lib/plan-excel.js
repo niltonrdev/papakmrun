@@ -1,4 +1,9 @@
 import { addDaysISO } from "@/lib/plan-calendar";
+import {
+  getBlockSegments,
+  parseDescriptionToSegments,
+  segmentsToDescription,
+} from "@/features/plans/workout-blocks";
 
 const WEEKDAY_OFFSET = {
   segunda: 0,
@@ -46,7 +51,9 @@ export function planWeeksToCsv(weeks, planStartMonday) {
     "Km",
     "Zona",
     "Título",
-    "Observações",
+    "Aquecimento",
+    "Parte principal",
+    "Desaquecimento",
     "Data",
   ];
   const lines = [header.map(escapeCsvCell).join(";")];
@@ -57,6 +64,7 @@ export function planWeeksToCsv(weeks, planStartMonday) {
       const date =
         b.workoutDateISO ||
         computeBlockDate(planStartMonday, wk, b.dayLabel);
+      const segments = getBlockSegments(b);
       lines.push(
         [
           wk,
@@ -65,7 +73,9 @@ export function planWeeksToCsv(weeks, planStartMonday) {
           b.km ?? "",
           b.zoneKey || "",
           b.title || "",
-          b.description || "",
+          segments.warmup || "",
+          segments.mainPart || "",
+          segments.cooldown || "",
           date || "",
         ]
           .map(escapeCsvCell)
@@ -190,6 +200,22 @@ function normalizeZoneKey(val) {
   return m ? m[0] : s || "z2";
 }
 
+function parseKmAndZone(kmRaw, zoneRaw) {
+  const zoneFromCol = String(zoneRaw ?? "").trim();
+  const kmText = String(kmRaw ?? "").trim();
+  const embedded = kmText.match(/^([\d.,]+)\s*(z[1-5])$/i);
+  if (embedded) {
+    return {
+      km: Number(embedded[1].replace(",", ".")) || 0,
+      zoneKey: normalizeZoneKey(zoneFromCol || embedded[2]),
+    };
+  }
+  return {
+    km: Number(kmText.replace(",", ".")) || 0,
+    zoneKey: zoneFromCol ? normalizeZoneKey(zoneFromCol) : "z2",
+  };
+}
+
 function parseDateCell(val) {
   const s = String(val || "").trim();
   if (!s) return null;
@@ -200,6 +226,29 @@ function parseDateCell(val) {
   }
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   return null;
+}
+
+function cellAt(cells, index) {
+  if (index < 0) return "";
+  return String(cells[index] ?? "").trim();
+}
+
+function resolveBlockSegments(cells, indexes) {
+  const warmup = cellAt(cells, indexes.warmup);
+  const mainPart = cellAt(cells, indexes.mainPart);
+  const cooldown = cellAt(cells, indexes.cooldown);
+  const hasStructured = Boolean(warmup || mainPart || cooldown);
+
+  if (hasStructured) {
+    return { warmup, mainPart, cooldown };
+  }
+
+  const legacyObs = cellAt(cells, indexes.obs);
+  if (legacyObs) {
+    return parseDescriptionToSegments(legacyObs);
+  }
+
+  return { warmup: "", mainPart: "", cooldown: "" };
 }
 
 export function csvToPlanWeeks(text) {
@@ -216,6 +265,14 @@ export function csvToPlanWeeks(text) {
   const iKm = col("km");
   const iZona = col("zona");
   const iTitulo = header.findIndex((h) => h.includes("titulo"));
+  const iWarmup = header.findIndex((h) => h.includes("aquecimento"));
+  const iMainPart = header.findIndex(
+    (h) =>
+      h.includes("parte principal") ||
+      h.includes("bloco principal") ||
+      (h.includes("principal") && !h.includes("aquecimento") && !h.includes("desaquecimento"))
+  );
+  const iCooldown = header.findIndex((h) => h.includes("desaquecimento"));
   const iObs = header.findIndex(
     (h) => h.includes("observ") || h.includes("descricao")
   );
@@ -243,17 +300,30 @@ export function csvToPlanWeeks(text) {
 
     const dayRaw = iDia >= 0 ? String(cells[iDia] ?? "").trim() : "";
     const dayLabel = dayRaw || "Terça";
+    const { km, zoneKey } = parseKmAndZone(
+      cells[iKm >= 0 ? iKm : 3],
+      iZona >= 0 ? cells[iZona] : ""
+    );
+    const segments = resolveBlockSegments(cells, {
+      warmup: iWarmup,
+      mainPart: iMainPart,
+      cooldown: iCooldown,
+      obs: iObs,
+    });
 
     plan[wk].blocks.push({
       dayLabel,
       slug: `s${wk}-import-${ri}`,
-      km: Number(String(cells[iKm >= 0 ? iKm : 3] ?? "").replace(",", ".")) || 0,
-      zoneKey: iZona >= 0 ? normalizeZoneKey(cells[iZona]) : "z2",
+      km,
+      zoneKey,
       title:
         iTitulo >= 0
           ? String(cells[iTitulo] ?? "Treino").trim() || "Treino"
           : "Treino",
-      description: iObs >= 0 ? String(cells[iObs] ?? "").trim() : "",
+      warmup: segments.warmup,
+      mainPart: segments.mainPart,
+      cooldown: segments.cooldown,
+      description: segmentsToDescription(segments),
       workoutDateISO: iData >= 0 ? parseDateCell(cells[iData]) : null,
     });
   }

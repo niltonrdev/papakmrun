@@ -13,7 +13,7 @@ import RankingCard from "@/features/ranking/RankingCard";
 import RaceCalendar from "@/features/events/RaceCalendar";
 import Link from "next/link";
 import ActivityMural from "@/features/activities/ActivityMural";
-import { useBackendSyncTick, getPlanMetaFromSync } from "@/features/session/backend-sync";
+import { useBackendSyncTick, usePlanMeta } from "@/features/session/backend-sync";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import ParqBanner from "@/features/health/ParqBanner";
 import { useParqStatus } from "@/features/health/useParqStatus";
@@ -75,7 +75,7 @@ function useWeekProgress(syncTick, currentSlug) {
 }
 
 function WeekProgressPreview({ syncTick, currentSlug }) {
-  const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
+  const planMeta = usePlanMeta();
   const progress = useWeekProgress(syncTick, currentSlug);
   const rangeLabel = planMeta?.weekRanges?.[progress.weekKey] ?? null;
 
@@ -334,7 +334,7 @@ function TrainingZonesList() {
 export default function DashboardPage() {
   const syncTick = useBackendSyncTick();
   const { isSocial, planPending, hasPlanAccess } = useProfileRole();
-  const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
+  const planMeta = usePlanMeta();
   const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const { needsParq, pendingReview, refresh: refreshParq } = useParqStatus();
   const [parqOpen, setParqOpen] = useState(false);

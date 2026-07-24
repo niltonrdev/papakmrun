@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getWeekPlan, getWeekBlocksOrdered, getZoneByKey } from "@/features/plans/plans.service";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import {
@@ -21,6 +21,7 @@ import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/worko
 import {
   getPlanMetaFromSync,
   useBackendSyncTick,
+  usePlanMeta,
 } from "@/features/session/backend-sync";
 import { readActiveWeekNumber, writeActiveWeekNumber } from "@/features/session/prefs.storage";
 import { formatWeekRangeLabel } from "@/lib/plan-calendar";
@@ -35,11 +36,20 @@ const EMPTY_PERSONAL_RECORDS = [
   { label: "400 m", time: "—", pace: "—", date: "—" },
 ];
 
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
+
 function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
   void refreshKey;
+  const statusReady = useIsClient();
   const zone = getZoneByKey(block.zoneKey);
-  const done = isWorkoutCheckedForBlock(block);
-  const missed = !done && isWorkoutMissed(block);
+  const done = statusReady && isWorkoutCheckedForBlock(block);
+  const missed = statusReady && !done && isWorkoutMissed(block);
   const segments = getBlockSegments(block);
   const label = getWorkoutDisplayLabel(block, blockIndex);
 
@@ -201,6 +211,7 @@ function PersonalRecord({ label, time, pace, date, empty = false }) {
 
 export default function PerformancePage() {
   const syncTick = useBackendSyncTick();
+  const planMeta = usePlanMeta();
   const { hasPlanAccess, isStaff, loading: roleLoading, healthLabel } = useProfileRole();
   const [activeWeek, setActiveWeek] = useState("1");
   const [strava, setStrava] = useState(null);
@@ -208,7 +219,6 @@ export default function PerformancePage() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [checkinWorkout, setCheckinWorkout] = useState(null);
   const [checkinRefresh, setCheckinRefresh] = useState(0);
-  const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
   const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const week = useMemo(() => (hasPrescribedPlan ? getWeekPlan(activeWeek) : null), [activeWeek, syncTick, hasPrescribedPlan]);
   const blocks = useMemo(
@@ -369,11 +379,11 @@ export default function PerformancePage() {
               </h3>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span className="text-xs text-white/70 font-black uppercase tracking-widest">
-                  {week.title}
+                  {week?.title ?? `Semana ${activeWeek}`}
                 </span>
                 <span className="w-1 h-1 rounded-full bg-white/20 hidden sm:block" />
                 <span className="text-xs text-papa-blue font-bold uppercase tracking-widest">
-                  Fase: {week.phase}
+                  Fase: {week?.phase ?? "—"}
                 </span>
                 {weekRangeLabel ? (
                   <>

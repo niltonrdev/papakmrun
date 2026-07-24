@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { readAthletePlan, writeAthletePlan } from "@/features/plans/plan.storage";
 import {
   getCurrentAthleteSlug,
@@ -18,6 +18,11 @@ let planMetaCache = null;
 
 export function getPlanMetaFromSync() {
   return planMetaCache;
+}
+
+/** Snapshot estável no SSR/hidratação (evita React #418 com cache em memória). */
+export function usePlanMeta() {
+  return useSyncExternalStore(subscribeBackendSync, getPlanMetaFromSync, () => null);
 }
 let stravaSyncedThisSession = false;
 

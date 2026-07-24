@@ -21,6 +21,7 @@ import {
   pullFullPlanFromApi,
   pullWeekPlanFromApi,
   useBackendSyncTick,
+  usePlanMeta,
 } from "@/features/session/backend-sync";
 import { formatWeekRangeLabel } from "@/lib/plan-calendar";
 import { useProfileRole } from "@/features/session/useProfileRole";
@@ -30,7 +31,7 @@ import EmptyPlanPlaceholder from "@/features/plans/EmptyPlanPlaceholder";
 export default function PlanilhaDetalhesPage() {
   const { hasPlanAccess, isStaff, loading: roleLoading } = useProfileRole();
   const syncTick = useBackendSyncTick();
-  const planMeta = useMemo(() => getPlanMetaFromSync(), [syncTick]);
+  const planMeta = usePlanMeta();
   const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const [activeWeek, setActiveWeek] = useState("1");
   const [mounted, setMounted] = useState(false);
@@ -263,7 +264,7 @@ export default function PlanilhaDetalhesPage() {
       <div className="bg-papa-card rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
         <div className="bg-papa-blue/10 p-5 border-b border-white/5 text-center">
           <h2 className="text-xl font-black text-white italic uppercase tracking-widest">
-            {week.title} — {week.phase}
+            {week?.title ?? `Semana ${activeWeek}`} — {week?.phase ?? "—"}
           </h2>
         </div>
 
