@@ -38,7 +38,7 @@ function buildWeek(startDate) {
   return out;
 }
 
-export default function ActivityMural() {
+export default function ActivityMural({ refreshKey = 0 }) {
   const [serverCheckinDates, setServerCheckinDates] = useState(null);
   const [stravaDates, setStravaDates] = useState(null);
   const [localCheckinDates, setLocalCheckinDates] = useState([]);
@@ -46,7 +46,7 @@ export default function ActivityMural() {
   useEffect(() => {
     const checkins = readAllCheckins();
     setLocalCheckinDates(checkins.map((c) => c.date).filter(Boolean));
-  }, []);
+  }, [refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +73,7 @@ export default function ActivityMural() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,17 +100,19 @@ export default function ActivityMural() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const week = useMemo(() => buildWeek(startOfWeekMonday()), []);
 
   const doneDates = useMemo(() => {
     const set = new Set();
-    const fromServer = serverCheckinDates ?? [];
-    const fromLocal = serverCheckinDates && serverCheckinDates.length > 0 ? [] : localCheckinDates;
-    [...fromServer, ...fromLocal, ...(stravaDates ?? [])].forEach((iso) => {
+    for (const iso of [
+      ...(serverCheckinDates ?? []),
+      ...localCheckinDates,
+      ...(stravaDates ?? []),
+    ]) {
       if (iso) set.add(iso);
-    });
+    }
     return set;
   }, [serverCheckinDates, localCheckinDates, stravaDates]);
 
