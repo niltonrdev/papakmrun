@@ -17,18 +17,23 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
   if (!workout) return null;
 
   const scheduledDate = workout.workoutDateISO?.slice?.(0, 10) || null;
+  const today = formatISODate(new Date());
   const isLateCheckin =
-    scheduledDate && scheduledDate < formatISODate(new Date()) && !isWorkoutCheckedForBlock(workout);
+    scheduledDate && scheduledDate < today && !isWorkoutCheckedForBlock(workout);
 
   async function submit(e) {
     e.preventDefault();
+    // Data do check-in = dia em que o aluno fez (nunca no futuro).
+    // Em atraso, mantém a data agendada do treino.
+    const checkinDate =
+      scheduledDate && scheduledDate <= today ? scheduledDate : today;
     await saveWorkoutCheckin({
       workoutSlug: workout.slug,
       effort: Number(effort),
       note: note?.trim() ?? "",
       workoutTitle: workout.title,
       planKm: workout.km,
-      checkinDate: scheduledDate || formatISODate(new Date()),
+      checkinDate,
     });
     if (hadPain && painNote.trim()) {
       const slug = getCurrentAthleteSlug();

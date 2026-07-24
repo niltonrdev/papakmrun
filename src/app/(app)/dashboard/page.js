@@ -7,7 +7,6 @@ import {
   isWorkoutCheckedForBlock,
   getTodayCheckin,
 } from "@/features/checkins/checkins.service";
-import { readAllCheckins } from "@/features/checkins/checkins.storage";
 import { getZones } from "@/features/plans/plans.service";
 import RankingCard from "@/features/ranking/RankingCard";
 import RaceCalendar from "@/features/events/RaceCalendar";
@@ -28,23 +27,16 @@ function useWeekProgress(syncTick, currentSlug) {
     const weekKey = readActiveWeekNumber();
     const week = getWeekPlan(weekKey);
     const blocks = getWeekBlocksOrdered(weekKey);
-    const checkinBySlug = new Map(
-      readAllCheckins().map((c) => [c.workoutSlug, c])
-    );
 
     let completedKm = 0;
     let doneCount = 0;
 
     const items = blocks.map((block, idx) => {
       const done = isWorkoutCheckedForBlock(block);
-      const checkin = checkinBySlug.get(block.slug);
       const plannedKm = Number(block.km) || 0;
       if (done) {
-        const km =
-          checkin?.planKm != null && Number.isFinite(Number(checkin.planKm))
-            ? Number(checkin.planKm)
-            : plannedKm;
-        completedKm += km;
+        // Sempre o km da planilha atual (não o planKm histórico do check-in).
+        completedKm += plannedKm;
         doneCount += 1;
       }
       return {
@@ -340,6 +332,7 @@ export default function DashboardPage() {
   const [parqOpen, setParqOpen] = useState(false);
   const [suggestedWorkout, setSuggestedWorkout] = useState(null);
   const [stravaLinked, setStravaLinked] = useState(null);
+  const [muralRefresh, setMuralRefresh] = useState(0);
 
   useEffect(() => {
     setSuggestedWorkout(getTodayWorkout());
@@ -425,7 +418,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
         <div className="order-1 lg:order-none lg:col-span-8 lg:col-start-1 lg:row-start-1">
-          <ActivityMural />
+          <ActivityMural refreshKey={muralRefresh + syncTick} />
         </div>
 
         {showTodayCard && (
@@ -434,7 +427,10 @@ export default function DashboardPage() {
               isSocial={isSocial}
               workout={suggestedWorkout}
               syncTick={syncTick}
-              onDone={() => setSuggestedWorkout(getTodayWorkout())}
+              onDone={() => {
+                setSuggestedWorkout(getTodayWorkout());
+                setMuralRefresh((n) => n + 1);
+              }}
             />
           </div>
         )}
