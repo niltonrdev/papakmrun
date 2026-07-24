@@ -103,6 +103,7 @@ export default function ActivityMural({ refreshKey = 0 }) {
   }, [refreshKey]);
 
   const week = useMemo(() => buildWeek(startOfWeekMonday()), []);
+  const todayIso = isoDate(new Date());
 
   const doneDates = useMemo(() => {
     const set = new Set();
@@ -111,12 +112,12 @@ export default function ActivityMural({ refreshKey = 0 }) {
       ...localCheckinDates,
       ...(stravaDates ?? []),
     ]) {
-      if (iso) set.add(iso);
+      // Nunca marcar dias futuros (ex.: treino agendado para amanhã).
+      if (iso && iso <= todayIso) set.add(iso);
     }
     return set;
-  }, [serverCheckinDates, localCheckinDates, stravaDates]);
+  }, [serverCheckinDates, localCheckinDates, stravaDates, todayIso]);
 
-  const todayIso = isoDate(new Date());
   const doneCount = week.reduce((acc, d) => (doneDates.has(d.iso) ? acc + 1 : acc), 0);
 
   return (
