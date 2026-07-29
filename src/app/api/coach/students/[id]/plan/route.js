@@ -7,7 +7,7 @@ import {
   resolveWeeksForUser,
   studentPlanPayload,
 } from "@/lib/student-plan";
-import { computeCalendarWeek, defaultPlanStartMonday } from "@/lib/plan-calendar";
+import { computeCalendarWeek, defaultPlanStartMonday, normalizePlanStartMonday } from "@/lib/plan-calendar";
 import { syncPlanBlockSlugs } from "@/features/plans/workout-blocks";
 
 async function assertStaff(supabase, userId) {
@@ -130,10 +130,11 @@ export async function PUT(request, context) {
   }
 
   const { row: existing } = await loadStudentPlanRow(supabase, studentId);
-  const planStart =
+  const planStart = normalizePlanStartMonday(
     typeof body?.planStartDate === "string" && body.planStartDate.trim()
       ? body.planStartDate.trim().slice(0, 10)
-      : existing?.plan_start_date || defaultPlanStartMonday();
+      : existing?.plan_start_date || defaultPlanStartMonday()
+  );
 
   const weeks = syncPlanBlockSlugs(body?.weeks, planStart);
   if (!weeks || typeof weeks !== "object" || Array.isArray(weeks)) {

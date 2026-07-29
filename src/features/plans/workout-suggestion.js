@@ -8,6 +8,14 @@ import {
 } from "@/features/plans/workout-blocks";
 import { getPlanMetaFromSync } from "@/features/session/backend-sync";
 
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function isCheckinFromCurrentPlan(checkin) {
   const planUpdatedAt = getPlanMetaFromSync()?.updatedAt;
   if (!planUpdatedAt || !checkin?.createdAt) return true;
@@ -23,8 +31,29 @@ function isChecked(slug) {
   );
 }
 
-/** Próximo treino sem check-in, começando pela semana ativa. */
+function enrichBlock(block, weekKey, index) {
+  return {
+    ...block,
+    weekKey,
+    workoutIndex: index,
+    workoutLabel: getWorkoutDisplayLabel(block, index),
+    segments: getBlockSegments(block),
+  };
+}
+
+function blockDateISO(block) {
+  const d = block?.workoutDateISO;
+  return typeof d === "string" && d.length >= 10 ? d.slice(0, 10) : null;
+}
+
+/**
+ * Sugestão do dia:
+ * 1) treino de hoje (por data) sem check-in
+ * 2) treino atrasado mais antigo sem check-in
+ * 3) próximo treino pendente a partir da semana ativa
+ */
 export function getSuggestedWorkout() {
+  const today = todayISO();
   const activeWeek = String(readActiveWeekNumber());
   const weekNumbers = getAllWeekNumbers().sort((a, b) => Number(a) - Number(b));
   if (!weekNumbers.length) return null;
@@ -35,22 +64,33 @@ export function getSuggestedWorkout() {
       ? [...weekNumbers.slice(startIdx), ...weekNumbers.slice(0, startIdx)]
       : weekNumbers;
 
+  let todayHit = null;
+  let overdueHit = null;
+  let nextHit = null;
+
   for (const weekKey of ordered) {
     const week = getWeekPlan(weekKey);
     const blocks = sortBlocksByWorkoutOrder(week?.blocks ?? []);
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
       if (!block?.slug || isChecked(block.slug)) continue;
-      return {
-        ...block,
-        weekKey,
-        workoutIndex: i,
-        workoutLabel: getWorkoutDisplayLabel(block, i),
-        segments: getBlockSegments(block),
-      };
+
+      const enriched = enrichBlock(block, weekKey, i);
+      const date = blockDateISO(block);
+
+      if (date === today) {
+        todayHit = enriched;
+        break;
+      }
+      if (date && date < today && !overdueHit) {
+        overdueHit = enriched;
+      }
+      if (!nextHit) nextHit = enriched;
     }
+    if (todayHit) break;
   }
-  return null;
+
+  return todayHit || overdueHit || nextHit;
 }
 
 export function getSuggestedWorkoutCheckin() {

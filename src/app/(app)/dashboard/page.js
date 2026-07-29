@@ -12,7 +12,7 @@ import RankingCard from "@/features/ranking/RankingCard";
 import RaceCalendar from "@/features/events/RaceCalendar";
 import Link from "next/link";
 import ActivityMural from "@/features/activities/ActivityMural";
-import { useBackendSyncTick, usePlanMeta } from "@/features/session/backend-sync";
+import { useBackendSyncTick, usePlanMeta, syncBackendSession } from "@/features/session/backend-sync";
 import { useProfileRole } from "@/features/session/useProfileRole";
 import ParqBanner from "@/features/health/ParqBanner";
 import { useParqStatus } from "@/features/health/useParqStatus";
@@ -239,7 +239,7 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
               disabled={checked}
               className="bg-papa-orange hover:bg-orange-600 disabled:bg-emerald-500 text-white font-bold py-4 px-10 rounded-2xl transition-all shadow-lg shadow-orange-900/40"
             >
-              {checked ? "Check-in feito!" : "Check-in"}
+              {checked ? "Treino feito!" : "Marcar como treino feito"}
             </button>
             <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
                <span className="text-white/30 text-[10px] uppercase block font-bold">Esforço</span>
@@ -333,6 +333,10 @@ export default function DashboardPage() {
   const [suggestedWorkout, setSuggestedWorkout] = useState(null);
   const [stravaLinked, setStravaLinked] = useState(null);
   const [muralRefresh, setMuralRefresh] = useState(0);
+
+  useEffect(() => {
+    syncBackendSession();
+  }, []);
 
   useEffect(() => {
     setSuggestedWorkout(getTodayWorkout());

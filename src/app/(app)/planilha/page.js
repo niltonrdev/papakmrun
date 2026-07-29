@@ -76,7 +76,7 @@ function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
             onClick={() => onCheckin?.(block)}
             className="text-[11px] font-black uppercase px-4 py-2.5 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-all shrink-0"
           >
-            Check-in em atraso
+            Marcar treino em atraso
           </button>
         ) : (
           <button
@@ -84,7 +84,7 @@ function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
             onClick={() => onCheckin?.(block)}
             className="text-[11px] font-black uppercase px-4 py-2.5 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all shrink-0"
           >
-            Check-in
+            Marcar como treino feito
           </button>
         )}
       </div>

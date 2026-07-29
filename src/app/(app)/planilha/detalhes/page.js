@@ -295,7 +295,7 @@ export default function PlanilhaDetalhesPage() {
                                 onClick={() => setCheckinWorkout(b)}
                                 className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-all"
                               >
-                                Check-in em atraso
+                                Marcar treino em atraso
                               </button>
                             ) : (
                               <button
@@ -303,7 +303,7 @@ export default function PlanilhaDetalhesPage() {
                                 onClick={() => setCheckinWorkout(b)}
                                 className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all"
                               >
-                                Check-in
+                                Marcar como treino feito
                               </button>
                             )}
                           </div>
