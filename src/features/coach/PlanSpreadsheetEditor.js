@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Activity, Loader2, Plus, Trash2 } from "lucide-react";
-import { formatWeekRangeLabel } from "@/lib/plan-calendar";
+import { formatWeekRangeLabel, normalizePlanStartMonday } from "@/lib/plan-calendar";
 import { hasCheckinForSlug, isWorkoutMissed } from "@/features/checkins/missed-workout";
 import {
   ZONE_KEYS,
@@ -75,7 +75,9 @@ export default function PlanSpreadsheetEditor({
               <input
                 type="date"
                 value={planStartDate || ""}
-                onChange={(e) => setPlanStartDate(e.target.value)}
+                onChange={(e) =>
+                  setPlanStartDate(normalizePlanStartMonday(e.target.value))
+                }
                 className="mt-1 block rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white"
               />
             </label>
@@ -204,7 +206,7 @@ export default function PlanSpreadsheetEditor({
                                       onClick={() => onCheckin(blockWithDate)}
                                       className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-all"
                                     >
-                                      Check-in em atraso
+                                      Marcar treino em atraso
                                     </button>
                                   ) : (
                                     <span className="text-[9px] font-black uppercase text-red-400">
@@ -217,7 +219,7 @@ export default function PlanSpreadsheetEditor({
                                     onClick={() => onCheckin(blockWithDate)}
                                     className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all"
                                   >
-                                    Check-in
+                                    Marcar como treino feito
                                   </button>
                                 ) : (
                                   <span className="text-[9px] font-black uppercase text-white/30">

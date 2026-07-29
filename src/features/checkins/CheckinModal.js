@@ -70,7 +70,7 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
   const workoutLabel = workout.workoutLabel || workout.dayLabel || "Treino";
 
   return (
-    <Modal open={open} title="Check-in do treino" onClose={onClose}>
+    <Modal open={open} title="Marcar treino como feito" onClose={onClose}>
       <div className="space-y-4">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="text-sm text-white/60">Treino</div>
@@ -96,7 +96,7 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
           </div>
           {isLateCheckin ? (
             <p className="mt-3 text-xs text-amber-200/90 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-              Check-in em atraso: o treino será registrado na data programada (
+              Treino em atraso: será registrado na data programada (
               {scheduledDate.split("-").reverse().join("/")}).
             </p>
           ) : null}

@@ -10,6 +10,7 @@ import {
   computeCalendarWeek,
   defaultPlanStartMonday,
   formatWeekRangeLabel,
+  normalizePlanStartMonday,
 } from "@/lib/plan-calendar";
 
 export async function GET() {
@@ -43,10 +44,11 @@ export async function GET() {
 
   const custom = studentPlanPayload(studentPlan);
   const maxWeeks = Object.keys(weeks || {}).length || 1;
-  const planStart =
+  const planStart = normalizePlanStartMonday(
     custom?.planStartDate ||
-    (source === "student" && studentPlan?.plan_start_date) ||
-    defaultPlanStartMonday();
+      (source === "student" && studentPlan?.plan_start_date) ||
+      defaultPlanStartMonday()
+  );
 
   const calendarWeek = computeCalendarWeek(planStart, maxWeeks);
   const storedWeek = profile?.active_week || "1";
