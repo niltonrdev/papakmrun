@@ -1,5 +1,4 @@
 import { readAllCheckins } from "@/features/checkins/checkins.storage";
-import { getPlanMetaFromSync } from "@/features/session/backend-sync";
 
 export function todayISO() {
   const d = new Date();
@@ -14,22 +13,11 @@ export function isWorkoutDatePast(workoutDateISO) {
   return String(workoutDateISO).slice(0, 10) < todayISO();
 }
 
-function isCheckinFromCurrentPlan(checkin) {
-  const planUpdatedAt = getPlanMetaFromSync()?.updatedAt;
-  if (!planUpdatedAt || !checkin?.createdAt) return true;
-  const planTs = Date.parse(planUpdatedAt);
-  const checkinTs = Date.parse(checkin.createdAt);
-  if (!Number.isFinite(planTs) || !Number.isFinite(checkinTs)) return true;
-  return checkinTs + 2000 >= planTs;
-}
-
 export function hasCheckinForSlug(workoutSlug, checkinSlugs) {
   if (!workoutSlug) return false;
   if (checkinSlugs instanceof Set) return checkinSlugs.has(workoutSlug);
   if (Array.isArray(checkinSlugs)) return checkinSlugs.includes(workoutSlug);
-  return readAllCheckins().some(
-    (c) => c.workoutSlug === workoutSlug && isCheckinFromCurrentPlan(c)
-  );
+  return readAllCheckins().some((c) => c.workoutSlug === workoutSlug);
 }
 
 /** Treino agendado já passou e o aluno não fez check-in. */

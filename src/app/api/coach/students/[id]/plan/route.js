@@ -180,21 +180,50 @@ export async function PUT(request, context) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Nova planilha / atualização do ciclo: zera check-ins antigos para não
-  // reaproveitar slugs (ex.: s1-treino-1) e marcar treinos como "Feito".
-  const resetCheckins = body?.resetCheckins !== false;
+  // Em edição normal, preserva check-ins dos treinos que continuam no plano.
+  // resetCheckins=true (ex.: troca total de planilha) zera tudo.
+  const resetCheckins = body?.resetCheckins === true;
   let checkinsCleared = 0;
+  const planSlugs = new Set();
+  for (const week of Object.values(weeks || {})) {
+    for (const b of week?.blocks || []) {
+      if (b?.slug) planSlugs.add(String(b.slug));
+    }
+  }
+
   if (resetCheckins) {
     const { error: delErr, count } = await supabase
       .from("checkins")
       .delete({ count: "exact" })
       .eq("user_id", studentId);
     if (!delErr) checkinsCleared = count ?? 0;
+  } else if (planSlugs.size > 0) {
+    const { data: existingCheckins } = await supabase
+      .from("checkins")
+      .select("id, workout_slug")
+      .eq("user_id", studentId);
+    const orphanIds = (existingCheckins || [])
+      .filter((c) => c.workout_slug && !planSlugs.has(String(c.workout_slug)))
+      .map((c) => c.id);
+    if (orphanIds.length) {
+      const { error: delErr, count } = await supabase
+        .from("checkins")
+        .delete({ count: "exact" })
+        .in("id", orphanIds);
+      if (!delErr) checkinsCleared = count ?? 0;
+    }
   }
+
+  const { data: checkinRows } = await supabase
+    .from("checkins")
+    .select("workout_slug")
+    .eq("user_id", studentId);
+  const checkinSlugs = (checkinRows || []).map((c) => c.workout_slug).filter(Boolean);
 
   return NextResponse.json({
     ok: true,
     plan: studentPlanPayload(data),
     checkinsCleared,
+    checkinSlugs,
   });
 }

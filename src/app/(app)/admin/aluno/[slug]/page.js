@@ -164,13 +164,17 @@ export default function DetalheAlunoPage() {
           vRef,
           planStartDate,
           sourcePlanKey: sourcePlanKey || null,
-          resetCheckins: true,
+          resetCheckins: false,
         }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || "Não foi possível salvar.");
-      setCheckinSlugs([]);
-      setSaveMsg("Alterações salvas. Check-ins do ciclo foram zerados para o novo período.");
+      setCheckinSlugs(Array.isArray(j.checkinSlugs) ? j.checkinSlugs : checkinSlugs);
+      setSaveMsg(
+        j.checkinsCleared > 0
+          ? `Alterações salvas. ${j.checkinsCleared} check-in(s) de treinos removidos foram limpos.`
+          : "Alterações salvas. Check-ins dos treinos feitos foram mantidos."
+      );
     } catch (e) {
       setSaveMsg(e?.message || "Erro ao salvar.");
     } finally {
