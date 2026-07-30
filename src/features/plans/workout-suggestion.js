@@ -35,9 +35,9 @@ function blockDateISO(block) {
 }
 
 /**
- * Sugestão do dia:
- * 1) treino de hoje (por data) sem check-in
- * 2) treino atrasado mais antigo sem check-in
+ * Sugestão do dia (ordem importa):
+ * 1) treino atrasado mais antigo sem check-in (não pula pendências)
+ * 2) treino de hoje (por data) sem check-in
  * 3) próximo treino pendente a partir da semana ativa
  */
 export function getSuggestedWorkout() {
@@ -56,6 +56,22 @@ export function getSuggestedWorkout() {
   let overdueHit = null;
   let nextHit = null;
 
+  // Varre todas as semanas em ordem cronológica para achar o atrasado mais antigo.
+  for (const weekKey of weekNumbers) {
+    const week = getWeekPlan(weekKey);
+    const blocks = sortBlocksByWorkoutOrder(week?.blocks ?? []);
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (!block?.slug || isChecked(block.slug)) continue;
+      const date = blockDateISO(block);
+      if (date && date < today) {
+        overdueHit = enrichBlock(block, weekKey, i);
+        break;
+      }
+    }
+    if (overdueHit) break;
+  }
+
   for (const weekKey of ordered) {
     const week = getWeekPlan(weekKey);
     const blocks = sortBlocksByWorkoutOrder(week?.blocks ?? []);
@@ -66,19 +82,15 @@ export function getSuggestedWorkout() {
       const enriched = enrichBlock(block, weekKey, i);
       const date = blockDateISO(block);
 
-      if (date === today) {
+      if (date === today && !todayHit) {
         todayHit = enriched;
-        break;
-      }
-      if (date && date < today && !overdueHit) {
-        overdueHit = enriched;
       }
       if (!nextHit) nextHit = enriched;
     }
-    if (todayHit) break;
+    if (todayHit && nextHit) break;
   }
 
-  return todayHit || overdueHit || nextHit;
+  return overdueHit || todayHit || nextHit;
 }
 
 export function getSuggestedWorkoutCheckin() {

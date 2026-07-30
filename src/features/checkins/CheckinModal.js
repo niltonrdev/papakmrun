@@ -68,10 +68,34 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
 
   const segments = getBlockSegments(workout);
   const workoutLabel = workout.workoutLabel || workout.dayLabel || "Treino";
+  const canSubmit = !(hadPain && !painNote.trim());
 
   return (
-    <Modal open={open} title="Marcar treino como feito" onClose={onClose}>
-      <div className="space-y-4">
+    <Modal
+      open={open}
+      title="Marcar treino como feito"
+      onClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 hover:bg-white/10 sm:flex-none"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="checkin-form"
+            disabled={!canSubmit}
+            className="flex-[1.4] rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-40 sm:flex-none"
+          >
+            Confirmar
+          </button>
+        </div>
+      }
+    >
+      <form id="checkin-form" onSubmit={submit} className="space-y-4">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="text-sm text-white/60">Treino</div>
           <div className="text-lg font-semibold">
@@ -102,78 +126,59 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
           ) : null}
         </div>
 
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="text-sm text-white/70">Esforço percebido (1–5)</label>
-            <div className="mt-2 flex items-center gap-3">
-              <input
-                type="range"
-                min={1}
-                max={5}
-                value={effort}
-                onChange={(e) => setEffort(e.target.value)}
-                className="w-full"
-              />
-              <div className="w-10 text-center text-sm font-semibold">{effort}</div>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm text-white/70">Observação</label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-              placeholder="Opcional..."
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/40"
+        <div>
+          <label className="text-sm text-white/70">Esforço percebido (1–5)</label>
+          <div className="mt-2 flex items-center gap-3">
+            <input
+              type="range"
+              min={1}
+              max={5}
+              value={effort}
+              onChange={(e) => setEffort(e.target.value)}
+              className="w-full"
             />
+            <div className="w-10 text-center text-sm font-semibold">{effort}</div>
           </div>
+        </div>
 
-          <div className="rounded-2xl border border-white/10 bg-orange-500/5 p-4 space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer text-sm text-white/80">
-              <input
-                type="checkbox"
-                checked={hadPain}
-                onChange={(e) => setHadPain(e.target.checked)}
-                className="rounded border-white/20"
+        <div>
+          <label className="text-sm text-white/70">Observação</label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="Opcional..."
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/40"
+          />
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-orange-500/5 p-4 space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer text-sm text-white/80">
+            <input
+              type="checkbox"
+              checked={hadPain}
+              onChange={(e) => setHadPain(e.target.checked)}
+              className="rounded border-white/20"
+            />
+            Senti dor ou desconforto persistente
+          </label>
+          {hadPain && (
+            <div>
+              <label className="text-xs text-white/50 uppercase font-bold tracking-wider">
+                Descreva para o professor
+              </label>
+              <textarea
+                value={painNote}
+                onChange={(e) => setPainNote(e.target.value)}
+                rows={2}
+                required={hadPain}
+                placeholder="Local, intensidade, quando começou..."
+                className="mt-2 w-full rounded-2xl border border-orange-500/30 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/40"
               />
-              Senti dor ou desconforto persistente
-            </label>
-            {hadPain && (
-              <div>
-                <label className="text-xs text-white/50 uppercase font-bold tracking-wider">
-                  Descreva para o professor
-                </label>
-                <textarea
-                  value={painNote}
-                  onChange={(e) => setPainNote(e.target.value)}
-                  rows={2}
-                  required={hadPain}
-                  placeholder="Local, intensidade, quando começou..."
-                  className="mt-2 w-full rounded-2xl border border-orange-500/30 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/40"
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 hover:bg-white/10"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={hadPain && !painNote.trim()}
-              className="rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-40"
-            >
-              Confirmar
-            </button>
-          </div>
-        </form>
-      </div>
+            </div>
+          )}
+        </div>
+      </form>
     </Modal>
   );
 }
