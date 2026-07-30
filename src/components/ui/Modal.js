@@ -14,8 +14,12 @@ export default function Modal({ open, title, children, onClose, wide = false }) 
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/60" onClick={() => onClose?.()} />
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className={`w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-3xl border border-white/10 bg-slate-950/90 backdrop-blur`}>
+      <div className="absolute inset-0 flex items-end justify-center p-2 sm:items-center sm:p-4">
+        <div
+          className={`flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950/90 backdrop-blur sm:max-h-[calc(100dvh-2rem)] ${
+            wide ? "max-w-2xl" : "max-w-md"
+          }`}
+        >
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
             <div className="text-base font-semibold">{title}</div>
             {onClose ? (
@@ -30,7 +34,9 @@ export default function Modal({ open, title, children, onClose, wide = false }) 
               <span className="w-10" />
             )}
           </div>
-          <div className="px-5 py-4">{children}</div>
+          <div className="overflow-y-auto px-5 py-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+            {children}
+          </div>
         </div>
       </div>
     </div>

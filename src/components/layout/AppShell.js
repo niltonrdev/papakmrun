@@ -105,7 +105,7 @@ export default function AppShell({ children }) {
   const showBanner = pathname === "/dashboard";
 
   return (
-    <div className="flex min-h-screen bg-papa-dark">
+    <div className="flex min-h-screen min-h-[100dvh] bg-papa-dark">
       {/* Sidebar - Oculta no mobile (hidden), visível no desktop (lg:flex) */}
       <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 border-r border-white/5 bg-papa-dark p-6 flex-col z-50">
         <div className="flex items-center gap-3 px-2 mb-10">
@@ -142,7 +142,7 @@ export default function AppShell({ children }) {
       </aside>
 
       {/* Main Content - Remove a margem no mobile (ml-0) e adiciona no desktop (lg:ml-64) */}
-      <main className="flex-1 ml-0 lg:ml-64 p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10 overflow-x-hidden overflow-y-auto w-full min-w-0">
+      <main className="flex-1 ml-0 lg:ml-64 p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10 overflow-x-hidden overflow-y-visible lg:overflow-y-auto w-full min-w-0">
         <ParqGate />
         {banner && !hidden && showBanner && (
           <div className="mb-4 flex items-start gap-3 rounded-2xl border border-papa-blue/30 bg-papa-blue/10 px-4 py-3 text-sm text-white/90">
@@ -164,7 +164,7 @@ export default function AppShell({ children }) {
       </main>
 
       {/* Mobile Nav Bar - Visível apenas no mobile (lg:hidden) conforme protótipo */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-papa-card/80 backdrop-blur-xl border-t border-white/5 px-2 sm:px-4 py-3 flex justify-between items-center z-50 gap-1 overflow-x-auto">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-papa-card/80 backdrop-blur-xl border-t border-white/5 px-2 sm:px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] flex justify-between items-center z-50 gap-1 overflow-x-auto">
         {navItems.map((item) => {
           const active =
             pathname === item.href ||
