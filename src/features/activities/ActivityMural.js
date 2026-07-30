@@ -14,6 +14,14 @@ function isoDate(d) {
   return `${y}-${m}-${day}`;
 }
 
+function addDaysISO(iso, delta) {
+  if (!iso || iso.length < 10) return null;
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + delta);
+  return isoDate(d);
+}
+
 function startOfWeekMonday(date = new Date()) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -36,6 +44,31 @@ function buildWeek(startDate) {
     });
   }
   return out;
+}
+
+/**
+ * Une Strava + check-ins sem duplicar o mesmo treino:
+ * se o check-in cai em data diferente do Strava (ex.: data agendada vs dia corrido),
+ * mantém só o dia do Strava quando estiver a ±1 dia.
+ */
+function mergeActivityDates({ checkinDates, stravaDates, todayIso }) {
+  const stravaSet = new Set();
+  for (const iso of stravaDates) {
+    if (iso && iso <= todayIso) stravaSet.add(iso.slice(0, 10));
+  }
+
+  const merged = new Set(stravaSet);
+  for (const raw of checkinDates) {
+    const iso = raw?.slice?.(0, 10);
+    if (!iso || iso > todayIso) continue;
+
+    const nearStrava = [iso, addDaysISO(iso, -1), addDaysISO(iso, 1)].some(
+      (d) => d && stravaSet.has(d)
+    );
+    if (nearStrava) continue;
+    merged.add(iso);
+  }
+  return merged;
 }
 
 export default function ActivityMural({ refreshKey = 0 }) {
@@ -106,16 +139,15 @@ export default function ActivityMural({ refreshKey = 0 }) {
   const todayIso = isoDate(new Date());
 
   const doneDates = useMemo(() => {
-    const set = new Set();
-    for (const iso of [
+    const checkinDates = [
       ...(serverCheckinDates ?? []),
       ...localCheckinDates,
-      ...(stravaDates ?? []),
-    ]) {
-      // Nunca marcar dias futuros (ex.: treino agendado para amanhã).
-      if (iso && iso <= todayIso) set.add(iso);
-    }
-    return set;
+    ];
+    return mergeActivityDates({
+      checkinDates,
+      stravaDates: stravaDates ?? [],
+      todayIso,
+    });
   }, [serverCheckinDates, localCheckinDates, stravaDates, todayIso]);
 
   const doneCount = week.reduce((acc, d) => (doneDates.has(d.iso) ? acc + 1 : acc), 0);
