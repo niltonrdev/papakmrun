@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { getTodayWorkout, getWeekPlan, getWeekBlocksOrdered } from "@/features/plans/plans.service";
 import CheckinModal from "@/features/checkins/CheckinModal";
 import {
-  isWorkoutCheckedToday,
   isWorkoutCheckedForBlock,
   getTodayCheckin,
 } from "@/features/checkins/checkins.service";
@@ -27,6 +26,8 @@ function useWeekProgress(syncTick, currentSlug) {
     const weekKey = readActiveWeekNumber();
     const week = getWeekPlan(weekKey);
     const blocks = getWeekBlocksOrdered(weekKey);
+    const today = new Date();
+    const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
     let completedKm = 0;
     let doneCount = 0;
@@ -39,6 +40,8 @@ function useWeekProgress(syncTick, currentSlug) {
         completedKm += plannedKm;
         doneCount += 1;
       }
+      const dateISO =
+        typeof block.workoutDateISO === "string" ? block.workoutDateISO.slice(0, 10) : null;
       return {
         slug: block.slug,
         label: getWorkoutDisplayLabel(block, idx),
@@ -46,6 +49,9 @@ function useWeekProgress(syncTick, currentSlug) {
         plannedKm,
         done,
         isCurrent: block.slug === currentSlug,
+        isOverdue: Boolean(dateISO && dateISO < todayISO && !done),
+        isToday: dateISO === todayISO,
+        block,
       };
     });
 
@@ -66,7 +72,7 @@ function useWeekProgress(syncTick, currentSlug) {
   }, [syncTick, currentSlug]);
 }
 
-function WeekProgressPreview({ syncTick, currentSlug }) {
+function WeekProgressPreview({ syncTick, currentSlug, onSelectWorkout }) {
   const planMeta = usePlanMeta();
   const progress = useWeekProgress(syncTick, currentSlug);
   const rangeLabel = planMeta?.weekRanges?.[progress.weekKey] ?? null;
@@ -130,48 +136,59 @@ function WeekProgressPreview({ syncTick, currentSlug }) {
       </div>
 
       <div className="flex-1 space-y-2 overflow-y-auto pr-0.5">
-        {progress.items.map((item) => (
-          <div
-            key={item.slug}
-            className={[
-              "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
-              item.isCurrent
-                ? "border-papa-orange/40 bg-papa-orange/10"
-                : item.done
-                  ? "border-emerald-500/25 bg-emerald-500/5"
-                  : "border-white/8 bg-white/[0.02]",
-            ].join(" ")}
-          >
-            {item.done ? (
-              <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
-            ) : (
-              <Circle
-                size={16}
-                className={`shrink-0 ${item.isCurrent ? "text-papa-orange" : "text-white/20"}`}
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-black uppercase text-white/90 truncate">
-                {item.label}
-              </div>
-              <div className="text-[10px] text-white/45 truncate">{item.title}</div>
-            </div>
-            <div className="text-right shrink-0">
-              <div
-                className={`text-sm font-black tabular-nums ${
-                  item.done ? "text-emerald-400" : "text-white/50"
-                }`}
-              >
-                {item.plannedKm}km
-              </div>
+        {progress.items.map((item) => {
+          const selectable = !item.done && typeof onSelectWorkout === "function";
+          const Wrapper = selectable ? "button" : "div";
+          return (
+            <Wrapper
+              key={item.slug}
+              type={selectable ? "button" : undefined}
+              onClick={selectable ? () => onSelectWorkout(item.slug) : undefined}
+              className={[
+                "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors text-left",
+                item.isCurrent
+                  ? "border-papa-orange/40 bg-papa-orange/10"
+                  : item.done
+                    ? "border-emerald-500/25 bg-emerald-500/5"
+                    : "border-white/8 bg-white/[0.02]",
+                selectable ? "hover:border-white/25 active:scale-[0.99]" : "",
+              ].join(" ")}
+            >
               {item.done ? (
-                <div className="text-[9px] font-black uppercase text-emerald-400/70">Feito</div>
-              ) : item.isCurrent ? (
-                <div className="text-[9px] font-black uppercase text-papa-orange">Hoje</div>
-              ) : null}
-            </div>
-          </div>
-        ))}
+                <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+              ) : (
+                <Circle
+                  size={16}
+                  className={`shrink-0 ${item.isCurrent ? "text-papa-orange" : "text-white/20"}`}
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-black uppercase text-white/90 truncate">
+                  {item.label}
+                </div>
+                <div className="text-[10px] text-white/45 truncate">{item.title}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div
+                  className={`text-sm font-black tabular-nums ${
+                    item.done ? "text-emerald-400" : "text-white/50"
+                  }`}
+                >
+                  {item.plannedKm}km
+                </div>
+                {item.done ? (
+                  <div className="text-[9px] font-black uppercase text-emerald-400/70">Feito</div>
+                ) : item.isCurrent ? (
+                  <div className="text-[9px] font-black uppercase text-papa-orange">
+                    {item.isOverdue ? "Atraso" : "Hoje"}
+                  </div>
+                ) : item.isOverdue ? (
+                  <div className="text-[9px] font-black uppercase text-amber-300/80">Atraso</div>
+                ) : null}
+              </div>
+            </Wrapper>
+          );
+        })}
       </div>
     </div>
   );
@@ -181,28 +198,53 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
   const [localTick, setLocalTick] = useState(0);
-  const weekProgress = useWeekProgress(syncTick + localTick, workout?.slug);
+  const [selected, setSelected] = useState(workout);
+  const weekProgress = useWeekProgress(syncTick + localTick, selected?.slug);
 
-  if (!workout) return null;
+  useEffect(() => {
+    setSelected(workout);
+    setDone(false);
+  }, [workout?.slug, syncTick]);
 
-  const checked = done || isWorkoutCheckedToday(workout.slug);
+  if (!selected) return null;
+
+  const checked = done || isWorkoutCheckedForBlock(selected);
   const checkin = checked ? getTodayCheckin() : null;
-  const segments = workout.segments || getBlockSegments(workout);
-  const label = workout.workoutLabel || workout.dayLabel || "Treino";
+  const segments = selected.segments || getBlockSegments(selected);
+  const label = selected.workoutLabel || selected.dayLabel || "Treino";
+  const scheduledISO =
+    typeof selected.workoutDateISO === "string" ? selected.workoutDateISO.slice(0, 10) : null;
+  const today = new Date();
+  const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const isLate = Boolean(scheduledISO && scheduledISO < todayISO && !checked);
+
+  function selectBySlug(slug) {
+    const hit = weekProgress.items.find((i) => i.slug === slug && !i.done);
+    if (!hit?.block) return;
+    const idx = weekProgress.items.findIndex((i) => i.slug === slug);
+    setSelected({
+      ...hit.block,
+      workoutLabel: hit.label,
+      segments: getBlockSegments(hit.block),
+      weekKey: weekProgress.weekKey,
+      workoutIndex: idx >= 0 ? idx : 0,
+    });
+    setDone(false);
+  }
 
   return (
     <div className="rounded-3xl bg-papa-card p-6 sm:p-8 border border-white/5 relative overflow-hidden">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-center">
         <div className="min-w-0">
           <span className="text-papa-orange font-bold text-[11px] sm:text-xs uppercase tracking-widest">
-            Sugestão do dia
+            {isLate ? "Treino em atraso" : "Sugestão do dia"}
           </span>
           <h2 className="text-2xl sm:text-3xl font-black text-white mt-2 leading-tight break-words">
-            {label} · {workout.title} · {workout.km}km
+            {label} · {selected.title} · {selected.km}km
           </h2>
           {!isSocial && (
             <div className="text-white/60 text-lg font-medium mt-1">
-              ({workout.zoneKey?.toUpperCase()})
+              ({selected.zoneKey?.toUpperCase()})
             </div>
           )}
 
@@ -250,7 +292,11 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
           </div>
         </div>
 
-        <WeekProgressPreview syncTick={syncTick + localTick} currentSlug={workout.slug} />
+        <WeekProgressPreview
+          syncTick={syncTick + localTick}
+          currentSlug={selected.slug}
+          onSelectWorkout={selectBySlug}
+        />
       </div>
       
       <div className="absolute bottom-0 left-0 h-1 w-full bg-white/5">
@@ -263,7 +309,7 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
       <CheckinModal
         open={open}
         onClose={() => setOpen(false)}
-        workout={workout}
+        workout={selected}
         onSaved={() => {
           setDone(true);
           setLocalTick((t) => t + 1);
