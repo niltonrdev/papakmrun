@@ -14,6 +14,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import RaceCalendar from "@/features/events/RaceCalendar";
 import { findWorkoutInPlanBySlug, getZoneByKey } from "@/features/plans/plans.service";
+import DailyWordCard from "@/features/feed/DailyWordCard";
 import { FEED_PHRASES } from "@/features/feed/feed.mock";
 
 const WorkoutMap = dynamic(() => import("@/features/feed/WorkoutMap"), {
@@ -558,12 +559,7 @@ function FeedPageActive() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-7 space-y-6">
-          <div className="p-5 rounded-3xl bg-papa-card border border-white/5 flex items-center justify-between group cursor-pointer hover:border-papa-blue/20 transition-all">
-            <span className="text-xs font-bold text-white/40 uppercase">
-              Notícias do dia: <span className="text-white">Leia o The News</span>
-            </span>
-            <span className="text-white/20 group-hover:text-papa-blue">→</span>
-          </div>
+          <DailyWordCard />
 
           {loading && filtered.length === 0 ? (
             <div className="p-10 rounded-3xl border border-dashed border-white/10 text-center text-white/30 font-bold uppercase text-xs">
