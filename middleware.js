@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { handleSupabaseSession } from "@/lib/supabase/middleware";
 import { env } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback"];
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/redefinir-senha"];
 
 function isPublicPath(pathname) {
   if (PUBLIC_PATHS.includes(pathname)) return true;
