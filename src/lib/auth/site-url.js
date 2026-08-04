@@ -13,8 +13,12 @@ export function getSiteOrigin(requestOrigin) {
   return "";
 }
 
-export function getAuthCallbackUrl(origin) {
+export function getAuthCallbackUrl(origin, nextPath) {
   const base = origin || getSiteOrigin("");
-  if (!base) return "/auth/callback";
-  return `${base}/auth/callback`;
+  const qs =
+    nextPath && String(nextPath).startsWith("/") && !String(nextPath).startsWith("//")
+      ? `?next=${encodeURIComponent(nextPath)}`
+      : "";
+  if (!base) return `/auth/callback${qs}`;
+  return `${base}/auth/callback${qs}`;
 }

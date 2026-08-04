@@ -38,6 +38,15 @@ function resolvePostLoginPath(profileRole, nextPath) {
   return "/dashboard";
 }
 
+function isExistingEmailSignup(data, error) {
+  const msg = String(error?.message || "").toLowerCase();
+  if (msg.includes("already registered") || msg.includes("already been registered") || msg.includes("user already")) {
+    return true;
+  }
+  const identities = data?.user?.identities;
+  return Boolean(data?.user && Array.isArray(identities) && identities.length === 0);
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [nextPath, setNextPath] = useState("/dashboard");
@@ -60,7 +69,15 @@ export default function LoginPage() {
     if (authErr) {
       setMessage(decodeURIComponent(authErr));
     }
+    if (q.get("mode") === "forgot") {
+      setMode("forgot");
+    }
   }, []);
+
+  function switchMode(next) {
+    setMode(next);
+    setMessage("");
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -72,6 +89,19 @@ export default function LoginPage() {
     setMessage("");
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+          redirectTo: getAuthCallbackUrl(undefined, "/redefinir-senha"),
+        });
+        if (error) throw error;
+        setMessage(
+          "Se este e-mail estiver cadastrado, enviamos um link para redefinir a senha. Confira a caixa de entrada e o spam."
+        );
+        return;
+      }
+
       if (mode === "signup") {
         const name = displayName.trim();
         if (!name) {
@@ -86,7 +116,7 @@ export default function LoginPage() {
           throw new Error(birthCheck.message);
         }
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim().toLowerCase(),
+          email: normalizedEmail,
           password,
           options: {
             emailRedirectTo: getAuthCallbackUrl(),
@@ -97,6 +127,11 @@ export default function LoginPage() {
             },
           },
         });
+        if (isExistingEmailSignup(data, error)) {
+          setMessage("Este e-mail já está em uso. Entre na conta ou use Esqueceu a senha?");
+          setMode("signin");
+          return;
+        }
         if (error) throw error;
         if (data?.session) {
           const me = await syncLegacyCookieFromApi();
@@ -111,7 +146,7 @@ export default function LoginPage() {
         setMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
+          email: normalizedEmail,
           password,
         });
         if (error) throw error;
@@ -134,6 +169,12 @@ export default function LoginPage() {
   }
 
   const { min: minBirthDate, max: maxBirthDate } = birthDateInputBounds();
+  const subtitle =
+    mode === "forgot"
+      ? "Recuperar acesso"
+      : mode === "signin"
+        ? "Entre na sua conta"
+        : "Crie sua conta";
 
   return (
     <main className="login-page min-h-dvh bg-[#060b14] text-slate-100">
@@ -151,37 +192,37 @@ export default function LoginPage() {
             </div>
             <div>
               <h1 className="login-title text-4xl font-bold tracking-[0.08em] text-white">PAPAKM</h1>
-              <p className="mt-2 text-sm text-white/55">
-                {mode === "signin" ? "Entre na sua conta" : "Crie sua conta"}
-              </p>
+              <p className="mt-2 text-sm text-white/55">{subtitle}</p>
             </div>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="flex rounded-2xl border border-white/10 bg-black/25 p-1 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setMode("signin")}
-                className={`flex-1 rounded-xl py-2.5 transition ${
-                  mode === "signin"
-                    ? "bg-white/12 text-white shadow-inner"
-                    : "text-white/45 hover:text-white/70"
-                }`}
-              >
-                Entrar
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("signup")}
-                className={`flex-1 rounded-xl py-2.5 transition ${
-                  mode === "signup"
-                    ? "bg-white/12 text-white shadow-inner"
-                    : "text-white/45 hover:text-white/70"
-                }`}
-              >
-                Cadastrar
-              </button>
-            </div>
+            {mode !== "forgot" && (
+              <div className="flex rounded-2xl border border-white/10 bg-black/25 p-1 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => switchMode("signin")}
+                  className={`flex-1 rounded-xl py-2.5 transition ${
+                    mode === "signin"
+                      ? "bg-white/12 text-white shadow-inner"
+                      : "text-white/45 hover:text-white/70"
+                  }`}
+                >
+                  Entrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode("signup")}
+                  className={`flex-1 rounded-xl py-2.5 transition ${
+                    mode === "signup"
+                      ? "bg-white/12 text-white shadow-inner"
+                      : "text-white/45 hover:text-white/70"
+                  }`}
+                >
+                  Cadastrar
+                </button>
+              </div>
+            )}
 
             {mode === "signup" && (
               <>
@@ -241,22 +282,42 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs text-white/70">Senha</label>
-              <input
-                type="password"
-                required
-                minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : 1}
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20"
-                placeholder="••••••••"
-              />
-              {mode === "signup" && (
-                <p className="text-[11px] leading-relaxed text-white/45">{PASSWORD_HINT}</p>
-              )}
-            </div>
+            {mode !== "forgot" && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs text-white/70">Senha</label>
+                  {mode === "signin" && (
+                    <button
+                      type="button"
+                      onClick={() => switchMode("forgot")}
+                      className="text-[11px] font-semibold text-papa-orange hover:underline"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="password"
+                  required
+                  minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : 1}
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20"
+                  placeholder="••••••••"
+                />
+                {mode === "signup" && (
+                  <p className="text-[11px] leading-relaxed text-white/45">{PASSWORD_HINT}</p>
+                )}
+              </div>
+            )}
+
+            {mode === "forgot" && (
+              <p className="text-[11px] leading-relaxed text-white/45">
+                Enviaremos um link para você criar uma nova senha. O e-mail pode demorar alguns
+                minutos e às vezes cai no spam.
+              </p>
+            )}
 
             {message && (
               <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-xs leading-relaxed text-white/85">
@@ -269,8 +330,24 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full rounded-2xl bg-gradient-to-r from-papa-orange to-orange-500 py-3.5 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-orange-900/30 transition hover:brightness-110 disabled:opacity-60"
             >
-              {loading ? "Aguarde…" : mode === "signup" ? "Criar conta" : "Entrar"}
+              {loading
+                ? "Aguarde…"
+                : mode === "forgot"
+                  ? "Enviar link"
+                  : mode === "signup"
+                    ? "Criar conta"
+                    : "Entrar"}
             </button>
+
+            {mode === "forgot" && (
+              <button
+                type="button"
+                onClick={() => switchMode("signin")}
+                className="w-full text-center text-xs text-white/55 hover:text-white/80"
+              >
+                Voltar ao login
+              </button>
+            )}
           </form>
         </section>
       </div>
