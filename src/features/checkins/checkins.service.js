@@ -1,4 +1,11 @@
-import { hasCheckin, upsertCheckin, getCheckin, readAllCheckins } from "./checkins.storage";
+import {
+  hasCheckin,
+  upsertCheckin,
+  getCheckin,
+  getCheckinBySlug,
+  removeCheckinsBySlug,
+  readAllCheckins,
+} from "./checkins.storage";
 import { getSuggestedWorkout, getSuggestedWorkoutCheckin } from "@/features/plans/workout-suggestion";
 
 export function formatISODate(d = new Date()) {
@@ -69,6 +76,25 @@ export async function saveWorkoutCheckin({
   }
 
   return local;
+}
+
+export async function undoWorkoutCheckin({ workoutSlug }) {
+  if (!workoutSlug) return false;
+  const existing = getCheckinBySlug(workoutSlug);
+  removeCheckinsBySlug(workoutSlug);
+
+  try {
+    const params = new URLSearchParams({ workoutSlug });
+    if (existing?.date) params.set("checkinDate", existing.date);
+    await fetch(`/api/checkins?${params.toString()}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+  } catch {
+    /* offline / sem Supabase */
+  }
+
+  return true;
 }
 
 export function isWorkoutChecked(date, workoutSlug) {

@@ -54,6 +54,20 @@ export function getCheckin(date, workoutSlug) {
   return all.find((c) => c.date === date && c.workoutSlug === workoutSlug) ?? null;
 }
 
+export function getCheckinBySlug(workoutSlug) {
+  if (!workoutSlug) return null;
+  const all = readAllCheckins();
+  return all.find((c) => c.workoutSlug === workoutSlug) ?? null;
+}
+
+export function removeCheckinsBySlug(workoutSlug) {
+  if (!workoutSlug) return [];
+  const all = readAllCheckins();
+  const next = all.filter((c) => c.workoutSlug !== workoutSlug);
+  writeAllCheckins(next);
+  return next;
+}
+
 export function clearAllCheckins() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(keyForCurrentAthlete());

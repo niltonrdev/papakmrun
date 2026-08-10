@@ -14,8 +14,9 @@ import { readActiveWeekNumber, writeActiveWeekNumber } from "@/features/session/
 import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
 import { isWorkoutMissed } from "@/features/checkins/missed-workout";
 import CheckinModal from "@/features/checkins/CheckinModal";
+import UndoCheckinButton from "@/features/checkins/UndoCheckinButton";
 import Link from "next/link";
-import { ChevronLeft, CheckCircle2 } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import {
   getPlanMetaFromSync,
   pullFullPlanFromApi,
@@ -286,9 +287,11 @@ export default function PlanilhaDetalhesPage() {
                         return (
                           <div className="mt-2 space-y-1">
                             {done ? (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
-                                <CheckCircle2 size={12} /> Feito
-                              </span>
+                              <UndoCheckinButton
+                                compact
+                                workoutSlug={b.slug}
+                                onUndone={() => setRefresh((x) => x + 1)}
+                              />
                             ) : missed ? (
                               <button
                                 type="button"
