@@ -129,3 +129,53 @@ export async function POST(request) {
     },
   });
 }
+
+export async function DELETE(request) {
+  const supabase = await createClient();
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase não configurado." }, { status: 503 });
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Sessão necessária." }, { status: 401 });
+  }
+
+  const { searchParams } = request.nextUrl;
+  let workoutSlug = searchParams.get("workoutSlug") || searchParams.get("workout_slug");
+  let checkinDate = searchParams.get("checkinDate") || searchParams.get("checkin_date");
+
+  if (!workoutSlug) {
+    try {
+      const body = await request.json();
+      workoutSlug = body?.workoutSlug ?? body?.workout_slug ?? null;
+      checkinDate = body?.checkinDate ?? body?.checkin_date ?? checkinDate;
+    } catch {
+      /* query params only */
+    }
+  }
+
+  if (!workoutSlug || typeof workoutSlug !== "string") {
+    return NextResponse.json({ error: "workoutSlug obrigatório." }, { status: 400 });
+  }
+
+  let query = supabase
+    .from("checkins")
+    .delete({ count: "exact" })
+    .eq("user_id", user.id)
+    .eq("workout_slug", workoutSlug);
+
+  if (typeof checkinDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(checkinDate)) {
+    query = query.eq("checkin_date", checkinDate);
+  }
+
+  const { error, count } = await query;
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, deleted: count ?? 0 });
+}

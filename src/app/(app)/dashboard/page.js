@@ -5,6 +5,7 @@ import CheckinModal from "@/features/checkins/CheckinModal";
 import {
   isWorkoutCheckedForBlock,
   getTodayCheckin,
+  undoWorkoutCheckin,
 } from "@/features/checkins/checkins.service";
 import { getZones } from "@/features/plans/plans.service";
 import RankingCard from "@/features/ranking/RankingCard";
@@ -18,7 +19,7 @@ import { useParqStatus } from "@/features/health/useParqStatus";
 import ParqFormModal from "@/features/health/ParqFormModal";
 import { readActiveWeekNumber } from "@/features/session/prefs.storage";
 import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
-import { CheckCircle2, Circle, PartyPopper } from "lucide-react";
+import { CheckCircle2, Circle, PartyPopper, Undo2 } from "lucide-react";
 
 function useWeekProgress(syncTick, currentSlug) {
   return useMemo(() => {
@@ -137,7 +138,7 @@ function WeekProgressPreview({ syncTick, currentSlug, onSelectWorkout }) {
 
       <div className="flex-1 space-y-2 overflow-y-auto pr-0.5">
         {progress.items.map((item) => {
-          const selectable = !item.done && typeof onSelectWorkout === "function";
+          const selectable = typeof onSelectWorkout === "function";
           const Wrapper = selectable ? "button" : "div";
           return (
             <Wrapper
@@ -197,6 +198,7 @@ function WeekProgressPreview({ syncTick, currentSlug, onSelectWorkout }) {
 function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 }) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
+  const [undoBusy, setUndoBusy] = useState(false);
   const [localTick, setLocalTick] = useState(0);
   const [selected, setSelected] = useState(workout);
   const weekProgress = useWeekProgress(syncTick + localTick, selected?.slug);
@@ -219,7 +221,7 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
   const isLate = Boolean(scheduledISO && scheduledISO < todayISO && !checked);
 
   function selectBySlug(slug) {
-    const hit = weekProgress.items.find((i) => i.slug === slug && !i.done);
+    const hit = weekProgress.items.find((i) => i.slug === slug);
     if (!hit?.block) return;
     const idx = weekProgress.items.findIndex((i) => i.slug === slug);
     setSelected({
@@ -229,7 +231,22 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
       weekKey: weekProgress.weekKey,
       workoutIndex: idx >= 0 ? idx : 0,
     });
-    setDone(false);
+    setDone(hit.done);
+  }
+
+  async function handleUndo() {
+    if (!selected?.slug || undoBusy) return;
+    const ok = window.confirm("Desfazer o check-in deste treino?");
+    if (!ok) return;
+    setUndoBusy(true);
+    try {
+      await undoWorkoutCheckin({ workoutSlug: selected.slug });
+      setDone(false);
+      setLocalTick((t) => t + 1);
+      onDone?.();
+    } finally {
+      setUndoBusy(false);
+    }
   }
 
   return (
@@ -276,13 +293,34 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
           </div>
           
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <button 
-              onClick={() => setOpen(true)}
-              disabled={checked}
-              className="bg-papa-orange hover:bg-orange-600 disabled:bg-emerald-500 text-white font-bold py-4 px-10 rounded-2xl transition-all shadow-lg shadow-orange-900/40"
-            >
-              {checked ? "Treino feito!" : "Marcar como treino feito"}
-            </button>
+            {checked ? (
+              <>
+                <button
+                  type="button"
+                  disabled
+                  className="bg-emerald-500 text-white font-bold py-4 px-10 rounded-2xl shadow-lg shadow-emerald-900/30"
+                >
+                  Treino feito!
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  disabled={undoBusy}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-40 transition-all"
+                >
+                  <Undo2 size={16} />
+                  {undoBusy ? "Desfazendo…" : "Desfazer check-in"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="bg-papa-orange hover:bg-orange-600 text-white font-bold py-4 px-10 rounded-2xl transition-all shadow-lg shadow-orange-900/40"
+              >
+                Marcar como treino feito
+              </button>
+            )}
             <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
                <span className="text-white/30 text-[10px] uppercase block font-bold">Esforço</span>
                <span className="text-papa-blue font-bold tracking-tighter">

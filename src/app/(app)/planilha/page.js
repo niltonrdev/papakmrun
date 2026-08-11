@@ -11,10 +11,10 @@ import {
   Timer,
   Medal,
   CalendarDays,
-  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import CheckinModal from "@/features/checkins/CheckinModal";
+import UndoCheckinButton from "@/features/checkins/UndoCheckinButton";
 import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
 import { isWorkoutMissed } from "@/features/checkins/missed-workout";
 import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
@@ -44,7 +44,7 @@ function useIsClient() {
   );
 }
 
-function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
+function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, onUndoCheckin, refreshKey }) {
   void refreshKey;
   const statusReady = useIsClient();
   const zone = getZoneByKey(block.zoneKey);
@@ -67,9 +67,7 @@ function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, refreshKey }) {
         </div>
 
         {done ? (
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase px-4 py-2 rounded-xl border border-emerald-500/40 text-emerald-400 bg-emerald-500/10 shrink-0">
-            <CheckCircle2 size={14} /> Feito
-          </span>
+          <UndoCheckinButton workoutSlug={block.slug} onUndone={() => onUndoCheckin?.(block)} />
         ) : missed ? (
           <button
             type="button"
@@ -420,6 +418,7 @@ export default function PerformancePage() {
                   block={b}
                   blockIndex={idx}
                   onCheckin={setCheckinWorkout}
+                  onUndoCheckin={() => setCheckinRefresh((x) => x + 1)}
                   refreshKey={checkinRefresh + syncTick}
                 />
               ))
