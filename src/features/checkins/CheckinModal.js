@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { saveWorkoutCheckin, formatISODate } from "./checkins.service";
@@ -7,12 +5,16 @@ import { getAthleteRecord, getCurrentAthleteSlug } from "@/features/athletes/ath
 import { addPainFeedback } from "@/features/pain/pain.storage";
 import { isWorkoutCheckedForBlock } from "./checkins.service";
 import { getBlockSegments } from "@/features/plans/workout-blocks";
+import { createClient } from "@/lib/supabase/client";
 
 export default function CheckinModal({ open, onClose, workout, onSaved }) {
   const [effort, setEffort] = useState(3);
   const [note, setNote] = useState("");
   const [hadPain, setHadPain] = useState(false);
   const [painNote, setPainNote] = useState("");
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   if (!workout) return null;
 
@@ -21,12 +23,56 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
   const isLateCheckin =
     scheduledDate && scheduledDate < today && !isWorkoutCheckedForBlock(workout);
 
+  function handlePhotoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      return;
+    }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  async function uploadPhotoIfAny() {
+    if (!photoFile) return null;
+    const supabase = createClient();
+    if (!supabase) return null;
+    setUploadingPhoto(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const ext = photoFile.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${workout.slug}-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("checkin-photos")
+        .upload(path, photoFile, { upsert: true });
+
+      if (uploadError) return null;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("checkin-photos")
+        .getPublicUrl(path);
+
+      return publicUrlData?.publicUrl ?? null;
+    } catch {
+      return null;
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   async function submit(e) {
     e.preventDefault();
-    // Data do check-in = dia em que o aluno fez (nunca no futuro).
-    // Em atraso, mantém a data agendada do treino.
     const checkinDate =
       scheduledDate && scheduledDate <= today ? scheduledDate : today;
+
+    const photoUrl = await uploadPhotoIfAny();
+
     await saveWorkoutCheckin({
       workoutSlug: workout.slug,
       effort: Number(effort),
@@ -34,6 +80,7 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
       workoutTitle: workout.title,
       planKm: workout.km,
       checkinDate,
+      photoUrl,
     });
     if (hadPain && painNote.trim()) {
       const slug = getCurrentAthleteSlug();
@@ -64,11 +111,13 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
     setHadPain(false);
     setPainNote("");
     setNote("");
+    setPhotoFile(null);
+    setPhotoPreview(null);
   }
 
   const segments = getBlockSegments(workout);
   const workoutLabel = workout.workoutLabel || workout.dayLabel || "Treino";
-  const canSubmit = !(hadPain && !painNote.trim());
+  const canSubmit = !(hadPain && !painNote.trim()) && !uploadingPhoto;
 
   return (
     <Modal
@@ -90,7 +139,7 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
             disabled={!canSubmit}
             className="flex-[1.4] rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-40 sm:flex-none"
           >
-            Confirmar
+            {uploadingPhoto ? "Enviando foto..." : "Confirmar"}
           </button>
         </div>
       }
@@ -150,6 +199,23 @@ export default function CheckinModal({ open, onClose, workout, onSaved }) {
             placeholder="Opcional..."
             className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm outline-none placeholder:text-white/40"
           />
+        </div>
+
+        <div>
+          <label className="text-sm text-white/70">Foto do treino (opcional)</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+            className="mt-2 w-full text-sm text-white/70 file:mr-3 file:rounded-xl file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-white/20"
+          />
+          {photoPreview ? (
+            <img
+              src={photoPreview}
+              alt="Prévia da foto"
+              className="mt-3 h-32 w-full rounded-2xl object-cover"
+            />
+          ) : null}
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-orange-500/5 p-4 space-y-3">
