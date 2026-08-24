@@ -7,33 +7,27 @@ import {
   readAllCheckins,
 } from "./checkins.storage";
 import { getSuggestedWorkout, getSuggestedWorkoutCheckin } from "@/features/plans/workout-suggestion";
-
 export function formatISODate(d = new Date()) {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-
 function hasCheckinForSlug(workoutSlug) {
   return readAllCheckins().some((c) => c.workoutSlug === workoutSlug);
 }
-
 export function isWorkoutCheckedToday(workoutSlug) {
   const w = getSuggestedWorkout();
   if (!w || w.slug !== workoutSlug) return false;
   return hasCheckinForSlug(workoutSlug);
 }
-
 export function isWorkoutCheckedForBlock(block) {
   if (!block?.slug) return false;
   return hasCheckinForSlug(block.slug);
 }
-
 export async function saveTodayCheckin({ workoutSlug, effort, note }) {
   return saveWorkoutCheckin({ workoutSlug, effort, note });
 }
-
 export async function saveWorkoutCheckin({
   workoutSlug,
   effort,
@@ -41,6 +35,7 @@ export async function saveWorkoutCheckin({
   workoutTitle,
   planKm,
   checkinDate,
+  photoUrl,
 }) {
   const date =
     typeof checkinDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(checkinDate)
@@ -54,8 +49,8 @@ export async function saveWorkoutCheckin({
     createdAt: new Date().toISOString(),
     workoutTitle: workoutTitle?.trim?.() ?? "",
     planKm: planKm != null && Number.isFinite(Number(planKm)) ? Number(planKm) : null,
+    photoUrl: photoUrl ?? null,
   });
-
   try {
     const payload = {
       workoutSlug,
@@ -65,6 +60,7 @@ export async function saveWorkoutCheckin({
     };
     if (workoutTitle?.trim()) payload.workoutTitle = workoutTitle.trim();
     if (planKm != null && Number.isFinite(Number(planKm))) payload.planKm = Number(planKm);
+    if (photoUrl) payload.photoUrl = photoUrl;
     await fetch("/api/checkins", {
       method: "POST",
       credentials: "include",
@@ -74,15 +70,12 @@ export async function saveWorkoutCheckin({
   } catch {
     /* offline / sem Supabase */
   }
-
   return local;
 }
-
 export async function undoWorkoutCheckin({ workoutSlug }) {
   if (!workoutSlug) return false;
   const existing = getCheckinBySlug(workoutSlug);
   removeCheckinsBySlug(workoutSlug);
-
   try {
     const params = new URLSearchParams({ workoutSlug });
     if (existing?.date) params.set("checkinDate", existing.date);
@@ -93,14 +86,11 @@ export async function undoWorkoutCheckin({ workoutSlug }) {
   } catch {
     /* offline / sem Supabase */
   }
-
   return true;
 }
-
 export function isWorkoutChecked(date, workoutSlug) {
   return hasCheckin(date, workoutSlug);
 }
-
 export function getTodayCheckin() {
   const hit = getSuggestedWorkoutCheckin();
   if (hit) return hit;
