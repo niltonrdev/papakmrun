@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [aviso, setAviso] = useState("");
   const [latestAnn, setLatestAnn] = useState("");
   const [painList, setPainList] = useState([]);
+  const [photoList, setPhotoList] = useState([]);
   const [library, setLibrary] = useState([]);
   const [libTitle, setLibTitle] = useState("");
   const [libDesc, setLibDesc] = useState("");
@@ -64,6 +65,21 @@ export default function AdminPage() {
       /* ignore */
     }
     setPainList([]);
+  }
+
+  
+  async function loadCheckinPhotos() {
+    try {
+      const res = await fetch("/api/checkin-photos?limit=30", { credentials: "include" });
+      const j = await res.json();
+      if (res.ok && Array.isArray(j.items)) {
+        setPhotoList(j.items);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    setPhotoList([]);
   }
 
   async function loadLibrary() {
@@ -139,6 +155,7 @@ export default function AdminPage() {
     setAviso(readActiveAnnouncement());
     loadAnnouncementPreview();
     loadPainFeedback();
+      loadCheckinPhotos();
     if (role === "admin" || role === "coach") {
       loadLibrary();
       loadGroupRaces();
@@ -370,7 +387,39 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {unreadRelatos.length > 0 && (
+      
+        {photoList.length > 0 && (
+          <div className="bg-papa-card rounded-3xl border border-white/10 p-6 space-y-3">
+            <h3 className="text-xs font-black uppercase text-papa-blue tracking-widest">
+              Fotos recentes dos treinos
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {photoList.slice(0, 8).map((p, idx) => (
+                <a
+                  key={`${p.workoutSlug}-${p.date}-${idx}`}
+                  href={p.photoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-xl overflow-hidden border border-white/10 bg-black/20"
+                >
+                  <img
+                    src={p.photoUrl}
+                    alt={`Foto de ${p.athleteName}`}
+                    className="w-full h-24 object-cover"
+                  />
+                  <div className="p-2">
+                    <div className="text-[10px] font-black text-white truncate">{p.athleteName}</div>
+                    <div className="text-[9px] text-white/50 truncate">
+                      {p.date} · {p.workoutTitle || "Treino"}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+{unreadRelatos.length > 0 && (
         <div className="bg-papa-card rounded-3xl border border-red-500/20 p-6 space-y-3">
           <h3 className="text-xs font-black uppercase text-red-400 tracking-widest">
             Relatos recentes (não lidos)
