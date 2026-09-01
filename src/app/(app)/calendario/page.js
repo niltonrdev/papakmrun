@@ -5,6 +5,7 @@ import { getAllPlanWorkouts, getZoneByKey } from "@/features/plans/plans.service
 import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
 import { zoneClasses } from "@/features/plans/zones.ui";
 import { readAllCheckins } from "@/features/checkins/checkins.storage";
+import { checkinAppliesToBlock } from "@/features/checkins/checkin-match";
 
 function formatISODate(d) {
   const year = d.getFullYear();
@@ -152,12 +153,6 @@ export default function CalendarPage() {
     return m;
   }, [checkins]);
 
-  const checkinSlugs = useMemo(() => {
-    const s = new Set();
-    for (const c of checkins) s.add(c.workoutSlug);
-    return s;
-  }, [checkins]);
-
   const workoutsByDate = useMemo(() => {
     const m = new Map();
     for (const w of workouts) {
@@ -211,8 +206,8 @@ export default function CalendarPage() {
     setSelectedISO(formatISODate(day));
   }
 
-  function isWorkoutDone(workoutSlug) {
-    return checkinSlugs.has(workoutSlug);
+  function isWorkoutDone(workout) {
+    return checkins.some((c) => checkinAppliesToBlock(workout, c));
   }
 
   if (!mounted || !cursor) {
@@ -281,7 +276,7 @@ export default function CalendarPage() {
           const isCurrentMonth = day.getMonth() === cursor.getMonth();
           const isToday = todayISO ? sameISO(iso, todayISO) : false;
           const items = workoutsByDate.get(iso) ?? [];
-          const doneCount = items.filter((w) => isWorkoutDone(w.slug)).length;
+          const doneCount = items.filter((w) => isWorkoutDone(w)).length;
 
           return (
             <DayCell
@@ -316,7 +311,7 @@ export default function CalendarPage() {
             <div className="text-sm text-white/60">Sem treino planejado nesse dia (mock).</div>
           ) : (
             selectedDayWorkouts.map((w) => {
-              const done = isWorkoutDone(w.slug);
+              const done = isWorkoutDone(w);
               const label = getWorkoutDisplayLabel(w, Math.max((Number(w.workoutNumber) || 1) - 1, 0));
               const segments = getBlockSegments(w);
               return (

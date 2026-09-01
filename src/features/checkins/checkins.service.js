@@ -6,6 +6,7 @@ import {
   removeCheckinsBySlug,
   readAllCheckins,
 } from "./checkins.storage";
+import { checkinAppliesToBlock } from "@/features/checkins/checkin-match";
 import { getSuggestedWorkout, getSuggestedWorkoutCheckin } from "@/features/plans/workout-suggestion";
 export function formatISODate(d = new Date()) {
   const year = d.getFullYear();
@@ -13,17 +14,14 @@ export function formatISODate(d = new Date()) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-function hasCheckinForSlug(workoutSlug) {
-  return readAllCheckins().some((c) => c.workoutSlug === workoutSlug);
-}
 export function isWorkoutCheckedToday(workoutSlug) {
   const w = getSuggestedWorkout();
   if (!w || w.slug !== workoutSlug) return false;
-  return hasCheckinForSlug(workoutSlug);
+  return isWorkoutCheckedForBlock(w);
 }
 export function isWorkoutCheckedForBlock(block) {
   if (!block?.slug) return false;
-  return hasCheckinForSlug(block.slug);
+  return readAllCheckins().some((c) => checkinAppliesToBlock(block, c));
 }
 export async function saveTodayCheckin({ workoutSlug, effort, note }) {
   return saveWorkoutCheckin({ workoutSlug, effort, note });

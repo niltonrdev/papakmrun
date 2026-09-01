@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   Calculator,
@@ -39,10 +39,12 @@ export default function DetalheAlunoPage() {
   const [serverTemplates, setServerTemplates] = useState([]);
   const [checkinSlugs, setCheckinSlugs] = useState([]);
   const [sourcePlanKey, setSourcePlanKey] = useState(null);
-  const [resetCheckinsOnSave, setResetCheckinsOnSave] = useState(false);
+  const resetCheckinsOnSaveRef = useRef(false);
+  const loadGenerationRef = useRef(0);
 
   const loadStudentPlan = useCallback(async () => {
     if (!slug) return;
+    const loadId = ++loadGenerationRef.current;
     setLoading(true);
     setSaveMsg("");
     try {
@@ -66,6 +68,7 @@ export default function DetalheAlunoPage() {
       });
       const planJson = await planRes.json();
       if (!planRes.ok) throw new Error(planJson?.error || "Não foi possível carregar a planilha.");
+      if (loadId !== loadGenerationRef.current) return;
 
       const weeks =
         planJson.weeks && Object.keys(planJson.weeks).length
@@ -84,12 +87,13 @@ export default function DetalheAlunoPage() {
       setCalcOpen(!planJson.zones && Boolean(planJson.testTime));
       setCheckinSlugs(Array.isArray(planJson.checkinSlugs) ? planJson.checkinSlugs : []);
       setSourcePlanKey(planJson.sourcePlanKey || null);
-      setResetCheckinsOnSave(false);
+      resetCheckinsOnSaveRef.current = false;
     } catch (e) {
+      if (loadId !== loadGenerationRef.current) return;
       setSaveMsg(e?.message || "Erro ao carregar aluno.");
       setPlan(clonePlan(getMergedPlanForSlug(slug)));
     } finally {
-      setLoading(false);
+      if (loadId === loadGenerationRef.current) setLoading(false);
     }
   }, [slug]);
 
@@ -110,17 +114,19 @@ export default function DetalheAlunoPage() {
   }, []);
 
   function applyPlanReplacement(weeks, nextSourceKey, successMsg) {
+    loadGenerationRef.current += 1;
+    resetCheckinsOnSaveRef.current = true;
+    setLoading(false);
     setPlan(syncPlanBlockSlugs(clonePlan(weeks || {}), planStartDate));
     setSourcePlanKey(nextSourceKey);
     setCheckinSlugs([]);
-    setResetCheckinsOnSave(true);
     setSaveMsg(successMsg);
     setTimeout(() => setSaveMsg(""), 6000);
   }
 
   function confirmReplacePlan() {
     return window.confirm(
-      "Clonar este template substitui a planilha atual. Os treinos feitos do plano anterior voltam para pendente e, ao salvar, os check-ins antigos serão zerados. Continuar?"
+      "Clonar este template substitui a planilha atual. Os treinos do novo plano ficam pendentes (check-ins antigos não valem para as datas novas). Continuar?"
     );
   }
 
@@ -137,7 +143,7 @@ export default function DetalheAlunoPage() {
       applyPlanReplacement(
         j.weeks || {},
         planKey,
-        `Template "${j.title || planKey}" aplicado. Treinos ficam pendentes; clique em Salvar para gravar e zerar os check-ins do plano anterior.`
+        `Template "${j.title || planKey}" aplicado. Treinos ficam pendentes; clique em Salvar para gravar.`
       );
     } catch (e) {
       setSaveMsg(e?.message || "Erro ao carregar template.");
@@ -171,6 +177,7 @@ export default function DetalheAlunoPage() {
       /* ignore */
     }
     try {
+      const shouldResetCheckins = resetCheckinsOnSaveRef.current;
       const res = await fetch(`/api/coach/students/${studentId}/plan`, {
         method: "PUT",
         credentials: "include",
@@ -183,18 +190,22 @@ export default function DetalheAlunoPage() {
           vRef,
           planStartDate,
           sourcePlanKey: sourcePlanKey || null,
-          resetCheckins: resetCheckinsOnSave,
+          resetCheckins: shouldResetCheckins,
         }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || "Não foi possível salvar.");
-      setCheckinSlugs(Array.isArray(j.checkinSlugs) ? j.checkinSlugs : []);
-      setResetCheckinsOnSave(false);
+      resetCheckinsOnSaveRef.current = false;
+      setCheckinSlugs(
+        shouldResetCheckins
+          ? []
+          : Array.isArray(j.checkinSlugs)
+            ? j.checkinSlugs
+            : []
+      );
       setSaveMsg(
-        resetCheckinsOnSave
-          ? j.checkinsCleared > 0
-            ? `Planilha salva. ${j.checkinsCleared} check-in(s) do plano anterior foram zerados.`
-            : "Planilha salva. Os treinos do novo template ficam pendentes."
+        shouldResetCheckins
+          ? "Planilha salva. Os treinos do novo template ficam pendentes."
           : j.checkinsCleared > 0
             ? `Alterações salvas. ${j.checkinsCleared} check-in(s) de treinos removidos foram limpos.`
             : "Alterações salvas. Check-ins dos treinos feitos foram mantidos."
@@ -221,7 +232,7 @@ export default function DetalheAlunoPage() {
     applyPlanReplacement(
       built,
       id,
-      `Template ${TEMPLATE_META[id]?.label ?? id} aplicado. Treinos ficam pendentes; clique em Salvar para gravar e zerar os check-ins do plano anterior.`
+      `Template ${TEMPLATE_META[id]?.label ?? id} aplicado. Treinos ficam pendentes; clique em Salvar para gravar.`
     );
   }
 
@@ -242,7 +253,7 @@ export default function DetalheAlunoPage() {
       applyPlanReplacement(
         j.weeks,
         sourcePlanKey,
-        "Planilha importada. Treinos ficam pendentes (check-ins do plano anterior foram zerados)."
+        "Planilha importada. Treinos ficam pendentes; clique em Salvar para gravar."
       );
     } catch (e) {
       setSaveMsg(e?.message || "Erro na importação.");
