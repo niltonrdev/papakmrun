@@ -4,11 +4,14 @@ import { fetchProfileForUser, profileCapabilities } from "@/lib/profiles/fetch-p
 import { loadWeeksDictionary } from "@/lib/plan-catalog";
 import {
   loadStudentPlanRow,
-  resolveWeeksForUser,
   studentPlanPayload,
 } from "@/lib/student-plan";
 import { computeCalendarWeek, defaultPlanStartMonday, normalizePlanStartMonday } from "@/lib/plan-calendar";
 import { syncPlanBlockSlugs } from "@/features/plans/workout-blocks";
+import {
+  activeCheckinSlugsForPlan,
+  recordsFromCheckinRows,
+} from "@/features/checkins/checkin-match";
 
 async function assertStaff(supabase, userId) {
   const { profile, error } = await fetchProfileForUser(supabase, userId);
@@ -17,6 +20,11 @@ async function assertStaff(supabase, userId) {
     return { ok: false, error: "Apenas professor/admin.", status: 403 };
   }
   return { ok: true };
+}
+
+function doneSlugsForWeeks(weeks, planStart, checkinRows) {
+  const dated = syncPlanBlockSlugs(weeks || {}, planStart);
+  return activeCheckinSlugsForPlan(dated, recordsFromCheckinRows(checkinRows));
 }
 
 export async function GET(_request, context) {
@@ -61,11 +69,13 @@ export async function GET(_request, context) {
 
   const { data: checkinRows } = await supabase
     .from("checkins")
-    .select("workout_slug")
+    .select("workout_slug, checkin_date")
     .eq("user_id", studentId);
-  const checkinSlugs = (checkinRows || []).map((c) => c.workout_slug).filter(Boolean);
 
   if (custom && Object.keys(custom.weeks || {}).length > 0) {
+    const planStart = normalizePlanStartMonday(
+      custom.planStartDate || defaultPlanStartMonday()
+    );
     return NextResponse.json({
       student,
       source: "student",
@@ -78,11 +88,14 @@ export async function GET(_request, context) {
       vRef: custom.vRef,
       planStartDate: custom.planStartDate,
       updatedAt: custom.updatedAt,
-      checkinSlugs,
+      checkinSlugs: doneSlugsForWeeks(custom.weeks, planStart, checkinRows),
     });
   }
 
   const templateWeeks = await loadWeeksDictionary(supabase, planKey);
+  const planStart = normalizePlanStartMonday(
+    custom?.planStartDate || defaultPlanStartMonday()
+  );
   return NextResponse.json({
     student,
     source: "template",
@@ -95,7 +108,7 @@ export async function GET(_request, context) {
     vRef: custom?.vRef ?? null,
     planStartDate: custom?.planStartDate ?? null,
     updatedAt: custom?.updatedAt ?? null,
-    checkinSlugs,
+    checkinSlugs: doneSlugsForWeeks(templateWeeks ?? {}, planStart, checkinRows),
   });
 }
 
@@ -181,13 +194,9 @@ export async function PUT(request, context) {
   }
 
   // Em edição normal, preserva check-ins dos treinos que continuam no plano.
-  // resetCheckins=true (ex.: troca total de planilha) zera tudo.
-  // Também zera se o template de origem mudou: os slugs (s1-treino-1…) se repetem
-  // entre planilhas e os check-ins antigos marcaria os treinos novos como feitos.
-  const sourcePlanChanged =
-    Boolean(row.source_plan_key) &&
-    row.source_plan_key !== (existing?.source_plan_key ?? null);
-  const resetCheckins = body?.resetCheckins === true || sourcePlanChanged;
+  // Não apaga o histórico no clone: os slugs se repetem entre planilhas
+  // (s1-treino-1), então o status "feito" só vale se a data do check-in
+  // corresponder ao treino atual (treinos futuros não herdam check-ins antigos).
   let checkinsCleared = 0;
   const planSlugs = new Set();
   for (const week of Object.values(weeks || {})) {
@@ -196,13 +205,7 @@ export async function PUT(request, context) {
     }
   }
 
-  if (resetCheckins) {
-    const { error: delErr, count } = await supabase
-      .from("checkins")
-      .delete({ count: "exact" })
-      .eq("user_id", studentId);
-    if (!delErr) checkinsCleared = count ?? 0;
-  } else if (planSlugs.size > 0) {
+  if (planSlugs.size > 0 && body?.resetCheckins !== true) {
     const { data: existingCheckins } = await supabase
       .from("checkins")
       .select("id, workout_slug")
@@ -221,9 +224,9 @@ export async function PUT(request, context) {
 
   const { data: checkinRows } = await supabase
     .from("checkins")
-    .select("workout_slug")
+    .select("workout_slug, checkin_date")
     .eq("user_id", studentId);
-  const checkinSlugs = (checkinRows || []).map((c) => c.workout_slug).filter(Boolean);
+  const checkinSlugs = doneSlugsForWeeks(weeks, planStart, checkinRows);
 
   return NextResponse.json({
     ok: true,

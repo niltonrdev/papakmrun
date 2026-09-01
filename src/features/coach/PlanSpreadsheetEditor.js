@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Activity, Loader2, Plus, Trash2 } from "lucide-react";
 import { formatWeekRangeLabel, normalizePlanStartMonday } from "@/lib/plan-calendar";
-import { hasCheckinForSlug, isWorkoutMissed } from "@/features/checkins/missed-workout";
+import { hasCheckinForBlock, isWorkoutMissed } from "@/features/checkins/missed-workout";
 import {
   ZONE_KEYS,
   computeWorkoutDateByIndex,
@@ -152,7 +152,7 @@ export default function PlanSpreadsheetEditor({
                         const blockWithDate = { ...b, workoutDateISO };
                         const done =
                           showStatusColumn && checkinSlugs
-                            ? hasCheckinForSlug(b.slug, checkinSlugs)
+                            ? hasCheckinForBlock(blockWithDate, checkinSlugs)
                             : false;
                         const missed =
                           showStatusColumn && checkinSlugs

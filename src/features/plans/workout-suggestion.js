@@ -1,5 +1,6 @@
 import { readActiveWeekNumber } from "@/features/session/prefs.storage";
 import { readAllCheckins } from "@/features/checkins/checkins.storage";
+import { checkinAppliesToBlock } from "@/features/checkins/checkin-match";
 import { getWeekPlan, getAllWeekNumbers } from "@/features/plans/plans.service";
 import {
   getBlockSegments,
@@ -15,8 +16,8 @@ function todayISO() {
   return `${y}-${m}-${day}`;
 }
 
-function isChecked(slug) {
-  return readAllCheckins().some((c) => c.workoutSlug === slug);
+function isChecked(block) {
+  return readAllCheckins().some((c) => checkinAppliesToBlock(block, c));
 }
 
 function enrichBlock(block, weekKey, index) {
@@ -62,7 +63,7 @@ export function getSuggestedWorkout() {
     const blocks = sortBlocksByWorkoutOrder(week?.blocks ?? []);
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
-      if (!block?.slug || isChecked(block.slug)) continue;
+      if (!block?.slug || isChecked(block)) continue;
       const date = blockDateISO(block);
       if (date && date < today) {
         overdueHit = enrichBlock(block, weekKey, i);
@@ -77,7 +78,7 @@ export function getSuggestedWorkout() {
     const blocks = sortBlocksByWorkoutOrder(week?.blocks ?? []);
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
-      if (!block?.slug || isChecked(block.slug)) continue;
+      if (!block?.slug || isChecked(block)) continue;
 
       const enriched = enrichBlock(block, weekKey, i);
       const date = blockDateISO(block);
@@ -96,5 +97,5 @@ export function getSuggestedWorkout() {
 export function getSuggestedWorkoutCheckin() {
   const w = getSuggestedWorkout();
   if (!w) return null;
-  return readAllCheckins().find((c) => c.workoutSlug === w.slug) ?? null;
+  return readAllCheckins().find((c) => checkinAppliesToBlock(w, c)) ?? null;
 }
