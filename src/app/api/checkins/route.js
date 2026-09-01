@@ -27,7 +27,7 @@ export async function GET(request) {
 
   const { data, error } = await supabase
     .from("checkins")
-    .select("workout_slug, checkin_date, effort, notes, created_at, workout_title, plan_km")
+    .select("workout_slug, checkin_date, effort, notes, created_at, workout_title, plan_km, photo_url")
     .eq("user_id", user.id)
     .order("checkin_date", { ascending: false })
     .limit(limit);
@@ -45,6 +45,7 @@ export async function GET(request) {
       createdAt: r.created_at,
       workoutTitle: r.workout_title ?? null,
       planKm: r.plan_km != null ? Number(r.plan_km) : null,
+      photoUrl: r.photo_url ?? null,
     })),
   });
 }
@@ -85,6 +86,12 @@ export async function POST(request) {
         : null;
   const planKmRaw = body.planKm ?? body.plan_km;
   const planKm = planKmRaw != null && Number.isFinite(Number(planKmRaw)) ? Number(planKmRaw) : null;
+  const photoUrl =
+    typeof body.photoUrl === "string"
+      ? body.photoUrl
+      : typeof body.photo_url === "string"
+        ? body.photo_url
+        : null;
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name, athlete_slug")
@@ -106,11 +113,12 @@ export async function POST(request) {
   };
   if (workoutTitle) row.workout_title = workoutTitle;
   if (planKm != null) row.plan_km = planKm;
+  if (photoUrl) row.photo_url = photoUrl;
 
   const { data, error } = await supabase
     .from("checkins")
     .upsert(row, { onConflict: "user_id,workout_slug,checkin_date" })
-    .select("workout_slug, checkin_date, effort, notes, workout_title, plan_km")
+    .select("workout_slug, checkin_date, effort, notes, workout_title, plan_km, photo_url")
     .single();
 
   if (error) {
@@ -126,6 +134,7 @@ export async function POST(request) {
       note: data.notes ?? "",
       workoutTitle: data.workout_title ?? null,
       planKm: data.plan_km != null ? Number(data.plan_km) : null,
+      photoUrl: data.photo_url ?? null,
     },
   });
 }
