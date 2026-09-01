@@ -54,5 +54,8 @@ export async function POST(request, context) {
     .upsert(row, { onConflict: "user_id" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await supabase.from("checkins").delete().eq("user_id", studentId);
+
   return NextResponse.json({ ok: true, weeks });
 }

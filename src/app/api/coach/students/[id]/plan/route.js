@@ -182,7 +182,12 @@ export async function PUT(request, context) {
 
   // Em edição normal, preserva check-ins dos treinos que continuam no plano.
   // resetCheckins=true (ex.: troca total de planilha) zera tudo.
-  const resetCheckins = body?.resetCheckins === true;
+  // Também zera se o template de origem mudou: os slugs (s1-treino-1…) se repetem
+  // entre planilhas e os check-ins antigos marcaria os treinos novos como feitos.
+  const sourcePlanChanged =
+    Boolean(row.source_plan_key) &&
+    row.source_plan_key !== (existing?.source_plan_key ?? null);
+  const resetCheckins = body?.resetCheckins === true || sourcePlanChanged;
   let checkinsCleared = 0;
   const planSlugs = new Set();
   for (const week of Object.values(weeks || {})) {
