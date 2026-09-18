@@ -400,7 +400,7 @@ function PostCard({ it, idx }) {
   );
 }
 
-const FEED_COMING_SOON = false;
+const FEED_COMING_SOON = true;
 
 function FeedComingSoon() {
   return (
@@ -419,11 +419,11 @@ function FeedComingSoon() {
           <Construction className="text-papa-blue" size={32} />
         </div>
         <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
-          Em breve disponível
+          Novo feed em construção
         </h3>
         <p className="mt-4 max-w-md mx-auto text-sm text-white/50 leading-relaxed">
-          Estamos finalizando o feed da comunidade — corridas do Strava e interações entre
-          alunos. Por enquanto, use o <strong className="text-white/70">Início</strong> e a{" "}
+          Estamos montando a nova versão do feed da comunidade. Por enquanto, use o{" "}
+          <strong className="text-white/70">Início</strong> e a{" "}
           <strong className="text-white/70">Performance</strong> para acompanhar seus treinos.
         </p>
       </div>
