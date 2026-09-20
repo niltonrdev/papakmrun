@@ -141,6 +141,7 @@ function replaceCheckinsFromApiItems(items) {
       createdAt: row.createdAt || new Date().toISOString(),
       workoutTitle: row.workoutTitle ?? "",
       planKm: row.planKm != null ? Number(row.planKm) : null,
+      photoUrl: row.photoUrl || null,
     });
   }
   writeAllCheckins(next);

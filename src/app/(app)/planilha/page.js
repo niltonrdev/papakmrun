@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import CheckinModal from "@/features/checkins/CheckinModal";
+import CheckinPhotoButton from "@/features/checkins/CheckinPhotoButton";
 import UndoCheckinButton from "@/features/checkins/UndoCheckinButton";
 import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
 import { isWorkoutMissed } from "@/features/checkins/missed-workout";
@@ -44,7 +45,14 @@ function useIsClient() {
   );
 }
 
-function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, onUndoCheckin, refreshKey }) {
+function WorkoutPreviewCard({
+  block,
+  blockIndex = 0,
+  onCheckin,
+  onAddPhoto,
+  onUndoCheckin,
+  refreshKey,
+}) {
   void refreshKey;
   const statusReady = useIsClient();
   const zone = getZoneByKey(block.zoneKey);
@@ -67,7 +75,10 @@ function WorkoutPreviewCard({ block, blockIndex = 0, onCheckin, onUndoCheckin, r
         </div>
 
         {done ? (
-          <UndoCheckinButton workoutSlug={block.slug} onUndone={() => onUndoCheckin?.(block)} />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <UndoCheckinButton workoutSlug={block.slug} onUndone={() => onUndoCheckin?.(block)} />
+            <CheckinPhotoButton block={block} onClick={() => onAddPhoto?.(block)} />
+          </div>
         ) : missed ? (
           <button
             type="button"
@@ -216,6 +227,7 @@ export default function PerformancePage() {
   const [insights, setInsights] = useState(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [checkinWorkout, setCheckinWorkout] = useState(null);
+  const [checkinPhotoOnly, setCheckinPhotoOnly] = useState(false);
   const [checkinRefresh, setCheckinRefresh] = useState(0);
   const hasPrescribedPlan = Boolean(planMeta?.hasPrescribedPlan);
   const week = useMemo(() => (hasPrescribedPlan ? getWeekPlan(activeWeek) : null), [activeWeek, syncTick, hasPrescribedPlan]);
@@ -417,7 +429,14 @@ export default function PerformancePage() {
                   key={b.slug}
                   block={b}
                   blockIndex={idx}
-                  onCheckin={setCheckinWorkout}
+                  onCheckin={(block) => {
+                    setCheckinPhotoOnly(false);
+                    setCheckinWorkout(block);
+                  }}
+                  onAddPhoto={(block) => {
+                    setCheckinPhotoOnly(true);
+                    setCheckinWorkout(block);
+                  }}
                   onUndoCheckin={() => setCheckinRefresh((x) => x + 1)}
                   refreshKey={checkinRefresh + syncTick}
                 />
@@ -516,8 +535,12 @@ export default function PerformancePage() {
 
       <CheckinModal
         open={!!checkinWorkout}
-        onClose={() => setCheckinWorkout(null)}
+        onClose={() => {
+          setCheckinWorkout(null);
+          setCheckinPhotoOnly(false);
+        }}
         workout={checkinWorkout}
+        photoOnly={checkinPhotoOnly}
         onSaved={() => setCheckinRefresh((x) => x + 1)}
       />
     </div>

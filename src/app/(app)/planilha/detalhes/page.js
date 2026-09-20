@@ -14,6 +14,7 @@ import { readActiveWeekNumber, writeActiveWeekNumber } from "@/features/session/
 import { isWorkoutCheckedForBlock } from "@/features/checkins/checkins.service";
 import { isWorkoutMissed } from "@/features/checkins/missed-workout";
 import CheckinModal from "@/features/checkins/CheckinModal";
+import CheckinPhotoButton from "@/features/checkins/CheckinPhotoButton";
 import UndoCheckinButton from "@/features/checkins/UndoCheckinButton";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -37,6 +38,7 @@ export default function PlanilhaDetalhesPage() {
   const [activeWeek, setActiveWeek] = useState("1");
   const [mounted, setMounted] = useState(false);
   const [checkinWorkout, setCheckinWorkout] = useState(null);
+  const [checkinPhotoOnly, setCheckinPhotoOnly] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [athleteName, setAthleteName] = useState("Aluno");
 
@@ -287,15 +289,28 @@ export default function PlanilhaDetalhesPage() {
                         return (
                           <div className="mt-2 space-y-1">
                             {done ? (
-                              <UndoCheckinButton
-                                compact
-                                workoutSlug={b.slug}
-                                onUndone={() => setRefresh((x) => x + 1)}
-                              />
+                              <div className="flex flex-col items-center gap-1">
+                                <UndoCheckinButton
+                                  compact
+                                  workoutSlug={b.slug}
+                                  onUndone={() => setRefresh((x) => x + 1)}
+                                />
+                                <CheckinPhotoButton
+                                  compact
+                                  block={b}
+                                  onClick={() => {
+                                    setCheckinPhotoOnly(true);
+                                    setCheckinWorkout(b);
+                                  }}
+                                />
+                              </div>
                             ) : missed ? (
                               <button
                                 type="button"
-                                onClick={() => setCheckinWorkout(b)}
+                                onClick={() => {
+                                  setCheckinPhotoOnly(false);
+                                  setCheckinWorkout(b);
+                                }}
                                 className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-all"
                               >
                                 Marcar treino em atraso
@@ -303,7 +318,10 @@ export default function PlanilhaDetalhesPage() {
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => setCheckinWorkout(b)}
+                                onClick={() => {
+                                  setCheckinPhotoOnly(false);
+                                  setCheckinWorkout(b);
+                                }}
                                 className="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-papa-orange/40 text-papa-orange hover:bg-papa-orange/10 transition-all"
                               >
                                 Marcar como treino feito
@@ -448,8 +466,12 @@ export default function PlanilhaDetalhesPage() {
 
       <CheckinModal
         open={!!checkinWorkout}
-        onClose={() => setCheckinWorkout(null)}
+        onClose={() => {
+          setCheckinWorkout(null);
+          setCheckinPhotoOnly(false);
+        }}
         workout={checkinWorkout}
+        photoOnly={checkinPhotoOnly}
         onSaved={() => setRefresh((x) => x + 1)}
       />
     </div>

@@ -23,6 +23,10 @@ export function isWorkoutCheckedForBlock(block) {
   if (!block?.slug) return false;
   return readAllCheckins().some((c) => checkinAppliesToBlock(block, c));
 }
+export function getCheckinForBlock(block) {
+  if (!block?.slug) return null;
+  return readAllCheckins().find((c) => checkinAppliesToBlock(block, c)) ?? null;
+}
 export async function saveTodayCheckin({ workoutSlug, effort, note }) {
   return saveWorkoutCheckin({ workoutSlug, effort, note });
 }
@@ -39,15 +43,17 @@ export async function saveWorkoutCheckin({
     typeof checkinDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(checkinDate)
       ? checkinDate
       : formatISODate(new Date());
+  const existing = getCheckin(date, workoutSlug) || getCheckinBySlug(workoutSlug);
+  const nextPhotoUrl = photoUrl || existing?.photoUrl || null;
   const local = upsertCheckin({
     date,
     workoutSlug,
     effort: Number(effort),
     note: note?.trim() ?? "",
-    createdAt: new Date().toISOString(),
-    workoutTitle: workoutTitle?.trim?.() ?? "",
-    planKm: planKm != null && Number.isFinite(Number(planKm)) ? Number(planKm) : null,
-    photoUrl: photoUrl ?? null,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    workoutTitle: workoutTitle?.trim?.() ?? existing?.workoutTitle ?? "",
+    planKm: planKm != null && Number.isFinite(Number(planKm)) ? Number(planKm) : existing?.planKm ?? null,
+    photoUrl: nextPhotoUrl,
   });
   try {
     const payload = {
@@ -58,7 +64,7 @@ export async function saveWorkoutCheckin({
     };
     if (workoutTitle?.trim()) payload.workoutTitle = workoutTitle.trim();
     if (planKm != null && Number.isFinite(Number(planKm))) payload.planKm = Number(planKm);
-    if (photoUrl) payload.photoUrl = photoUrl;
+    if (nextPhotoUrl) payload.photoUrl = nextPhotoUrl;
     await fetch("/api/checkins", {
       method: "POST",
       credentials: "include",

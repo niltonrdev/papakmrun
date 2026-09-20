@@ -1,406 +1,11 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Activity,
-  Construction,
-  Flame,
-  MessageSquare,
-  Search,
-  RotateCcw,
-  Send,
-  Loader2,
-} from "lucide-react";
-import dynamic from "next/dynamic";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Activity, Construction, Flame, Search, RotateCcw } from "lucide-react";
 import RaceCalendar from "@/features/events/RaceCalendar";
-import { findWorkoutInPlanBySlug, getZoneByKey } from "@/features/plans/plans.service";
 import DailyWordCard from "@/features/feed/DailyWordCard";
-import { FEED_PHRASES } from "@/features/feed/feed.mock";
+import CheckinPostCard from "@/features/feed/CheckinPostCard";
 
-const WorkoutMap = dynamic(() => import("@/features/feed/WorkoutMap"), {
-  ssr: false,
-  loading: () => <div className="aspect-video w-full bg-white/5 animate-pulse rounded-2xl" />,
-});
-
-function formatSmartDate(iso) {
-  if (!iso) return "—";
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  const today = new Date();
-  if (d.toDateString() === today.toDateString()) return "hoje";
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
-
-function formatCreatedAt(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function buildDescription(item, idx) {
-  if (item.kind === "strava") {
-    const km = item.distanceKm != null ? `${item.distanceKm} km` : "";
-    const moving =
-      item.movingTimeSec != null
-        ? new Date(item.movingTimeSec * 1000).toISOString().substr(11, 8).replace(/^00:/, "")
-        : null;
-    const elev = item.elevationM != null ? `${item.elevationM} m` : null;
-    return [km, moving, elev].filter(Boolean).join(" · ");
-  }
-  if (item.note?.trim()) return item.note;
-  return FEED_PHRASES[idx % FEED_PHRASES.length];
-}
-
-function metaFor(item) {
-  if (item.kind === "strava") {
-    const km = item.distanceKm != null ? `${item.distanceKm}km` : "—";
-    const pace = item.pacePerKm ? `${item.pacePerKm} /km` : "—";
-    return `${km} • Pace ${pace}`;
-  }
-  const found = findWorkoutInPlanBySlug(item.title?.toLowerCase?.());
-  const workout = found?.block;
-  const zone = workout?.zoneKey ? getZoneByKey(workout.zoneKey) : null;
-  const km =
-    item.distanceKm != null
-      ? `${item.distanceKm}km`
-      : workout?.km != null
-        ? `${workout.km}km`
-        : "—";
-  const pace =
-    zone?.paceMin && zone?.paceMax ? `${zone.paceMin}–${zone.paceMax}` : "—";
-  return `${km} • Pace ${pace}`;
-}
-
-function AuthorAvatar({ author, accent, size = "h-10 w-10" }) {
-  if (author?.avatarUrl) {
-    return (
-      <img
-        src={author.avatarUrl}
-        alt={author.name}
-        className={`${size} rounded-full border ${accent} object-cover`}
-      />
-    );
-  }
-  return (
-    <div
-      className={`flex ${size} items-center justify-center rounded-full border ${accent} text-xs font-black italic`}
-    >
-      {author?.name?.[0]?.toUpperCase() ?? "?"}
-    </div>
-  );
-}
-
-function CommentList({ items, busy }) {
-  if (busy && items.length === 0) {
-    return (
-      <div className="flex items-center gap-2 text-[11px] text-white/40">
-        <Loader2 size={12} className="animate-spin" /> Carregando comentários…
-      </div>
-    );
-  }
-  if (items.length === 0) {
-    return (
-      <p className="text-[11px] text-white/30 italic">
-        Seja o primeiro a comentar.
-      </p>
-    );
-  }
-  return (
-    <ul className="space-y-3">
-      {items.map((c) => {
-        const href = c.author?.id ? `/atleta/${c.author.id}` : null;
-        return (
-          <li key={c.id} className="flex items-start gap-3">
-            {href ? (
-              <Link href={href} className="shrink-0">
-                <AuthorAvatar
-                  author={c.author}
-                  accent="border-white/10"
-                  size="h-8 w-8"
-                />
-              </Link>
-            ) : (
-              <AuthorAvatar
-                author={c.author}
-                accent="border-white/10"
-                size="h-8 w-8"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                {href ? (
-                  <Link
-                    href={href}
-                    className="text-[11px] font-black text-white hover:text-papa-blue"
-                  >
-                    {c.author?.name || "Atleta"}
-                  </Link>
-                ) : (
-                  <span className="text-[11px] font-black text-white">
-                    {c.author?.name || "Atleta"}
-                  </span>
-                )}
-                <span className="text-[10px] text-white/30">
-                  {formatCreatedAt(c.createdAt)}
-                </span>
-              </div>
-              <p className="mt-1 break-words text-[12px] leading-relaxed text-white/75 whitespace-pre-wrap">
-                {c.body}
-              </p>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function PostCard({ it, idx }) {
-  const isStrava = it.kind === "strava";
-  const accent = isStrava
-    ? "border-[#fc4c02]/40 bg-[#fc4c02]/15 text-[#fc4c02]"
-    : "border-white/10 bg-white/10 text-white/40";
-  const description = buildDescription(it, idx);
-
-  const [liked, setLiked] = useState(Boolean(it.likedByMe));
-  const [likeCount, setLikeCount] = useState(Number(it.likeCount) || 0);
-  const [likeBusy, setLikeBusy] = useState(false);
-
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const [commentCount, setCommentCount] = useState(Number(it.commentCount) || 0);
-  const [comments, setComments] = useState([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentsLoaded, setCommentsLoaded] = useState(false);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [commentBusy, setCommentBusy] = useState(false);
-  const [commentError, setCommentError] = useState(null);
-  const textareaRef = useRef(null);
-
-  useEffect(() => {
-    setLiked(Boolean(it.likedByMe));
-    setLikeCount(Number(it.likeCount) || 0);
-    setCommentCount(Number(it.commentCount) || 0);
-  }, [it.likedByMe, it.likeCount, it.commentCount]);
-
-  const profileHref = it.author?.id ? `/atleta/${it.author.id}` : null;
-  const canEngage = Boolean(it.activityId) && Boolean(it.activityKind);
-
-  const toggleLike = useCallback(async () => {
-    if (!canEngage || likeBusy) return;
-    setLikeBusy(true);
-    const prevLiked = liked;
-    const prevCount = likeCount;
-    setLiked(!prevLiked);
-    setLikeCount(prevCount + (prevLiked ? -1 : 1));
-    try {
-      const res = await fetch("/api/feed/likes", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          activityKind: it.activityKind,
-          activityId: it.activityId,
-        }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || "Falha ao curtir.");
-      setLiked(Boolean(j.likedByMe));
-      setLikeCount(Number(j.likeCount) || 0);
-    } catch {
-      setLiked(prevLiked);
-      setLikeCount(prevCount);
-    } finally {
-      setLikeBusy(false);
-    }
-  }, [canEngage, likeBusy, liked, likeCount, it.activityId, it.activityKind]);
-
-  const loadComments = useCallback(async () => {
-    if (!canEngage) return;
-    setCommentsLoading(true);
-    try {
-      const res = await fetch(
-        `/api/feed/comments?activityKind=${encodeURIComponent(it.activityKind)}&activityId=${encodeURIComponent(it.activityId)}`,
-        { credentials: "include", cache: "no-store" }
-      );
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || "Falha ao carregar.");
-      const list = Array.isArray(j.items) ? j.items : [];
-      setComments(list);
-      setCommentCount(list.length);
-      setCommentsLoaded(true);
-    } catch {
-      /* ignore */
-    } finally {
-      setCommentsLoading(false);
-    }
-  }, [canEngage, it.activityId, it.activityKind]);
-
-  function toggleComments() {
-    setCommentsOpen((open) => {
-      const next = !open;
-      if (next && !commentsLoaded) loadComments();
-      if (next) {
-        setTimeout(() => textareaRef.current?.focus(), 80);
-      }
-      return next;
-    });
-  }
-
-  async function submitComment(e) {
-    e.preventDefault();
-    if (!canEngage) return;
-    const text = commentDraft.trim();
-    if (!text || commentBusy) return;
-    setCommentBusy(true);
-    setCommentError(null);
-    try {
-      const res = await fetch("/api/feed/comments", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          activityKind: it.activityKind,
-          activityId: it.activityId,
-          body: text,
-        }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || "Falha ao comentar.");
-      if (j?.item) {
-        setComments((prev) => [...prev, j.item]);
-        setCommentCount((c) => c + 1);
-      }
-      setCommentDraft("");
-    } catch (err) {
-      setCommentError(err?.message || "Falha ao comentar.");
-    } finally {
-      setCommentBusy(false);
-    }
-  }
-
-  return (
-    <article className="rounded-3xl border border-white/5 bg-papa-card p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          {profileHref ? (
-            <Link href={profileHref} className="shrink-0">
-              <AuthorAvatar author={it.author} accent={accent} />
-            </Link>
-          ) : (
-            <AuthorAvatar author={it.author} accent={accent} />
-          )}
-          <div className="min-w-0">
-            {profileHref ? (
-              <Link
-                href={profileHref}
-                className="font-black leading-none text-white hover:text-papa-blue transition-colors block truncate"
-              >
-                {it.author?.name ?? "Atleta"}
-              </Link>
-            ) : (
-              <div className="font-black leading-none text-white truncate">
-                {it.author?.name ?? "Atleta"}
-              </div>
-            )}
-            {it.title ? (
-              <div className="mt-1 text-[11px] font-bold text-white/55 truncate">
-                {it.title}
-              </div>
-            ) : null}
-            <div className="mt-0.5 text-[10px] font-bold uppercase text-white/40">
-              {metaFor(it)}
-            </div>
-          </div>
-        </div>
-        <span className="shrink-0 rounded-full bg-white/5 px-3 py-1 text-[10px] font-black uppercase text-white/30">
-          {formatSmartDate(it.dateISO)}
-        </span>
-      </div>
-
-      {it.mapPoints && it.mapPoints.length >= 2 ? (
-        <div className="aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/5 bg-black/40">
-          <WorkoutMap points={it.mapPoints} />
-        </div>
-      ) : null}
-
-      <div className="text-sm text-white/70 leading-relaxed italic">
-        &quot;{description}&quot;
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 pt-2">
-        <button
-          type="button"
-          onClick={toggleLike}
-          disabled={!canEngage || likeBusy}
-          className={`flex items-center justify-center gap-2 py-3 rounded-2xl border text-[10px] font-black uppercase transition-colors disabled:opacity-50 ${
-            liked
-              ? "bg-papa-orange/15 border-papa-orange/40 text-papa-orange"
-              : "bg-white/5 border-white/5 text-white/40 hover:text-papa-orange"
-          }`}
-        >
-          <Flame size={14} className={liked ? "fill-papa-orange" : ""} />
-          {liked ? "Curtido" : "Curtir"}
-          {likeCount > 0 ? <span>· {likeCount}</span> : null}
-        </button>
-        <button
-          type="button"
-          onClick={toggleComments}
-          disabled={!canEngage}
-          className={`flex items-center justify-center gap-2 py-3 rounded-2xl border text-[10px] font-black uppercase transition-colors disabled:opacity-50 ${
-            commentsOpen
-              ? "bg-papa-blue/15 border-papa-blue/40 text-papa-blue"
-              : "bg-white/5 border-white/5 text-white/40 hover:text-papa-blue"
-          }`}
-        >
-          <MessageSquare size={14} /> Comentar
-          {commentCount > 0 ? <span>· {commentCount}</span> : null}
-        </button>
-      </div>
-
-      {commentsOpen && canEngage ? (
-        <div className="pt-3 border-t border-white/5 space-y-4">
-          <CommentList items={comments} busy={commentsLoading} />
-
-          <form onSubmit={submitComment} className="flex items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              value={commentDraft}
-              onChange={(e) => setCommentDraft(e.target.value)}
-              rows={2}
-              maxLength={800}
-              placeholder="Escreva um comentário…"
-              className="flex-1 resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white outline-none focus:border-papa-blue/40"
-            />
-            <button
-              type="submit"
-              disabled={commentBusy || !commentDraft.trim()}
-              className="rounded-2xl bg-papa-blue px-4 py-2 text-papa-dark hover:scale-105 transition disabled:opacity-50 disabled:hover:scale-100"
-              aria-label="Enviar comentário"
-              title="Enviar comentário"
-            >
-              {commentBusy ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Send size={16} />
-              )}
-            </button>
-          </form>
-          {commentError ? (
-            <p className="text-[11px] text-red-300">{commentError}</p>
-          ) : null}
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-const FEED_COMING_SOON = true;
+const FEED_COMING_SOON = false;
 
 function FeedComingSoon() {
   return (
@@ -446,18 +51,6 @@ function FeedPageActive() {
     setLoading(true);
     setEmpty(false);
     try {
-      // 1) Sincroniza Strava do usuário atual para community_activities (necessário antes do feed).
-      const stravaRes = await fetch("/api/strava/feed", {
-        credentials: "include",
-        cache: "no-store",
-      }).catch(() => null);
-
-      let stravaPayload = null;
-      if (stravaRes?.ok) {
-        stravaPayload = await stravaRes.json().catch(() => null);
-      }
-
-      // 2) Lê o feed da comunidade após o cache.
       const communityRes = await fetch("/api/feed/community", {
         credentials: "include",
         cache: "no-store",
@@ -467,35 +60,6 @@ function FeedPageActive() {
       if (communityRes?.ok) {
         const j = await communityRes.json();
         list = Array.isArray(j.items) ? j.items : [];
-      }
-
-      // 3) Fallback: se o cache ainda não persistiu, mostra as corridas do próprio Strava.
-      if (
-        list.length === 0 &&
-        stravaPayload?.linked &&
-        Array.isArray(stravaPayload.activities) &&
-        stravaPayload.activities.length > 0
-      ) {
-        const authorName = stravaPayload.authorName || "Você";
-        list = stravaPayload.activities.map((a) => ({
-          kind: "strava",
-          id: a.id || `strava-local-${a.stravaId}`,
-          activityKind: "strava",
-          activityId: null,
-          dateISO: a.dateISO,
-          createdAt: a.startAt || null,
-          title: a.name || "Corrida",
-          distanceKm: a.distanceKm ?? null,
-          movingTimeSec: a.movingTimeSec ?? null,
-          pacePerKm: a.pacePerKm || null,
-          elevationM: a.elevationM ?? null,
-          note: "",
-          author: { id: null, name: authorName, avatarUrl: null, slug: null },
-          mapPoints: Array.isArray(a.mapPoints) && a.mapPoints.length >= 2 ? a.mapPoints : null,
-          likeCount: 0,
-          commentCount: 0,
-          likedByMe: false,
-        }));
       }
 
       setItems(list);
@@ -522,16 +86,27 @@ function FeedPageActive() {
     );
   }, [items, q]);
 
+  const weekKmTotal = useMemo(
+    () =>
+      items.reduce((acc, it) => {
+        const n = Number(it.distanceKm);
+        return acc + (Number.isFinite(n) ? n : 0);
+      }, 0),
+    [items]
+  );
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 w-full min-w-0">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="min-w-0">
-          <h1 className="text-xs sm:text-sm font-bold text-white/20 uppercase tracking-widest mb-1">PapaKM</h1>
+          <h1 className="text-xs sm:text-sm font-bold text-white/20 uppercase tracking-widest mb-1">
+            PapaKM
+          </h1>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white italic break-words leading-tight">
             Feed Social e Comunidade
           </h2>
           <p className="text-[10px] text-white/30 font-bold uppercase mt-2">
-            Corridas do Strava da comunidade — últimos 7 dias
+            Check-ins da planilha — últimos 7 dias
           </p>
         </div>
 
@@ -568,11 +143,11 @@ function FeedPageActive() {
           ) : filtered.length === 0 ? (
             <div className="p-10 rounded-3xl border border-dashed border-white/10 text-center text-white/30 font-bold uppercase text-xs">
               {empty
-                ? "Nenhuma corrida nos últimos 7 dias. Confira se o Strava está conectado no Perfil e toque em atualizar."
+                ? "Nenhum treino concluído nos últimos 7 dias."
                 : "Nenhuma atividade encontrada"}
             </div>
           ) : (
-            filtered.map((it, idx) => <PostCard key={it.id} it={it} idx={idx} />)
+            filtered.map((it) => <CheckinPostCard key={it.id} it={it} />)
           )}
         </div>
 
@@ -596,8 +171,14 @@ function FeedPageActive() {
                 <div className="text-[10px] font-black text-white/20 uppercase flex items-center gap-1">
                   <Activity size={10} /> Treinos
                 </div>
+                <div className="text-2xl font-black text-white mt-1">{items.length}</div>
+              </div>
+              <div className="col-span-2 p-4 rounded-2xl bg-white/5 border border-white/5">
+                <div className="text-[10px] font-black text-white/20 uppercase">
+                  Km nos últimos 7 dias
+                </div>
                 <div className="text-2xl font-black text-white mt-1">
-                  {items.length}
+                  {Math.round(weekKmTotal * 10) / 10}
                 </div>
               </div>
             </div>

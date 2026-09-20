@@ -1,13 +1,16 @@
 const STRAVA_AUTH = "https://www.strava.com/oauth/authorize";
 const STRAVA_TOKEN = "https://www.strava.com/oauth/token";
 
+/** Perfil público + perfil completo + atividades (inclui privadas). */
+export const STRAVA_OAUTH_SCOPE = "read,profile:read_all,activity:read_all";
+
 export function buildStravaAuthorizeUrl({ clientId, redirectUri, state, scope }) {
   const u = new URL(STRAVA_AUTH);
   u.searchParams.set("client_id", clientId);
   u.searchParams.set("redirect_uri", redirectUri);
   u.searchParams.set("response_type", "code");
-  u.searchParams.set("approval_prompt", "auto");
-  u.searchParams.set("scope", scope || "read,activity:read_all");
+  u.searchParams.set("approval_prompt", "force");
+  u.searchParams.set("scope", scope || STRAVA_OAUTH_SCOPE);
   if (state) u.searchParams.set("state", state);
   return u.toString();
 }

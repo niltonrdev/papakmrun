@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getTodayWorkout, getWeekPlan, getWeekBlocksOrdered } from "@/features/plans/plans.service";
 import CheckinModal from "@/features/checkins/CheckinModal";
+import CheckinPhotoButton from "@/features/checkins/CheckinPhotoButton";
 import {
   isWorkoutCheckedForBlock,
   getTodayCheckin,
@@ -20,6 +21,7 @@ import ParqFormModal from "@/features/health/ParqFormModal";
 import { readActiveWeekNumber } from "@/features/session/prefs.storage";
 import { getBlockSegments, getWorkoutDisplayLabel } from "@/features/plans/workout-blocks";
 import { CheckCircle2, Circle, PartyPopper, Undo2 } from "lucide-react";
+import { StravaConnectButton } from "@/features/strava/StravaConnectDialog";
 
 function useWeekProgress(syncTick, currentSlug) {
   return useMemo(() => {
@@ -197,6 +199,7 @@ function WeekProgressPreview({ syncTick, currentSlug, onSelectWorkout }) {
 
 function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 }) {
   const [open, setOpen] = useState(false);
+  const [photoOnly, setPhotoOnly] = useState(false);
   const [done, setDone] = useState(false);
   const [undoBusy, setUndoBusy] = useState(false);
   const [localTick, setLocalTick] = useState(0);
@@ -302,6 +305,13 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
                 >
                   Treino feito!
                 </button>
+                <CheckinPhotoButton
+                  block={selected}
+                  onClick={() => {
+                    setPhotoOnly(true);
+                    setOpen(true);
+                  }}
+                />
                 <button
                   type="button"
                   onClick={handleUndo}
@@ -315,7 +325,10 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
             ) : (
               <button
                 type="button"
-                onClick={() => setOpen(true)}
+                onClick={() => {
+                  setPhotoOnly(false);
+                  setOpen(true);
+                }}
                 className="bg-papa-orange hover:bg-orange-600 text-white font-bold py-4 px-10 rounded-2xl transition-all shadow-lg shadow-orange-900/40"
               >
                 Marcar como treino feito
@@ -346,7 +359,11 @@ function SuggestedWorkoutCard({ isSocial = false, workout, onDone, syncTick = 0 
 
       <CheckinModal
         open={open}
-        onClose={() => setOpen(false)}
+        photoOnly={photoOnly}
+        onClose={() => {
+          setOpen(false);
+          setPhotoOnly(false);
+        }}
         workout={selected}
         onSaved={() => {
           setDone(true);
@@ -483,12 +500,9 @@ export default function DashboardPage() {
         </h2>
         <div className="mt-5 flex flex-wrap items-center gap-2 sm:gap-3">
           {stravaLinked === false && (
-            <a
-              href="/api/strava/connect"
-              className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-white/80 hover:bg-white/10"
-            >
+            <StravaConnectButton className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-white/80 hover:bg-white/10">
               Conectar Strava
-            </a>
+            </StravaConnectButton>
           )}
           {stravaLinked === true && (
             <span className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[11px] sm:text-xs font-black uppercase text-emerald-300">
