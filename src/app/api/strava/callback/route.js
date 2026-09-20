@@ -80,7 +80,7 @@ export async function GET(request) {
         refresh_token: token.refresh_token,
         access_token: token.access_token,
         expires_at: expiresAt,
-        scope: token.scope ?? "read,activity:read_all",
+        scope: token.scope ?? "read,profile:read_all,activity:read_all",
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }

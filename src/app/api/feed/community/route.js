@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
-import { decodePolyline, downsamplePoints } from "@/lib/strava/polyline";
 
 const PAGE_LIMIT = 60;
 const FEED_DAYS = 7;
@@ -10,17 +9,28 @@ function cutoffDateIso(days) {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - days);
+  return toIsoDate(d);
+}
+
+function toIsoDate(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
-function pointsFromPolyline(encoded) {
-  if (!encoded) return null;
-  const decoded = decodePolyline(encoded);
-  if (!Array.isArray(decoded) || decoded.length < 2) return null;
-  return downsamplePoints(decoded, 250);
+function mondayOfCurrentWeek() {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return toIsoDate(d);
+}
+
+function roundKm(n) {
+  if (n == null || !Number.isFinite(Number(n))) return null;
+  return Math.round(Number(n) * 10) / 10;
 }
 
 export async function GET(request) {
@@ -47,37 +57,52 @@ export async function GET(request) {
     60
   );
   const cutoff = cutoffDateIso(days);
+  const weekStart = mondayOfCurrentWeek();
 
-  const activitiesRes = await supabase
-    .from("community_activities")
-    .select(
-      "id, user_id, source, source_id, name, date_iso, start_at, distance_km, moving_time_sec, pace_per_km, elevation_m, summary_polyline, author_name, created_at"
-    )
-    .gte("date_iso", cutoff)
-    .order("date_iso", { ascending: false })
+  const selectCols =
+    "id, user_id, workout_slug, checkin_date, effort, notes, workout_title, plan_km, author_name, created_at";
+
+  const checkinsRes = await supabase
+    .from("checkins")
+    .select(selectCols)
+    .gte("checkin_date", cutoff)
+    .order("checkin_date", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (activitiesRes.error) {
-    return NextResponse.json({ error: activitiesRes.error.message }, { status: 500 });
+  if (checkinsRes.error) {
+    return NextResponse.json({ error: checkinsRes.error.message }, { status: 500 });
   }
 
-  const userIds = new Set();
-  for (const r of activitiesRes.data || []) if (r.user_id) userIds.add(r.user_id);
+  const rows = checkinsRes.data || [];
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
 
   let profilesById = new Map();
-  if (userIds.size > 0) {
-    const idsArr = Array.from(userIds);
-    const rpc = await supabase.rpc("get_public_profiles", { target_ids: idsArr });
-    if (!rpc.error && Array.isArray(rpc.data)) {
-      profilesById = new Map(rpc.data.map((p) => [p.id, p]));
-    } else {
-      const { data: profs } = await supabase
+  const weekKmByUser = new Map();
+
+  if (userIds.length > 0) {
+    const [rpc, profsRes, weekRes] = await Promise.all([
+      supabase.rpc("get_public_profiles", { target_ids: userIds }),
+      supabase
         .from("profiles")
         .select("id, display_name, athlete_slug, avatar_url")
-        .in("id", idsArr);
-      if (Array.isArray(profs)) {
-        profilesById = new Map(profs.map((p) => [p.id, p]));
-      }
+        .in("id", userIds),
+      supabase
+        .from("checkins")
+        .select("user_id, plan_km")
+        .in("user_id", userIds)
+        .gte("checkin_date", weekStart),
+    ]);
+
+    if (!rpc.error && Array.isArray(rpc.data)) {
+      profilesById = new Map(rpc.data.map((p) => [p.id, p]));
+    } else if (Array.isArray(profsRes.data)) {
+      profilesById = new Map(profsRes.data.map((p) => [p.id, p]));
+    }
+
+    for (const r of weekRes.data || []) {
+      const prev = weekKmByUser.get(r.user_id) || 0;
+      weekKmByUser.set(r.user_id, prev + (r.plan_km != null ? Number(r.plan_km) : 0));
     }
   }
 
@@ -95,33 +120,24 @@ export async function GET(request) {
     };
   }
 
-  const items = (activitiesRes.data || [])
-    .map((r) => {
-      const author = authorFor(r.user_id, r.author_name);
-      return {
-        kind: "strava",
-        id: `strava-${r.id}`,
-        activityKind: "strava",
-        activityId: r.id,
-        dateISO: r.date_iso,
-        createdAt: r.created_at,
-        title: r.name || "Corrida",
-        distanceKm: r.distance_km != null ? Number(r.distance_km) : null,
-        movingTimeSec: r.moving_time_sec ?? null,
-        pacePerKm: r.pace_per_km || null,
-        elevationM: r.elevation_m ?? null,
-        note: "",
-        author,
-        mapPoints: pointsFromPolyline(r.summary_polyline),
-      };
-    })
-    .sort((a, b) => {
-      const ka = `${a.dateISO || ""}T${(a.createdAt || "").slice(11, 19) || "00:00:00"}`;
-      const kb = `${b.dateISO || ""}T${(b.createdAt || "").slice(11, 19) || "00:00:00"}`;
-      return kb.localeCompare(ka);
-    });
+  const items = rows.map((r) => {
+    return {
+      kind: "checkin",
+      id: `checkin-${r.id}`,
+      activityKind: "checkin",
+      activityId: r.id,
+      dateISO: r.checkin_date,
+      createdAt: r.created_at,
+      title: r.workout_title?.trim() || "Treino",
+      workoutSlug: r.workout_slug,
+      distanceKm: roundKm(r.plan_km),
+      effort: r.effort ?? null,
+      note: r.notes ?? "",
+      weekKm: roundKm(weekKmByUser.get(r.user_id) || 0) || 0,
+      author: authorFor(r.user_id, r.author_name),
+    };
+  });
 
-  // Engajamento: contagem de curtidas, comentários e curtida do próprio usuário.
   const activityUuids = items.map((it) => it.activityId).filter(Boolean);
   const likeCounts = new Map();
   const commentCounts = new Map();
@@ -132,15 +148,18 @@ export async function GET(request) {
       supabase
         .from("feed_likes")
         .select("activity_kind, activity_id")
+        .eq("activity_kind", "checkin")
         .in("activity_id", activityUuids),
       supabase
         .from("feed_likes")
         .select("activity_kind, activity_id")
         .eq("user_id", user.id)
+        .eq("activity_kind", "checkin")
         .in("activity_id", activityUuids),
       supabase
         .from("feed_comments")
         .select("activity_kind, activity_id")
+        .eq("activity_kind", "checkin")
         .in("activity_id", activityUuids),
     ]);
 
@@ -164,5 +183,5 @@ export async function GET(request) {
     it.likedByMe = myLikes.has(k);
   }
 
-  return NextResponse.json({ items, days, cutoff });
+  return NextResponse.json({ items, days, cutoff, weekStart });
 }

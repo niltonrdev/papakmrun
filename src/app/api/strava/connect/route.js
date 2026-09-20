@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
-import { buildStravaAuthorizeUrl } from "@/lib/strava/oauth";
+import { buildStravaAuthorizeUrl, STRAVA_OAUTH_SCOPE } from "@/lib/strava/oauth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 function wantsJson(request) {
@@ -66,7 +66,7 @@ export async function GET(request) {
       clientId: env.stravaClientId,
       redirectUri: env.stravaRedirectUri,
       state,
-      scope: "read,activity:read_all",
+      scope: STRAVA_OAUTH_SCOPE,
     })
   );
 

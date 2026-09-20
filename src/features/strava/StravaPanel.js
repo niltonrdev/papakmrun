@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Activity, Link2, Unlink, Download } from "lucide-react";
+import { StravaConnectButton } from "@/features/strava/StravaConnectDialog";
 
 const STRAVA_RETURN_MESSAGES = {
   ok: { tone: "ok", text: "Strava conectado com sucesso." },
@@ -155,12 +156,9 @@ export default function StravaPanel() {
       </p>
 
       {!status?.linked ? (
-        <a
-          href="/api/strava/connect"
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#fc4c02] px-4 py-3 text-xs font-black uppercase text-white hover:brightness-110 w-full sm:w-auto"
-        >
+        <StravaConnectButton className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#fc4c02] px-4 py-3 text-xs font-black uppercase text-white hover:brightness-110 w-full sm:w-auto">
           <Link2 size={14} /> Conectar Strava
-        </a>
+        </StravaConnectButton>
       ) : (
         <div className="space-y-4">
           {summary?.athlete && (
