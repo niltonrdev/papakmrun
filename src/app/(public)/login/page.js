@@ -11,6 +11,7 @@ import { setAuthRoleCookie } from "@/lib/auth/session.client";
 import { MIN_PASSWORD_LENGTH, PASSWORD_HINT, validatePassword } from "@/lib/auth/password-policy";
 import { birthDateInputBounds, validateBirthDate } from "@/lib/auth/birth-date";
 import { getAuthCallbackUrl } from "@/lib/auth/site-url";
+import { Eye, EyeOff } from "lucide-react";
 
 async function syncLegacyCookieFromApi() {
   try {
@@ -56,6 +57,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [signupIntent, setSignupIntent] = useState("social");
@@ -77,6 +79,7 @@ export default function LoginPage() {
   function switchMode(next) {
     setMode(next);
     setMessage("");
+    setShowPassword(false);
   }
 
   async function onSubmit(e) {
@@ -296,16 +299,27 @@ export default function LoginPage() {
                     </button>
                   )}
                 </div>
-                <input
-                  type="password"
-                  required
-                  minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : 1}
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20"
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : 1}
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 pr-12 text-sm text-white outline-none transition focus:border-papa-orange/50 focus:ring-2 focus:ring-papa-orange/20"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-white/45 hover:text-white"
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
                 {mode === "signup" && (
                   <p className="text-[11px] leading-relaxed text-white/45">{PASSWORD_HINT}</p>
                 )}
